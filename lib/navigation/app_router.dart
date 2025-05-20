@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:fitsaga/models/tutorial_model.dart';
+import 'package:fitsaga/models/session_model.dart';
 import 'package:fitsaga/screens/auth/login_screen.dart';
 import 'package:fitsaga/screens/auth/register_screen.dart';
 import 'package:fitsaga/screens/home/home_screen.dart';
 import 'package:fitsaga/screens/profile/profile_screen.dart';
 import 'package:fitsaga/screens/sessions/calendar_view_screen.dart';
 import 'package:fitsaga/screens/sessions/booking_screen.dart';
+import 'package:fitsaga/screens/sessions/session_detail_screen.dart';
 import 'package:fitsaga/screens/tutorials/tutorial_list_screen.dart';
 import 'package:fitsaga/screens/tutorials/tutorial_detail_screen.dart';
 
@@ -18,6 +20,7 @@ class AppRouter {
   static const String home = '/home';
   static const String profile = '/profile';
   static const String sessions = '/sessions';
+  static const String sessionDetail = '/sessions/detail';
   static const String bookings = '/bookings';
   static const String tutorials = '/tutorials';
   static const String tutorialDetail = '/tutorials/detail';
@@ -58,6 +61,13 @@ class AppRouter {
           settings: settings,
         );
 
+      case sessionDetail:
+        final SessionModel session = settings.arguments as SessionModel;
+        return MaterialPageRoute(
+          builder: (_) => SessionDetailScreen(session: session),
+          settings: settings,
+        );
+
       case bookings:
         return MaterialPageRoute(
           builder: (_) => const BookingScreen(),
@@ -77,7 +87,25 @@ class AppRouter {
           settings: settings,
         );
 
-      // Add other routes as needed
+      case instructorDashboard:
+        return MaterialPageRoute(
+          builder: (_) => const Scaffold(
+            body: Center(
+              child: Text('Instructor Dashboard - Coming Soon'),
+            ),
+          ),
+          settings: settings,
+        );
+
+      case adminDashboard:
+        return MaterialPageRoute(
+          builder: (_) => const Scaffold(
+            body: Center(
+              child: Text('Admin Dashboard - Coming Soon'),
+            ),
+          ),
+          settings: settings,
+        );
 
       default:
         // If the route is not defined, return a 404 page
