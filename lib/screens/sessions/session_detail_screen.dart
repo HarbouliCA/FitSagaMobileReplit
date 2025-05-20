@@ -108,12 +108,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
           icon: const Icon(Icons.share),
           onPressed: () {
             // Share session
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Sharing session...'),
-                duration: Duration(seconds: 2),
-              ),
-            );
+            _shareSession();
           },
         ),
       ],
@@ -362,6 +357,63 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     if (!confirm) return;
 
     _bookSession();
+  }
+
+  void _shareSession() {
+    // In a real app, this would use a sharing plugin like share_plus
+    // For now, we'll just show a dialog with the session details
+    final sessionInfo = 
+      'Join me at ${widget.session.title}!\n\n'
+      'Date: ${widget.session.formattedDate}\n'
+      'Time: ${widget.session.formattedTimeRange}\n'
+      'Instructor: ${widget.session.instructorName ?? "Unknown"}\n'
+      'Type: ${widget.session.sessionType}\n\n'
+      'Book now in the FitSAGA app!';
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Share Session'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Session details to share:'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Text(sessionInfo),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Session details shared!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+            ),
+            child: const Text('Share'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _bookSession() async {

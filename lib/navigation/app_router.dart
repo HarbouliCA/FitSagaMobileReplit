@@ -8,6 +8,8 @@ import 'package:fitsaga/screens/profile/profile_screen.dart';
 import 'package:fitsaga/screens/sessions/calendar_view_screen.dart';
 import 'package:fitsaga/screens/sessions/booking_screen.dart';
 import 'package:fitsaga/screens/sessions/session_detail_screen.dart';
+import 'package:fitsaga/screens/sessions/user_bookings_screen.dart';
+import 'package:fitsaga/screens/sessions/booking_confirmation_screen.dart';
 import 'package:fitsaga/screens/tutorials/tutorial_list_screen.dart';
 import 'package:fitsaga/screens/tutorials/tutorial_detail_screen.dart';
 
@@ -22,6 +24,7 @@ class AppRouter {
   static const String sessions = '/sessions';
   static const String sessionDetail = '/sessions/detail';
   static const String bookings = '/bookings';
+  static const String userBookings = '/user/bookings';
   static const String tutorials = '/tutorials';
   static const String tutorialDetail = '/tutorials/detail';
   static const String instructorDashboard = '/instructor/dashboard';
@@ -71,6 +74,12 @@ class AppRouter {
       case bookings:
         return MaterialPageRoute(
           builder: (_) => const BookingScreen(),
+          settings: settings,
+        );
+        
+      case userBookings:
+        return MaterialPageRoute(
+          builder: (_) => const UserBookingsScreen(),
           settings: settings,
         );
 

@@ -248,7 +248,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'title': 'My Bookings',
         'icon': Icons.calendar_today,
         'color': Colors.orange,
-        'route': AppRouter.bookings,
+        'route': AppRouter.userBookings,
       },
       {
         'title': 'Tutorials',

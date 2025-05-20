@@ -1,274 +1,160 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:fitsaga/providers/session_provider.dart';
-import 'package:fitsaga/providers/credit_provider.dart';
 import 'package:fitsaga/models/session_model.dart';
 import 'package:fitsaga/theme/app_theme.dart';
-import 'package:fitsaga/widgets/common/custom_app_bar.dart';
-import 'package:fitsaga/widgets/common/loading_indicator.dart';
-import 'package:fitsaga/utils/date_formatter.dart';
+import 'package:intl/intl.dart';
 
-class BookingConfirmationScreen extends StatefulWidget {
-  const BookingConfirmationScreen({Key? key}) : super(key: key);
+class BookingConfirmationScreen extends StatelessWidget {
+  final SessionModel session;
+  final DateTime bookingDate;
+  final int creditsUsed;
 
-  @override
-  State<BookingConfirmationScreen> createState() => _BookingConfirmationScreenState();
-}
-
-class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
-  bool _isLoading = false;
-  bool _bookingSuccess = false;
-  String? _error;
+  const BookingConfirmationScreen({
+    Key? key,
+    required this.session,
+    required this.bookingDate,
+    required this.creditsUsed,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final sessionProvider = Provider.of<SessionProvider>(context);
-    final creditProvider = Provider.of<CreditProvider>(context);
-    final session = sessionProvider.selectedSession;
-    
-    if (session == null) {
-      return Scaffold(
-        appBar: const CustomAppBar(
-          title: 'Booking Confirmation',
-        ),
-        body: const Center(
-          child: Text('No session selected'),
-        ),
-      );
-    }
-    
     return Scaffold(
-      appBar: const CustomAppBar(
-        title: 'Booking Confirmation',
-        showCredits: true,
+      appBar: AppBar(
+        title: const Text('Booking Confirmation'),
+        backgroundColor: AppTheme.primaryColor,
+        foregroundColor: Colors.white,
       ),
-      body: _isLoading
-          ? const LoadingIndicator(message: 'Processing your booking...')
-          : _bookingSuccess
-              ? _buildBookingSuccessView(session)
-              : _buildConfirmationView(session, creditProvider),
-    );
-  }
-
-  Widget _buildConfirmationView(SessionModel session, CreditProvider creditProvider) {
-    final requiredCredits = session.requiredCredits;
-    final availableCredits = creditProvider.hasUnlimitedCredits 
-        ? "Unlimited" 
-        : creditProvider.totalCredits.toString();
-    final remainingCredits = creditProvider.hasUnlimitedCredits 
-        ? "Unlimited" 
-        : creditProvider.remainingAfterBooking(requiredCredits).toString();
-    
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.paddingLarge),
+      body: SingleChildScrollView(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Confirmation icon
-            const Icon(
-              Icons.event_available,
-              size: 80,
-              color: AppTheme.primaryColor,
-            ),
-            
-            const SizedBox(height: AppTheme.spacingLarge),
-            
-            // Confirmation title
-            const Text(
-              'Confirm Your Booking',
-              style: TextStyle(
-                fontSize: AppTheme.fontSizeHeading,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryColor,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            
-            const SizedBox(height: AppTheme.spacingRegular),
-            
-            // Session details
-            Text(
-              session.title ?? session.activityName,
-              style: const TextStyle(
-                fontSize: AppTheme.fontSizeLarge,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            
-            const SizedBox(height: AppTheme.spacingSmall),
-            
-            Text(
-              'with ${session.instructorName}',
-              style: const TextStyle(
-                fontSize: AppTheme.fontSizeRegular,
-                color: AppTheme.textLightColor,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            
-            const SizedBox(height: AppTheme.spacingLarge),
-            
-            // Date and time card
-            Card(
-              elevation: AppTheme.elevationSmall,
-              child: Padding(
-                padding: const EdgeInsets.all(AppTheme.paddingLarge),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.calendar_today,
-                          color: AppTheme.primaryColor,
-                        ),
-                        const SizedBox(width: AppTheme.spacingRegular),
-                        Text(
-                          DateFormatter.formatDate(session.startTime),
-                          style: const TextStyle(
-                            fontSize: AppTheme.fontSizeMedium,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+            // Success animation
+            Container(
+              width: double.infinity,
+              color: AppTheme.primaryColor.withOpacity(0.1),
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.check_circle,
+                    size: 100,
+                    color: Colors.green[600],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Booking Confirmed!',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
                     ),
-                    
-                    const SizedBox(height: AppTheme.spacingRegular),
-                    
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.access_time,
-                          color: AppTheme.primaryColor,
-                        ),
-                        const SizedBox(width: AppTheme.spacingRegular),
-                        Text(
-                          DateFormatter.formatSessionTimeRange(
-                            session.startTime, 
-                            session.endTime,
-                          ),
-                          style: const TextStyle(
-                            fontSize: AppTheme.fontSizeMedium,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'You\'re all set for ${session.title}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Colors.black87,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
             
-            const SizedBox(height: AppTheme.spacingLarge),
-            
-            // Credits info card
-            Card(
-              elevation: AppTheme.elevationSmall,
-              child: Padding(
-                padding: const EdgeInsets.all(AppTheme.paddingLarge),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Credit Summary',
-                      style: TextStyle(
-                        fontSize: AppTheme.fontSizeMedium,
-                        fontWeight: FontWeight.bold,
+            // Booking details
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Booking Details',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  // Session card
+                  _buildSessionCard(),
+                  const SizedBox(height: 20),
+                  
+                  // Booking information
+                  _buildInfoCard(),
+                  const SizedBox(height: 30),
+                  
+                  // Actions
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            Navigator.of(context).popUntil(
+                              (route) => route.isFirst || route.settings.name == '/sessions',
+                            );
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            side: BorderSide(color: AppTheme.primaryColor),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text('View All Sessions'),
+                        ),
                       ),
-                    ),
-                    
-                    const SizedBox(height: AppTheme.spacingRegular),
-                    
-                    _buildCreditRow(
-                      'Available Credits:',
-                      availableCredits,
-                      false,
-                    ),
-                    
-                    const Divider(height: 24),
-                    
-                    _buildCreditRow(
-                      'Required Credits:',
-                      requiredCredits.toString(),
-                      false,
-                    ),
-                    
-                    const Divider(height: 24),
-                    
-                    _buildCreditRow(
-                      'Remaining Credits:',
-                      remainingCredits,
-                      true,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            
-            const SizedBox(height: AppTheme.spacingLarge),
-            
-            // Warning text
-            const Text(
-              'By confirming this booking, the required credits will be deducted from your account.',
-              style: TextStyle(
-                color: AppTheme.textLightColor,
-                fontSize: AppTheme.fontSizeSmall,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            
-            if (_error != null) ...[
-              const SizedBox(height: AppTheme.spacingLarge),
-              Container(
-                padding: const EdgeInsets.all(AppTheme.paddingRegular),
-                decoration: BoxDecoration(
-                  color: AppTheme.errorColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
-                ),
-                child: Text(
-                  _error!,
-                  style: TextStyle(
-                    color: AppTheme.errorColor,
-                    fontWeight: FontWeight.bold,
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.of(context).popUntil(
+                              (route) => route.settings.name == '/home',
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text('Go to Home'),
+                        ),
+                      ),
+                    ],
                   ),
-                  textAlign: TextAlign.center,
-                ),
+                  const SizedBox(height: 30),
+                  
+                  // Cancellation policy
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey[300]!),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Cancellation Policy',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '• Full refund if cancelled 24+ hours before session\n'
+                          '• 50% refund if cancelled 12-24 hours before session\n'
+                          '• No refund if cancelled less than 12 hours before session',
+                          style: TextStyle(
+                            color: Colors.grey[800],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-            
-            const SizedBox(height: AppTheme.spacingExtraLarge),
-            
-            // Action buttons
-            Row(
-              children: [
-                // Cancel button
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _isLoading ? null : () {
-                      Navigator.pop(context);
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      side: const BorderSide(color: AppTheme.primaryColor),
-                    ),
-                    child: const Text('CANCEL'),
-                  ),
-                ),
-                
-                const SizedBox(width: AppTheme.spacingLarge),
-                
-                // Confirm button
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _confirmBooking,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: const Text('CONFIRM'),
-                  ),
-                ),
-              ],
             ),
           ],
         ),
@@ -276,168 +162,47 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
     );
   }
 
-  Widget _buildBookingSuccessView(SessionModel session) {
-    return SingleChildScrollView(
+  Widget _buildSessionCard() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(AppTheme.paddingLarge),
+        padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Success icon
-            const Icon(
-              Icons.check_circle_outline,
-              size: 100,
-              color: AppTheme.successColor,
-            ),
-            
-            const SizedBox(height: AppTheme.spacingLarge),
-            
-            // Success message
-            const Text(
-              'Booking Successful!',
-              style: TextStyle(
-                fontSize: AppTheme.fontSizeHeading,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.successColor,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            
-            const SizedBox(height: AppTheme.spacingRegular),
-            
-            // Session details
             Text(
-              'You have successfully booked:',
-              style: TextStyle(
-                fontSize: AppTheme.fontSizeRegular,
-                color: AppTheme.textColor,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            
-            const SizedBox(height: AppTheme.spacingLarge),
-            
-            // Session info card
-            Card(
-              elevation: AppTheme.elevationSmall,
-              child: Padding(
-                padding: const EdgeInsets.all(AppTheme.paddingLarge),
-                child: Column(
-                  children: [
-                    Text(
-                      session.title ?? session.activityName,
-                      style: const TextStyle(
-                        fontSize: AppTheme.fontSizeLarge,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    
-                    const SizedBox(height: AppTheme.spacingRegular),
-                    
-                    Text(
-                      'with ${session.instructorName}',
-                      style: const TextStyle(
-                        fontSize: AppTheme.fontSizeRegular,
-                        color: AppTheme.textLightColor,
-                      ),
-                    ),
-                    
-                    const Divider(height: 32),
-                    
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.calendar_today,
-                          color: AppTheme.primaryColor,
-                          size: 18,
-                        ),
-                        const SizedBox(width: AppTheme.spacingRegular),
-                        Text(
-                          DateFormatter.formatDate(session.startTime),
-                          style: const TextStyle(
-                            fontSize: AppTheme.fontSizeRegular,
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: AppTheme.spacingRegular),
-                    
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.access_time,
-                          color: AppTheme.primaryColor,
-                          size: 18,
-                        ),
-                        const SizedBox(width: AppTheme.spacingRegular),
-                        Text(
-                          DateFormatter.formatSessionTimeRange(
-                            session.startTime, 
-                            session.endTime,
-                          ),
-                          style: const TextStyle(
-                            fontSize: AppTheme.fontSizeRegular,
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: AppTheme.spacingRegular),
-                    
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.stars,
-                          color: AppTheme.primaryColor,
-                          size: 18,
-                        ),
-                        const SizedBox(width: AppTheme.spacingRegular),
-                        Text(
-                          '${session.requiredCredits} credits used',
-                          style: const TextStyle(
-                            fontSize: AppTheme.fontSizeRegular,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+              session.title,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            
-            const SizedBox(height: AppTheme.spacingExtraLarge),
-            
-            // Action buttons
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushNamedAndRemoveUntil(
-                      context, 
-                      '/sessions', 
-                      (route) => route.settings.name == '/home',
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text('VIEW MY BOOKINGS'),
-                ),
-                
-                const SizedBox(height: AppTheme.spacingLarge),
-                
-                OutlinedButton(
-                  onPressed: () {
-                    Navigator.pushReplacementNamed(context, '/home');
-                  },
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text('BACK TO HOME'),
-                ),
-              ],
+            const SizedBox(height: 12),
+            _buildDetailRow(
+              Icons.calendar_today,
+              'Date',
+              session.formattedDate,
+            ),
+            const SizedBox(height: 8),
+            _buildDetailRow(
+              Icons.access_time,
+              'Time',
+              session.formattedTimeRange,
+            ),
+            const SizedBox(height: 8),
+            _buildDetailRow(
+              Icons.location_on,
+              'Location',
+              session.location ?? 'Main Gym',
+            ),
+            const SizedBox(height: 8),
+            _buildDetailRow(
+              Icons.person,
+              'Instructor',
+              session.instructorName ?? 'TBA',
             ),
           ],
         ),
@@ -445,91 +210,71 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
     );
   }
 
-  Widget _buildCreditRow(String label, String value, bool isHighlighted) {
+  Widget _buildInfoCard() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow(
+              Icons.confirmation_number,
+              'Booking ID',
+              'B-${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}',
+            ),
+            const SizedBox(height: 8),
+            _buildDetailRow(
+              Icons.calendar_today,
+              'Booked On',
+              DateFormat('MMM dd, yyyy, hh:mm a').format(bookingDate),
+            ),
+            const SizedBox(height: 8),
+            _buildDetailRow(
+              Icons.credit_card,
+              'Credits Used',
+              '$creditsUsed credits',
+            ),
+            const SizedBox(height: 8),
+            _buildDetailRow(
+              Icons.verified,
+              'Status',
+              'Confirmed',
+              valueColor: Colors.green[700],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value, {Color? valueColor}) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
+        Icon(
+          icon,
+          size: 18,
+          color: Colors.grey[600],
+        ),
+        const SizedBox(width: 8),
         Text(
-          label,
+          '$label: ',
           style: TextStyle(
-            fontSize: isHighlighted 
-                ? AppTheme.fontSizeMedium 
-                : AppTheme.fontSizeRegular,
-            fontWeight: isHighlighted 
-                ? FontWeight.bold 
-                : FontWeight.normal,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
           ),
         ),
-        Row(
-          children: [
-            const Icon(
-              Icons.stars,
-              color: AppTheme.primaryColor,
-              size: 16,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: isHighlighted 
-                    ? AppTheme.fontSizeMedium 
-                    : AppTheme.fontSizeRegular,
-                fontWeight: isHighlighted 
-                    ? FontWeight.bold 
-                    : FontWeight.normal,
-                color: isHighlighted 
-                    ? AppTheme.primaryColor 
-                    : AppTheme.textColor,
-              ),
-            ),
-          ],
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            color: valueColor,
+          ),
         ),
       ],
     );
-  }
-
-  Future<void> _confirmBooking() async {
-    final sessionProvider = Provider.of<SessionProvider>(context, listen: false);
-    final creditProvider = Provider.of<CreditProvider>(context, listen: false);
-    final session = sessionProvider.selectedSession;
-    
-    if (session == null) {
-      return;
-    }
-    
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-    
-    try {
-      final bookingId = await sessionProvider.bookSession(session);
-      
-      if (bookingId != null) {
-        // Refresh credit data
-        await creditProvider.refreshCredits();
-        
-        if (mounted) {
-          setState(() {
-            _bookingSuccess = true;
-            _isLoading = false;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _error = sessionProvider.error ?? 'Failed to book session. Please try again.';
-            _isLoading = false;
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _isLoading = false;
-        });
-      }
-    }
   }
 }
