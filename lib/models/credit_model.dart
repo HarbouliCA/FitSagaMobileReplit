@@ -1,118 +1,174 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Enum representing the different types of credit transactions
 enum CreditTransactionType {
-  /// Initial credits given to new users or as gifts from admin
-  initial,
-  
-  /// Credits purchased by the user
-  purchase,
-  
-  /// Credits used to book a session
-  usage,
-  
-  /// Credits refunded for cancelled sessions
-  refund,
+  initial,   // Initial credits given to new users
+  purchase,  // Credits purchased by user
+  booking,   // Credits used for booking a session
+  refund,    // Credits refunded for a canceled session
+  admin,     // Credits manually added/removed by admin
 }
 
-/// Extension to convert string to CreditTransactionType enum
-extension CreditTransactionTypeExtension on String {
-  CreditTransactionType toCreditTransactionType() {
-    switch (this.toLowerCase()) {
+class CreditTransaction {
+  final String id;
+  final String userId;
+  final int amount;
+  final bool isCredit; // true for credits added, false for credits used
+  final CreditTransactionType type;
+  final String description;
+  final String? sessionId; // Optional reference to session if related to a booking
+  final String? referenceId; // Optional reference to a payment or other transaction
+  final DateTime createdAt;
+
+  const CreditTransaction({
+    required this.id,
+    required this.userId,
+    required this.amount,
+    required this.isCredit,
+    required this.type,
+    required this.description,
+    this.sessionId,
+    this.referenceId,
+    required this.createdAt,
+  });
+
+  // Factory method to create a CreditTransaction from Firestore document
+  factory CreditTransaction.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    
+    return CreditTransaction(
+      id: doc.id,
+      userId: data['userId'] ?? '',
+      amount: data['amount'] ?? 0,
+      isCredit: data['isCredit'] ?? true,
+      type: _transactionTypeFromString(data['type'] ?? 'admin'),
+      description: data['description'] ?? '',
+      sessionId: data['sessionId'],
+      referenceId: data['referenceId'],
+      createdAt: (data['createdAt'] as Timestamp).toDate(),
+    );
+  }
+
+  // Convert to Firestore document data
+  Map<String, dynamic> toFirestore() {
+    return {
+      'userId': userId,
+      'amount': amount,
+      'isCredit': isCredit,
+      'type': _transactionTypeToString(type),
+      'description': description,
+      'sessionId': sessionId,
+      'referenceId': referenceId,
+      'createdAt': Timestamp.fromDate(createdAt),
+    };
+  }
+
+  // Helper methods for type conversion
+  static CreditTransactionType _transactionTypeFromString(String type) {
+    switch (type.toLowerCase()) {
       case 'initial':
         return CreditTransactionType.initial;
       case 'purchase':
         return CreditTransactionType.purchase;
-      case 'usage':
-        return CreditTransactionType.usage;
+      case 'booking':
+        return CreditTransactionType.booking;
       case 'refund':
         return CreditTransactionType.refund;
+      case 'admin':
       default:
-        return CreditTransactionType.purchase;
+        return CreditTransactionType.admin;
     }
+  }
+
+  static String _transactionTypeToString(CreditTransactionType type) {
+    switch (type) {
+      case CreditTransactionType.initial:
+        return 'initial';
+      case CreditTransactionType.purchase:
+        return 'purchase';
+      case CreditTransactionType.booking:
+        return 'booking';
+      case CreditTransactionType.refund:
+        return 'refund';
+      case CreditTransactionType.admin:
+        return 'admin';
+    }
+  }
+
+  @override
+  String toString() {
+    return 'CreditTransaction(id: $id, userId: $userId, amount: $amount, '
+        'isCredit: $isCredit, type: $type, description: $description)';
   }
 }
 
-/// Model class representing a credit transaction in the FitSAGA app
-class CreditModel {
-  /// Unique identifier for the credit transaction
+class CreditPackage {
   final String id;
-  
-  /// ID of the user who owns these credits
-  final String userId;
-  
-  /// Number of credits involved in this transaction
-  final int amount;
-  
-  /// Type of credit transaction (initial, purchase, usage, refund)
-  final CreditTransactionType type;
-  
-  /// Description of the transaction (e.g., "Session booking: HIIT Class")
-  final String description;
-  
-  /// When the transaction occurred
-  final DateTime createdAt;
-  
-  /// Payment reference for purchase transactions (optional)
-  final String? paymentReference;
-  
-  /// Constructor for creating a new CreditModel
-  CreditModel({
+  final String name;
+  final int credits;
+  final double price;
+  final String? description;
+  final bool isActive;
+  final bool isFeatured;
+  final String? imageUrl;
+
+  const CreditPackage({
     required this.id,
-    required this.userId,
-    required this.amount,
-    required this.type,
-    required this.description,
-    required this.createdAt,
-    this.paymentReference,
+    required this.name,
+    required this.credits,
+    required this.price,
+    this.description,
+    required this.isActive,
+    required this.isFeatured,
+    this.imageUrl,
   });
-  
-  /// Creates a CreditModel from a Firebase document map
-  factory CreditModel.fromMap(Map<String, dynamic> map, String docId) {
-    return CreditModel(
-      id: docId,
-      userId: map['userId'] ?? '',
-      amount: map['amount'] ?? 0,
-      type: (map['type'] as String? ?? 'purchase').toCreditTransactionType(),
-      description: map['description'] ?? '',
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
-      paymentReference: map['paymentReference'],
+
+  // Factory method to create a CreditPackage from Firestore document
+  factory CreditPackage.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    
+    return CreditPackage(
+      id: doc.id,
+      name: data['name'] ?? '',
+      credits: data['credits'] ?? 0,
+      price: (data['price'] ?? 0).toDouble(),
+      description: data['description'],
+      isActive: data['isActive'] ?? true,
+      isFeatured: data['isFeatured'] ?? false,
+      imageUrl: data['imageUrl'],
     );
   }
-  
-  /// Converts the CreditModel to a map for Firebase storage
-  Map<String, dynamic> toMap() {
+
+  // Convert to Firestore document data
+  Map<String, dynamic> toFirestore() {
     return {
-      'userId': userId,
-      'amount': amount,
-      'type': type.toString().split('.').last,
+      'name': name,
+      'credits': credits,
+      'price': price,
       'description': description,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'paymentReference': paymentReference,
+      'isActive': isActive,
+      'isFeatured': isFeatured,
+      'imageUrl': imageUrl,
     };
   }
-  
-  /// Determines if this transaction is a credit (increases balance)
-  bool get isCredit => 
-      type == CreditTransactionType.initial || 
-      type == CreditTransactionType.purchase || 
-      type == CreditTransactionType.refund;
-  
-  /// Determines if this transaction is a debit (decreases balance)
-  bool get isDebit => type == CreditTransactionType.usage;
-  
-  /// Gets the formatted date for display
-  String get formattedDate {
-    return '${createdAt.day}/${createdAt.month}/${createdAt.year}';
+
+  // Calculate the price per credit (useful for comparing packages)
+  double get pricePerCredit => price / credits;
+
+  // Calculate savings compared to the base price (if applicable)
+  double calculateSavings(double basePrice) {
+    final regularTotal = basePrice * credits;
+    return regularTotal - price;
   }
-  
-  /// Gets the formatted time for display
-  String get formattedTime {
-    return '${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}';
+
+  // Calculate savings percentage
+  double calculateSavingsPercentage(double basePrice) {
+    final regularTotal = basePrice * credits;
+    return (regularTotal - price) / regularTotal * 100;
   }
-  
+
   @override
   String toString() {
-    return 'CreditModel(id: $id, userId: $userId, amount: $amount, type: $type, description: $description)';
+    return 'CreditPackage(id: $id, name: $name, credits: $credits, '
+        'price: \$${price.toStringAsFixed(2)})';
   }
 }

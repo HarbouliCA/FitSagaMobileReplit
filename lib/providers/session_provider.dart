@@ -1,343 +1,479 @@
 import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitsaga/models/session_model.dart';
 import 'package:fitsaga/models/user_model.dart';
 import 'package:fitsaga/services/firebase_service.dart';
 
-/// Provider class for managing gym sessions in the FitSAGA app
 class SessionProvider with ChangeNotifier {
-  /// Instance of the Firebase service
-  final FirebaseService _firebaseService = FirebaseService();
-  
-  /// List of all available sessions
+  final FirebaseService _firebaseService;
   List<SessionModel> _sessions = [];
-  
-  /// List of sessions booked by the current user
-  List<SessionModel> _userSessions = [];
-  
-  /// List of sessions created by the current instructor (if applicable)
-  List<SessionModel> _instructorSessions = [];
-  
-  /// Loading state for session operations
   bool _isLoading = false;
-  
-  /// Error message if session operations fail
-  String? _error;
-  
-  /// Flag to track if sessions have been loaded
   bool _isInitialized = false;
-  
-  /// Returns the list of all available sessions
+  String? _error;
+
+  SessionProvider(this._firebaseService);
+
+  // Getters
+  bool get isLoading => _isLoading;
+  bool get isInitialized => _isInitialized;
+  String? get error => _error;
   List<SessionModel> get sessions => _sessions;
   
-  /// Returns the list of sessions booked by the current user
-  List<SessionModel> get userSessions => _userSessions;
-  
-  /// Returns the list of sessions created by the current instructor
-  List<SessionModel> get instructorSessions => _instructorSessions;
-  
-  /// Returns whether a session operation is in progress
-  bool get isLoading => _isLoading;
-  
-  /// Returns any error message from the last session operation
-  String? get error => _error;
-  
-  /// Returns whether sessions have been loaded
-  bool get isInitialized => _isInitialized;
-  
-  /// Loads all relevant sessions based on the current user
-  Future<void> loadSessions(UserModel currentUser) async {
-    try {
-      _setLoading(true);
-      _clearError();
-      
-      // Load all available sessions
-      _sessions = await _firebaseService.getAllSessions();
-      
-      // Load user's booked sessions
-      _userSessions = await _firebaseService.getUserBookedSessions(currentUser.id);
-      
-      // If user is an instructor or admin, load their created sessions
-      if (currentUser.isInstructor) {
-        _instructorSessions = await _firebaseService.getSessionsByInstructor(currentUser.id);
-      } else {
-        _instructorSessions = [];
-      }
-      
-      _isInitialized = true;
-      notifyListeners();
-    } catch (e) {
-      _setError('Failed to load sessions: ${e.toString()}');
-    } finally {
-      _setLoading(false);
-    }
-  }
-  
-  /// Gets sessions filtered by type
-  List<SessionModel> getSessionsByType(SessionType type) {
-    return _sessions.where((session) => session.type == type).toList();
-  }
-  
-  /// Gets upcoming sessions (not yet started)
+  // Get only upcoming sessions (not in the past)
   List<SessionModel> get upcomingSessions {
     final now = DateTime.now();
     return _sessions
-        .where((session) => session.startTime.isAfter(now))
-        .toList()
-      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+        .where((session) => session.startTime.isAfter(now) && session.isActive)
+        .toList();
   }
   
-  /// Gets the user's upcoming booked sessions
-  List<SessionModel> get upcomingUserSessions {
-    final now = DateTime.now();
-    return _userSessions
-        .where((session) => session.startTime.isAfter(now))
-        .toList()
-      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+  // Get sessions created by the current instructor
+  List<SessionModel> getInstructorSessions(String instructorId) {
+    return _sessions
+        .where((session) => session.instructorId == instructorId)
+        .toList();
   }
   
-  /// Gets sessions scheduled for today
-  List<SessionModel> get todaySessions {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final tomorrow = today.add(const Duration(days: 1));
-    
+  // Get sessions booked by the current user
+  List<SessionModel> get userSessions {
     return _sessions
         .where((session) => 
-            session.startTime.isAfter(today) && 
-            session.startTime.isBefore(tomorrow))
-        .toList()
-      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+            session.participantIds.contains(_firebaseService.currentUser?.uid))
+        .toList();
   }
-  
-  /// Creates a new session (instructor or admin only)
-  Future<bool> createSession(SessionModel session) async {
-    try {
-      _setLoading(true);
-      _clearError();
-      
-      final sessionId = await _firebaseService.createSession(session);
-      
-      if (sessionId != null) {
-        // Update the session with the generated ID
-        final newSession = session.copyWith();
-        
-        // Add to instructor sessions list
-        _instructorSessions.add(newSession);
-        
-        // Also add to all sessions if it's active
-        if (newSession.isActive) {
-          _sessions.add(newSession);
-        }
-        
-        notifyListeners();
-        return true;
-      } else {
-        _setError('Failed to create session.');
-        return false;
-      }
-    } catch (e) {
-      _setError('Failed to create session: ${e.toString()}');
-      return false;
-    } finally {
-      _setLoading(false);
-    }
-  }
-  
-  /// Updates an existing session (instructor or admin only)
-  Future<bool> updateSession(SessionModel session) async {
-    try {
-      _setLoading(true);
-      _clearError();
-      
-      final success = await _firebaseService.updateSession(session);
-      
-      if (success) {
-        // Update session in lists
-        _updateSessionInLists(session);
-        notifyListeners();
-        return true;
-      } else {
-        _setError('Failed to update session.');
-        return false;
-      }
-    } catch (e) {
-      _setError('Failed to update session: ${e.toString()}');
-      return false;
-    } finally {
-      _setLoading(false);
-    }
-  }
-  
-  /// Deletes a session (admin only)
-  Future<bool> deleteSession(String sessionId) async {
-    try {
-      _setLoading(true);
-      _clearError();
-      
-      final success = await _firebaseService.deleteSession(sessionId);
-      
-      if (success) {
-        // Remove session from lists
-        _sessions.removeWhere((s) => s.id == sessionId);
-        _instructorSessions.removeWhere((s) => s.id == sessionId);
-        _userSessions.removeWhere((s) => s.id == sessionId);
-        
-        notifyListeners();
-        return true;
-      } else {
-        _setError('Failed to delete session.');
-        return false;
-      }
-    } catch (e) {
-      _setError('Failed to delete session: ${e.toString()}');
-      return false;
-    } finally {
-      _setLoading(false);
-    }
-  }
-  
-  /// Books a session for the current user
-  Future<bool> bookSession(String sessionId, String userId) async {
-    try {
-      _setLoading(true);
-      _clearError();
-      
-      final success = await _firebaseService.bookSession(sessionId, userId);
-      
-      if (success) {
-        // Find the session in the list
-        final sessionIndex = _sessions.indexWhere((s) => s.id == sessionId);
-        
-        if (sessionIndex != -1) {
-          // Update the session with the new participant
-          final updatedSession = _sessions[sessionIndex];
-          updatedSession.participantIds.add(userId);
-          
-          // Add to user sessions
-          if (!_userSessions.any((s) => s.id == sessionId)) {
-            _userSessions.add(updatedSession);
-          }
-          
-          notifyListeners();
-        }
-        
-        return true;
-      } else {
-        _setError('Failed to book session. Check if you have enough credits.');
-        return false;
-      }
-    } catch (e) {
-      _setError('Failed to book session: ${e.toString()}');
-      return false;
-    } finally {
-      _setLoading(false);
-    }
-  }
-  
-  /// Cancels a session booking for the current user
-  Future<bool> cancelBooking(String sessionId, String userId) async {
-    try {
-      _setLoading(true);
-      _clearError();
-      
-      final success = await _firebaseService.cancelSessionBooking(sessionId, userId);
-      
-      if (success) {
-        // Find the session in the lists
-        final sessionIndex = _sessions.indexWhere((s) => s.id == sessionId);
-        
-        if (sessionIndex != -1) {
-          // Update the session by removing the participant
-          final updatedSession = _sessions[sessionIndex];
-          updatedSession.participantIds.remove(userId);
-          
-          // Remove from user sessions
-          _userSessions.removeWhere((s) => s.id == sessionId);
-          
-          notifyListeners();
-        }
-        
-        return true;
-      } else {
-        _setError('Failed to cancel booking.');
-        return false;
-      }
-    } catch (e) {
-      _setError('Failed to cancel booking: ${e.toString()}');
-      return false;
-    } finally {
-      _setLoading(false);
-    }
-  }
-  
-  /// Refreshes all session data
-  Future<void> refreshSessions(UserModel currentUser) async {
-    try {
-      _setLoading(true);
-      _clearError();
-      
-      await loadSessions(currentUser);
-      
-      notifyListeners();
-    } catch (e) {
-      _setError('Failed to refresh sessions: ${e.toString()}');
-    } finally {
-      _setLoading(false);
-    }
-  }
-  
-  /// Updates a session in all lists
-  void _updateSessionInLists(SessionModel updatedSession) {
-    // Update in all sessions list
-    final allSessionsIndex = _sessions.indexWhere((s) => s.id == updatedSession.id);
-    if (allSessionsIndex != -1) {
-      _sessions[allSessionsIndex] = updatedSession;
-    } else if (updatedSession.isActive) {
-      _sessions.add(updatedSession);
-    }
-    
-    // Update in instructor sessions list
-    final instructorSessionsIndex = _instructorSessions.indexWhere((s) => s.id == updatedSession.id);
-    if (instructorSessionsIndex != -1) {
-      _instructorSessions[instructorSessionsIndex] = updatedSession;
-    }
-    
-    // Update in user sessions list if user is registered
-    final userSessionsIndex = _userSessions.indexWhere((s) => s.id == updatedSession.id);
-    if (userSessionsIndex != -1) {
-      _userSessions[userSessionsIndex] = updatedSession;
-    }
-  }
-  
-  /// Sets the loading state and notifies listeners if changed
-  void _setLoading(bool loading) {
-    if (_isLoading != loading) {
-      _isLoading = loading;
-      notifyListeners();
-    }
-  }
-  
-  /// Sets an error message and notifies listeners
-  void _setError(String errorMessage) {
-    _error = errorMessage;
+
+  // Load all sessions
+  Future<void> loadSessions(UserModel user) async {
+    _isLoading = true;
+    _error = null;
     notifyListeners();
-  }
-  
-  /// Clears any existing error message
-  void _clearError() {
-    if (_error != null) {
+
+    try {
+      // Reference to the sessions collection
+      final sessionsRef = _firebaseService.firestore.collection('sessions');
+      QuerySnapshot snapshot;
+      
+      // Admin sees all sessions
+      if (user.isAdmin) {
+        snapshot = await sessionsRef.get();
+      }
+      // Instructors see their own sessions and all sessions they're registered for
+      else if (user.isInstructor) {
+        final instructorSessionsQuery = await sessionsRef
+            .where('instructorId', isEqualTo: user.id)
+            .get();
+            
+        final participantSessionsQuery = await sessionsRef
+            .where('participantIds', arrayContains: user.id)
+            .get();
+            
+        // Combine both result sets
+        final allDocs = [
+          ...instructorSessionsQuery.docs,
+          ...participantSessionsQuery.docs,
+        ];
+        
+        // Remove duplicates (sessions both created by and participated in by the instructor)
+        final uniqueDocsMap = <String, QueryDocumentSnapshot>{};
+        for (final doc in allDocs) {
+          uniqueDocsMap[doc.id] = doc;
+        }
+        
+        // Convert back to list
+        snapshot = QuerySnapshot.withDocuments(uniqueDocsMap.values.toList());
+      }
+      // Clients see only sessions available to book and sessions they're registered for
+      else {
+        final availableSessionsQuery = await sessionsRef
+            .where('isActive', isEqualTo: true)
+            .get();
+            
+        final participantSessionsQuery = await sessionsRef
+            .where('participantIds', arrayContains: user.id)
+            .get();
+            
+        // Combine both result sets
+        final allDocs = [
+          ...availableSessionsQuery.docs,
+          ...participantSessionsQuery.docs,
+        ];
+        
+        // Remove duplicates
+        final uniqueDocsMap = <String, QueryDocumentSnapshot>{};
+        for (final doc in allDocs) {
+          uniqueDocsMap[doc.id] = doc;
+        }
+        
+        // Convert back to list
+        snapshot = QuerySnapshot.withDocuments(uniqueDocsMap.values.toList());
+      }
+      
+      // Parse sessions from snapshot
+      _sessions = snapshot.docs
+          .map((doc) => SessionModel.fromFirestore(doc))
+          .toList();
+      
+      // Sort sessions by start time (newest first)
+      _sessions.sort((a, b) => a.startTime.compareTo(b.startTime));
+      
+      _isInitialized = true;
+      _isLoading = false;
       _error = null;
       notifyListeners();
+    } catch (e) {
+      _error = 'Failed to load sessions: $e';
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
     }
   }
-  
-  /// Clears all session data (used for sign out)
+
+  // Create a new session
+  Future<bool> createSession(SessionModel session) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      // Validate session data
+      if (session.title.isEmpty || session.description.isEmpty) {
+        _error = 'Session must have a title and description';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // Create session in Firestore
+      final docRef = await _firebaseService.firestore.collection('sessions').add(
+        session.toFirestore(),
+      );
+      
+      // Create new session with assigned ID
+      final newSession = SessionModel(
+        id: docRef.id,
+        title: session.title,
+        description: session.description,
+        type: session.type,
+        instructorId: session.instructorId,
+        instructorName: session.instructorName,
+        startTime: session.startTime,
+        endTime: session.endTime,
+        location: session.location,
+        maxParticipants: session.maxParticipants,
+        participantIds: session.participantIds,
+        requirements: session.requirements,
+        level: session.level,
+        isActive: session.isActive,
+        createdAt: session.createdAt,
+      );
+      
+      // Add to local list
+      _sessions.add(newSession);
+      
+      // Sort sessions by start time
+      _sessions.sort((a, b) => a.startTime.compareTo(b.startTime));
+      
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to create session: $e';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Update an existing session
+  Future<bool> updateSession(SessionModel updatedSession) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      // Update session in Firestore
+      await _firebaseService.firestore
+          .collection('sessions')
+          .doc(updatedSession.id)
+          .update(updatedSession.copyWith(
+            updatedAt: DateTime.now(),
+          ).toFirestore());
+      
+      // Update local list
+      final index = _sessions.indexWhere((s) => s.id == updatedSession.id);
+      if (index != -1) {
+        _sessions[index] = updatedSession.copyWith(
+          updatedAt: DateTime.now(),
+        );
+      }
+      
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to update session: $e';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Delete a session
+  Future<bool> deleteSession(String sessionId) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      // Delete session from Firestore
+      await _firebaseService.firestore
+          .collection('sessions')
+          .doc(sessionId)
+          .delete();
+      
+      // Remove from local list
+      _sessions.removeWhere((s) => s.id == sessionId);
+      
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to delete session: $e';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Book a session for a user
+  Future<bool> bookSession(String sessionId, String userId) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      // Get session reference
+      final sessionRef = _firebaseService.firestore
+          .collection('sessions')
+          .doc(sessionId);
+      
+      // Get current session data
+      final sessionDoc = await sessionRef.get();
+      if (!sessionDoc.exists) {
+        _error = 'Session not found';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+      
+      final session = SessionModel.fromFirestore(sessionDoc);
+      
+      // Check if session is active
+      if (!session.isActive) {
+        _error = 'This session is not available for booking';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+      
+      // Check if user is already registered
+      if (session.participantIds.contains(userId)) {
+        _error = 'You are already registered for this session';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+      
+      // Check if session is full
+      if (session.isFull) {
+        _error = 'This session is already full';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+      
+      // Update session participants in a transaction to prevent race conditions
+      await _firebaseService.firestore.runTransaction((transaction) async {
+        // Get the latest session data
+        final latestSessionDoc = await transaction.get(sessionRef);
+        final latestSession = SessionModel.fromFirestore(latestSessionDoc);
+        
+        // Double-check that session is not full
+        if (latestSession.isFull) {
+          throw Exception('This session is now full');
+        }
+        
+        // Add user to participants
+        final updatedParticipants = [...latestSession.participantIds, userId];
+        
+        // Update the session
+        transaction.update(sessionRef, {
+          'participantIds': updatedParticipants,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        
+        // Now deduct credits in a separate transaction
+        // This would be better handled in a Cloud Function to ensure atomicity
+        final userCreditsRef = _firebaseService.firestore
+            .collection('user_credits')
+            .doc(userId);
+        
+        // Deduct 1 credit
+        transaction.update(userCreditsRef, {
+          'balance': FieldValue.increment(-1),
+        });
+        
+        // Record the credit transaction
+        final creditTransactionRef = _firebaseService.firestore
+            .collection('credit_transactions')
+            .doc();
+        
+        transaction.set(creditTransactionRef, {
+          'userId': userId,
+          'amount': 1, // 1 credit per session
+          'isCredit': false, // deduction
+          'type': 'booking',
+          'description': 'Booking for ${latestSession.title}',
+          'sessionId': sessionId,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      });
+      
+      // Update local session list
+      final index = _sessions.indexWhere((s) => s.id == sessionId);
+      if (index != -1) {
+        final updatedParticipants = [..._sessions[index].participantIds, userId];
+        _sessions[index] = _sessions[index].copyWith(
+          participantIds: updatedParticipants,
+          updatedAt: DateTime.now(),
+        );
+      }
+      
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to book session: $e';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Cancel a session booking
+  Future<bool> cancelBooking(String sessionId, String userId) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      // Get session reference
+      final sessionRef = _firebaseService.firestore
+          .collection('sessions')
+          .doc(sessionId);
+      
+      // Get current session data
+      final sessionDoc = await sessionRef.get();
+      if (!sessionDoc.exists) {
+        _error = 'Session not found';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+      
+      final session = SessionModel.fromFirestore(sessionDoc);
+      
+      // Check if user is registered for this session
+      if (!session.participantIds.contains(userId)) {
+        _error = 'You are not registered for this session';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+      
+      // Check cancellation policy (e.g., 24h before session starts)
+      final now = DateTime.now();
+      final hoursDifference = session.startTime.difference(now).inHours;
+      
+      // Handle refund based on cancellation policy
+      final shouldRefund = hoursDifference >= 24;
+      
+      // Update session participants in a transaction
+      await _firebaseService.firestore.runTransaction((transaction) async {
+        // Remove user from participants
+        final updatedParticipants = [...session.participantIds]
+          ..remove(userId);
+        
+        // Update the session
+        transaction.update(sessionRef, {
+          'participantIds': updatedParticipants,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        
+        // Process refund if applicable
+        if (shouldRefund) {
+          // Refund credits to user
+          final userCreditsRef = _firebaseService.firestore
+              .collection('user_credits')
+              .doc(userId);
+          
+          transaction.update(userCreditsRef, {
+            'balance': FieldValue.increment(1), // Refund 1 credit
+          });
+          
+          // Record the refund transaction
+          final creditTransactionRef = _firebaseService.firestore
+              .collection('credit_transactions')
+              .doc();
+          
+          transaction.set(creditTransactionRef, {
+            'userId': userId,
+            'amount': 1,
+            'isCredit': true, // addition (refund)
+            'type': 'refund',
+            'description': 'Refund for cancelled booking: ${session.title}',
+            'sessionId': sessionId,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
+      });
+      
+      // Update local session list
+      final index = _sessions.indexWhere((s) => s.id == sessionId);
+      if (index != -1) {
+        final updatedParticipants = [..._sessions[index].participantIds]
+          ..remove(userId);
+        _sessions[index] = _sessions[index].copyWith(
+          participantIds: updatedParticipants,
+          updatedAt: DateTime.now(),
+        );
+      }
+      
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to cancel booking: $e';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Get a specific session by ID
+  SessionModel? getSessionById(String sessionId) {
+    try {
+      return _sessions.firstWhere((session) => session.id == sessionId);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Clear all data (used during logout)
   void clear() {
     _sessions = [];
-    _userSessions = [];
-    _instructorSessions = [];
     _isInitialized = false;
-    _clearError();
+    _error = null;
     notifyListeners();
   }
 }

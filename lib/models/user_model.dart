@@ -1,21 +1,96 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Enum representing user roles in the FitSAGA app
 enum UserRole {
-  /// Admin users can manage all aspects of the system
-  admin,
-  
-  /// Instructors can create and manage sessions and tutorials
-  instructor,
-  
-  /// Regular gym clients who book sessions and view tutorials
-  client,
+  client,      // Regular gym members who can book sessions
+  instructor,  // Instructors who can create and lead sessions
+  admin,       // Administrators with full access to all features
 }
 
-/// Extension to convert string to UserRole enum
-extension UserRoleExtension on String {
-  UserRole toUserRole() {
-    switch (this.toLowerCase()) {
+class UserModel {
+  final String id;
+  final String email;
+  final String name;
+  final UserRole role;
+  final String? photoUrl;
+  final bool isActive;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+
+  const UserModel({
+    required this.id,
+    required this.email,
+    required this.name,
+    required this.role,
+    this.photoUrl,
+    required this.isActive,
+    required this.createdAt,
+    this.updatedAt,
+  });
+
+  // Create a copy of this user with optional field updates
+  UserModel copyWith({
+    String? id,
+    String? email,
+    String? name,
+    UserRole? role,
+    String? photoUrl,
+    bool? isActive,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      email: email ?? this.email,
+      name: name ?? this.name,
+      role: role ?? this.role,
+      photoUrl: photoUrl ?? this.photoUrl,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  // Computed properties
+  bool get isAdmin => role == UserRole.admin;
+  bool get isInstructor => role == UserRole.admin || role == UserRole.instructor;
+  bool get isClient => role == UserRole.client;
+
+  // Factory method to create a UserModel from Firestore document
+  factory UserModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    
+    return UserModel(
+      id: doc.id,
+      email: data['email'] ?? '',
+      name: data['name'] ?? '',
+      role: _userRoleFromString(data['role'] ?? 'client'),
+      photoUrl: data['photoUrl'],
+      isActive: data['isActive'] ?? true,
+      createdAt: data['createdAt'] != null 
+          ? (data['createdAt'] as Timestamp).toDate() 
+          : DateTime.now(),
+      updatedAt: data['updatedAt'] != null 
+          ? (data['updatedAt'] as Timestamp).toDate() 
+          : null,
+    );
+  }
+
+  // Convert to Firestore document data
+  Map<String, dynamic> toFirestore() {
+    return {
+      'email': email,
+      'name': name,
+      'role': _userRoleToString(role),
+      'photoUrl': photoUrl,
+      'isActive': isActive,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+    };
+  }
+
+  // Helper methods for role conversion
+  static UserRole _userRoleFromString(String role) {
+    switch (role.toLowerCase()) {
       case 'admin':
         return UserRole.admin;
       case 'instructor':
@@ -25,86 +100,18 @@ extension UserRoleExtension on String {
         return UserRole.client;
     }
   }
-}
 
-/// Model class representing a user in the FitSAGA app
-class UserModel {
-  /// Unique user identifier, typically from Firebase Auth
-  final String id;
-  
-  /// User's full name
-  String name;
-  
-  /// User's email address, used for authentication
-  final String email;
-  
-  /// User's role in the system (admin, instructor, client)
-  UserRole role;
-  
-  /// URL to user's profile photo (optional)
-  String? photoUrl;
-  
-  /// Timestamp when the user account was created
-  final DateTime createdAt;
-  
-  /// Constructor for creating a new UserModel
-  UserModel({
-    required this.id,
-    required this.name,
-    required this.email,
-    required this.role,
-    this.photoUrl,
-    required this.createdAt,
-  });
-  
-  /// Creates a UserModel from a Firebase document map
-  factory UserModel.fromMap(Map<String, dynamic> map, String docId) {
-    return UserModel(
-      id: docId,
-      name: map['name'] ?? '',
-      email: map['email'] ?? '',
-      role: (map['role'] as String? ?? 'client').toUserRole(),
-      photoUrl: map['photoUrl'],
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-    );
+  static String _userRoleToString(UserRole role) {
+    switch (role) {
+      case UserRole.admin:
+        return 'admin';
+      case UserRole.instructor:
+        return 'instructor';
+      case UserRole.client:
+        return 'client';
+    }
   }
-  
-  /// Converts the UserModel to a map for Firebase storage
-  Map<String, dynamic> toMap() {
-    return {
-      'name': name,
-      'email': email,
-      'role': role.toString().split('.').last,
-      'photoUrl': photoUrl,
-      'createdAt': Timestamp.fromDate(createdAt),
-    };
-  }
-  
-  /// Checks if user has admin privileges
-  bool get isAdmin => role == UserRole.admin;
-  
-  /// Checks if user has instructor privileges
-  bool get isInstructor => role == UserRole.instructor || role == UserRole.admin;
-  
-  /// Checks if user is a regular client
-  bool get isClient => role == UserRole.client;
-  
-  /// Creates a copy of this UserModel with optional new values
-  UserModel copyWith({
-    String? name,
-    UserRole? role,
-    String? photoUrl,
-  }) {
-    return UserModel(
-      id: this.id,
-      name: name ?? this.name,
-      email: this.email,
-      role: role ?? this.role,
-      photoUrl: photoUrl ?? this.photoUrl,
-      createdAt: this.createdAt,
-    );
-  }
-  
+
   @override
   String toString() {
     return 'UserModel(id: $id, name: $name, email: $email, role: $role)';
