@@ -6,6 +6,8 @@ import 'package:fitsaga/providers/session_provider.dart';
 import 'package:fitsaga/providers/auth_provider.dart';
 import 'package:fitsaga/theme/app_theme.dart';
 import 'package:fitsaga/widgets/common/loading_indicator.dart';
+import 'package:fitsaga/widgets/sessions/conflict_display_widget.dart';
+import 'package:fitsaga/screens/sessions/recurring_pattern_selector_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
@@ -38,8 +40,7 @@ class _SessionCreateEditScreenState extends State<SessionCreateEditScreen> {
   late DateTime _selectedDate;
   late TimeOfDay _selectedTime;
   bool _isRecurring = false;
-  String _recurringFrequency = 'weekly';
-  List<bool> _selectedDays = List.filled(7, false); // days of week
+  String? _recurringRule;
   int _recurringOccurrences = 4;
   
   @override
@@ -239,19 +240,10 @@ class _SessionCreateEditScreenState extends State<SessionCreateEditScreen> {
       // Check if this is a create or edit operation
       if (widget.session == null) {
         // Creating a new session
-        
-        // Build recurring rule if needed
-        String? recurringRule;
-        if (_isRecurring) {
-          recurringRule = _buildRecurringRule();
-        }
+        final DateTime startDateTime = _sessionDateTime;
         
         // Create session
-        if (_isRecurring) {
-          // Create recurring sessions
-          // First, check for conflicts
-          final DateTime startDateTime = _sessionDateTime;
-          
+        if (_isRecurring && _recurringRule != null) {
           // Create a temporary session for conflict checking
           final tempSession = SessionModel(
             id: const Uuid().v4(),
@@ -265,15 +257,16 @@ class _SessionCreateEditScreenState extends State<SessionCreateEditScreen> {
             participantIds: const [],
             creditCost: creditCost,
             isRecurring: true,
-            recurringRule: recurringRule,
+            recurringRule: _recurringRule,
             location: _locationController.text.isNotEmpty ? _locationController.text : null,
             status: SessionStatus.upcoming,
             createdAt: DateTime.now(),
           );
           
+          // Check for conflicts with potential recurring instances
           final conflicts = sessionProvider.checkForConflicts(tempSession);
           if (conflicts.isNotEmpty) {
-            _showConflictsDialog(conflicts);
+            _showConflictsDialog(conflicts, tempSession);
             setState(() {
               _isLoading = false;
             });
@@ -290,7 +283,7 @@ class _SessionCreateEditScreenState extends State<SessionCreateEditScreen> {
             durationMinutes: duration,
             maxParticipants: maxParticipants,
             creditCost: creditCost,
-            recurringRule: recurringRule!,
+            recurringRule: _recurringRule!,
             location: _locationController.text.isNotEmpty ? _locationController.text : null,
             numberOfOccurrences: _recurringOccurrences,
           );
@@ -299,7 +292,7 @@ class _SessionCreateEditScreenState extends State<SessionCreateEditScreen> {
             throw Exception(sessionProvider.error ?? 'Failed to create recurring sessions');
           }
         } else {
-          // Create a single session
+          // Create a single (non-recurring) session
           final newSession = SessionModel(
             id: const Uuid().v4(),
             title: _titleController.text,
@@ -318,9 +311,13 @@ class _SessionCreateEditScreenState extends State<SessionCreateEditScreen> {
           );
           
           // Check for conflicts
-          final conflicts = sessionProvider.checkForConflicts(newSession);
+          final conflicts = sessionProvider.checkForConflicts(
+            newSession, 
+            checkRecurring: false,
+          );
+          
           if (conflicts.isNotEmpty) {
-            _showConflictsDialog(conflicts);
+            _showConflictsDialog(conflicts, newSession);
             setState(() {
               _isLoading = false;
             });
@@ -346,10 +343,14 @@ class _SessionCreateEditScreenState extends State<SessionCreateEditScreen> {
           updatedAt: DateTime.now(),
         );
         
-        // Check for conflicts
-        final conflicts = sessionProvider.checkForConflicts(updatedSession);
+        // Check for conflicts, but exclude recurring relationships when checking
+        final conflicts = sessionProvider.checkForConflicts(
+          updatedSession,
+          checkRecurring: false,
+        );
+        
         if (conflicts.isNotEmpty) {
-          _showConflictsDialog(conflicts);
+          _showConflictsDialog(conflicts, updatedSession);
           setState(() {
             _isLoading = false;
           });
@@ -368,7 +369,9 @@ class _SessionCreateEditScreenState extends State<SessionCreateEditScreen> {
           SnackBar(
             content: Text(
               widget.session == null ? 
-                  'Session created successfully' : 
+                  _isRecurring ? 
+                      'Recurring sessions created successfully' : 
+                      'Session created successfully' : 
                   'Session updated successfully',
             ),
             backgroundColor: AppTheme.successColor,
@@ -385,80 +388,50 @@ class _SessionCreateEditScreenState extends State<SessionCreateEditScreen> {
     }
   }
   
-  String _buildRecurringRule() {
-    // Building a simple RRULE string
-    String rule = 'FREQ=${_recurringFrequency.toUpperCase()}';
-    
-    // Add BYDAY for weekly frequency
-    if (_recurringFrequency == 'weekly') {
-      const dayAbbreviations = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
-      List<String> selectedDayAbbreviations = [];
-      
-      for (int i = 0; i < _selectedDays.length; i++) {
-        if (_selectedDays[i]) {
-          selectedDayAbbreviations.add(dayAbbreviations[i]);
-        }
-      }
-      
-      // If no days are selected, use the day of the selected date
-      if (selectedDayAbbreviations.isEmpty) {
-        final dayIndex = _selectedDate.weekday - 1; // 0-based index for our list
-        selectedDayAbbreviations.add(dayAbbreviations[dayIndex]);
-        _selectedDays[dayIndex] = true; // Update UI state
-      }
-      
-      rule += ';BYDAY=${selectedDayAbbreviations.join(',')}';
-    }
-    
-    return rule;
-  }
-  
-  void _showConflictsDialog(List<SessionModel> conflicts) {
+  void _showConflictsDialog(List<SessionModel> conflicts, SessionModel proposedSession) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Session Conflicts Detected'),
         content: Container(
           width: double.maxFinite,
-          constraints: const BoxConstraints(maxHeight: 300),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'The session you are trying to create conflicts with the following existing sessions:',
-                style: TextStyle(
-                  color: AppTheme.textPrimaryColor,
+          constraints: const BoxConstraints(maxHeight: 500),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'The session you are trying to create conflicts with existing sessions:',
+                  style: TextStyle(
+                    color: AppTheme.textPrimaryColor,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: conflicts.length,
-                  itemBuilder: (context, index) {
-                    final conflict = conflicts[index];
-                    return ListTile(
-                      title: Text(conflict.title),
-                      subtitle: Text(
-                        '${DateFormat('MMM d, y').format(conflict.startTime)} at ${DateFormat('h:mm a').format(conflict.startTime)}',
-                      ),
-                      leading: const Icon(
-                        Icons.warning,
-                        color: AppTheme.warningColor,
-                      ),
-                    );
+                const SizedBox(height: 16),
+                
+                // Using our conflict display widget
+                ConflictDisplayWidget(
+                  conflicts: conflicts,
+                  proposedSession: proposedSession,
+                  onResolve: () {
+                    Navigator.of(context).pop();
+                    // Focus on the date and time fields
+                    _selectDate();
                   },
                 ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Please select a different time or date.',
-                style: TextStyle(
-                  color: AppTheme.errorColor,
-                  fontWeight: FontWeight.bold,
+                
+                const SizedBox(height: 16),
+                Text(
+                  _isRecurring ? 
+                    'Note: Recurring sessions require checking multiple dates for conflicts.' :
+                    'Please select a different time or date to resolve this conflict.',
+                  style: const TextStyle(
+                    fontStyle: FontStyle.italic,
+                    color: AppTheme.textSecondaryColor,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         actions: [
@@ -467,6 +440,17 @@ class _SessionCreateEditScreenState extends State<SessionCreateEditScreen> {
               Navigator.of(context).pop();
             },
             child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Focus on the date and time fields
+              _selectDate();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+            ),
+            child: const Text('Change Date/Time'),
           ),
         ],
       ),
@@ -741,6 +725,9 @@ class _SessionCreateEditScreenState extends State<SessionCreateEditScreen> {
                         onChanged: (value) {
                           setState(() {
                             _isRecurring = value;
+                            if (!value) {
+                              _recurringRule = null;
+                            }
                           });
                         },
                         activeColor: AppTheme.primaryColor,
@@ -749,95 +736,61 @@ class _SessionCreateEditScreenState extends State<SessionCreateEditScreen> {
                       if (_isRecurring) ...[
                         const Divider(),
                         
-                        // Frequency
-                        ListTile(
-                          title: const Text('Repeats'),
-                          trailing: DropdownButton<String>(
-                            value: _recurringFrequency,
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() {
-                                  _recurringFrequency = value;
-                                });
-                              }
-                            },
-                            items: [
-                              DropdownMenuItem(
-                                value: 'daily',
-                                child: const Text('Daily'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'weekly',
-                                child: const Text('Weekly'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'monthly',
-                                child: const Text('Monthly'),
-                              ),
-                            ],
+                        if (_recurringRule != null) ...[
+                          // Show selected pattern
+                          _buildRecurringPatternSummary(),
+                        ],
+                        
+                        const SizedBox(height: 16),
+                        
+                        // Button to select pattern
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _selectRecurringPattern,
+                            icon: Icon(
+                              _recurringRule == null ? Icons.add : Icons.edit,
+                              size: 18,
+                            ),
+                            label: Text(_recurringRule == null
+                                ? 'Configure Recurring Pattern'
+                                : 'Edit Recurring Pattern'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryLightColor,
+                              foregroundColor: Colors.white,
+                            ),
                           ),
                         ),
                         
-                        // Days of week (for weekly frequency)
-                        if (_recurringFrequency == 'weekly') ...[
-                          const Padding(
-                            padding: EdgeInsets.only(
-                              left: AppTheme.paddingMedium,
-                              right: AppTheme.paddingMedium,
-                              top: AppTheme.paddingSmall,
-                            ),
-                            child: Text(
-                              'Repeat on:',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
+                        const SizedBox(height: 16),
+                        
+                        // Number of occurrences
+                        if (_recurringRule != null) ...[
+                          ListTile(
+                            leading: const Icon(Icons.repeat, color: AppTheme.primaryColor),
+                            title: const Text('Number of occurrences'),
+                            trailing: SizedBox(
+                              width: 60,
+                              child: DropdownButton<int>(
+                                value: _recurringOccurrences,
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    setState(() {
+                                      _recurringOccurrences = value;
+                                    });
+                                  }
+                                },
+                                items: [
+                                  for (var i = 2; i <= 24; i++)
+                                    DropdownMenuItem(
+                                      value: i,
+                                      child: Text(i.toString()),
+                                    ),
+                                ],
                               ),
-                            ),
-                          ),
-                          
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppTheme.paddingMedium,
-                              vertical: AppTheme.paddingSmall,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                _buildDaySelector(0, 'M'),
-                                _buildDaySelector(1, 'T'),
-                                _buildDaySelector(2, 'W'),
-                                _buildDaySelector(3, 'T'),
-                                _buildDaySelector(4, 'F'),
-                                _buildDaySelector(5, 'S'),
-                                _buildDaySelector(6, 'S'),
-                              ],
                             ),
                           ),
                         ],
-                        
-                        // Number of occurrences
-                        ListTile(
-                          title: const Text('Number of occurrences'),
-                          trailing: SizedBox(
-                            width: 60,
-                            child: DropdownButton<int>(
-                              value: _recurringOccurrences,
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setState(() {
-                                    _recurringOccurrences = value;
-                                  });
-                                }
-                              },
-                              items: [
-                                for (var i = 2; i <= 12; i++)
-                                  DropdownMenuItem(
-                                    value: i,
-                                    child: Text(i.toString()),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
                       ],
                     ],
                   ),
@@ -887,36 +840,226 @@ class _SessionCreateEditScreenState extends State<SessionCreateEditScreen> {
     );
   }
   
-  Widget _buildDaySelector(int index, String label) {
-    final isSelected = _selectedDays[index];
-    
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _selectedDays[index] = !_selectedDays[index];
-        });
-      },
-      borderRadius: BorderRadius.circular(100),
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: isSelected ? AppTheme.primaryColor : Colors.transparent,
-          border: Border.all(
-            color: isSelected ? AppTheme.primaryColor : Colors.grey.shade400,
-          ),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: isSelected ? Colors.white : AppTheme.textPrimaryColor,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+  // Launch the recurring pattern selector
+  Future<void> _selectRecurringPattern() async {
+    final rule = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (context) => RecurringPatternSelectorScreen(
+          initialPattern: _recurringRule,
+          referenceDate: _sessionDateTime,
         ),
       ),
     );
+    
+    if (rule != null) {
+      setState(() {
+        _recurringRule = rule;
+      });
+    }
+  }
+  
+  // Build a summary of the selected recurring pattern
+  Widget _buildRecurringPatternSummary() {
+    if (_recurringRule == null) {
+      return const SizedBox.shrink();
+    }
+    
+    // Parse the RRULE format
+    Map<String, String> ruleMap = {};
+    for (var part in _recurringRule!.split(';')) {
+      final keyValue = part.split('=');
+      if (keyValue.length == 2) {
+        ruleMap[keyValue[0]] = keyValue[1];
+      }
+    }
+    
+    final freq = ruleMap['FREQ']?.toLowerCase();
+    if (freq == null) {
+      return const Text('Invalid recurring pattern');
+    }
+    
+    String patternText;
+    IconData patternIcon;
+    
+    switch (freq) {
+      case 'daily':
+        patternText = 'Every day';
+        patternIcon = Icons.calendar_view_day;
+        break;
+      case 'weekly':
+        final byDay = ruleMap['BYDAY']?.split(',');
+        if (byDay != null && byDay.isNotEmpty) {
+          patternText = 'Weekly on ${_formatWeekdays(byDay)}';
+        } else {
+          final weekday = DateFormat('EEEE').format(_selectedDate);
+          patternText = 'Weekly on $weekday';
+        }
+        patternIcon = Icons.view_week;
+        break;
+      case 'monthly':
+        patternIcon = Icons.calendar_view_month;
+        if (ruleMap.containsKey('BYSETPOS') && ruleMap.containsKey('BYDAY')) {
+          // By position (e.g., "first Monday")
+          final pos = int.tryParse(ruleMap['BYSETPOS'] ?? '1') ?? 1;
+          final day = ruleMap['BYDAY'];
+          final ordinal = _getOrdinalText(pos);
+          final dayName = _getDayName(day ?? 'MO');
+          patternText = 'Monthly on the $ordinal $dayName';
+        } else {
+          // By day of month
+          final day = _selectedDate.day;
+          patternText = 'Monthly on day $day';
+        }
+        break;
+      case 'yearly':
+        patternText = 'Annually on ${DateFormat('MMMM d').format(_selectedDate)}';
+        patternIcon = Icons.event;
+        break;
+      default:
+        patternText = 'Custom pattern';
+        patternIcon = Icons.repeat;
+    }
+    
+    bool hasCount = ruleMap.containsKey('COUNT');
+    bool hasUntil = ruleMap.containsKey('UNTIL');
+    String limitText = '';
+    
+    if (hasCount) {
+      final count = int.tryParse(ruleMap['COUNT'] ?? '0') ?? 0;
+      limitText = ', $count occurrences';
+    } else if (hasUntil) {
+      try {
+        final untilStr = ruleMap['UNTIL'] ?? '';
+        // Parse YYYYMMDD format
+        final year = int.parse(untilStr.substring(0, 4));
+        final month = int.parse(untilStr.substring(4, 6));
+        final day = int.parse(untilStr.substring(6, 8));
+        final untilDate = DateTime(year, month, day);
+        
+        limitText = ', until ${DateFormat('MMM d, y').format(untilDate)}';
+      } catch (e) {
+        // Parsing error
+      }
+    }
+    
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.paddingMedium),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
+        border: Border.all(
+          color: AppTheme.primaryColor.withOpacity(0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                patternIcon,
+                color: AppTheme.primaryColor,
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  patternText,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (limitText.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.only(left: 30),
+              child: Text(
+                limitText,
+                style: TextStyle(
+                  fontSize: AppTheme.fontSizeSmall,
+                  color: AppTheme.textSecondaryColor,
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.only(left: 30),
+            child: Text(
+              'At ${DateFormat('h:mm a').format(_sessionDateTime)}',
+              style: TextStyle(
+                fontSize: AppTheme.fontSizeSmall,
+                color: AppTheme.textSecondaryColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  String _formatWeekdays(List<String> days) {
+    const dayMap = {
+      'MO': 'Monday',
+      'TU': 'Tuesday',
+      'WE': 'Wednesday',
+      'TH': 'Thursday',
+      'FR': 'Friday',
+      'SA': 'Saturday',
+      'SU': 'Sunday',
+    };
+
+    final formattedDays = days.map((day) => dayMap[day] ?? day).toList();
+    
+    if (formattedDays.length == 1) {
+      return formattedDays.first;
+    } else if (formattedDays.length == 2) {
+      return '${formattedDays.first} and ${formattedDays.last}';
+    } else {
+      final lastDay = formattedDays.removeLast();
+      return '${formattedDays.join(', ')}, and $lastDay';
+    }
+  }
+  
+  String _getOrdinalText(int position) {
+    switch (position) {
+      case 1:
+        return 'first';
+      case 2:
+        return 'second';
+      case 3:
+        return 'third';
+      case 4:
+        return 'fourth';
+      case -1:
+        return 'last';
+      default:
+        return position.toString();
+    }
+  }
+  
+  String _getDayName(String dayCode) {
+    switch (dayCode) {
+      case 'MO':
+        return 'Monday';
+      case 'TU':
+        return 'Tuesday';
+      case 'WE':
+        return 'Wednesday';
+      case 'TH':
+        return 'Thursday';
+      case 'FR':
+        return 'Friday';
+      case 'SA':
+        return 'Saturday';
+      case 'SU':
+        return 'Sunday';
+      default:
+        return dayCode;
+    }
   }
 }
