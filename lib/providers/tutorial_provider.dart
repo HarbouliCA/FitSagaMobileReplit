@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:fitsaga/models/tutorial_model.dart';
+import 'package:fitsaga/models/tutorial_section_model.dart';
 import 'package:fitsaga/services/firebase_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -13,6 +14,7 @@ class TutorialProvider extends ChangeNotifier {
   
   List<TutorialModel> _tutorials = [];
   List<TutorialProgressModel> _userProgress = [];
+  Map<String, List<TutorialSectionModel>> _tutorialSections = {};
   
   // Filtering state
   String? _searchQuery;
@@ -774,4 +776,493 @@ class TutorialProvider extends ChangeNotifier {
       // Don't set error as this is not critical
     }
   }
+  
+  // SECTION AND CHAPTER MANAGEMENT
+  
+  // Get sections for a tutorial
+  List<TutorialSectionModel> getSectionsForTutorial(String tutorialId) {
+    return _tutorialSections[tutorialId] ?? [];
+  }
+  
+  // Load sections for a tutorial
+  Future<List<TutorialSectionModel>> loadSectionsForTutorial(String tutorialId) async {
+    try {
+      final sectionsSnapshot = await _firebaseService.firestore
+          .collection('tutorialSections')
+          .where('tutorialId', isEqualTo: tutorialId)
+          .orderBy('orderIndex')
+          .get();
+      
+      final sections = sectionsSnapshot.docs
+          .map((doc) => TutorialSectionModel.fromJson({
+                'id': doc.id,
+                ...doc.data(),
+              }))
+          .toList();
+      
+      // Store locally
+      _tutorialSections[tutorialId] = sections;
+      notifyListeners();
+      
+      return sections;
+    } catch (e) {
+      _error = 'Failed to load tutorial sections: ${e.toString()}';
+      print(_error);
+      return [];
+    }
+  }
+  
+  // Create a new section
+  Future<bool> createSection({
+    required String tutorialId,
+    required String title,
+    required String description,
+    required int orderIndex,
+    bool isLocked = false,
+  }) async {
+    try {
+      // Create new section
+      final section = TutorialSectionModel.create(
+        tutorialId: tutorialId,
+        title: title,
+        description: description,
+        orderIndex: orderIndex,
+        isLocked: isLocked,
+      );
+      
+      // Save to Firebase
+      await _firebaseService.firestore
+          .collection('tutorialSections')
+          .doc(section.id)
+          .set(section.toJson());
+      
+      // Update local store
+      if (_tutorialSections.containsKey(tutorialId)) {
+        _tutorialSections[tutorialId]!.add(section);
+        // Sort by order index
+        _tutorialSections[tutorialId]!.sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+      } else {
+        _tutorialSections[tutorialId] = [section];
+      }
+      
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to create section: ${e.toString()}';
+      print(_error);
+      return false;
+    }
+  }
+  
+  // Update a section
+  Future<bool> updateSection({
+    required String sectionId,
+    required String tutorialId,
+    String? title,
+    String? description,
+    int? orderIndex,
+    bool? isLocked,
+  }) async {
+    try {
+      // Find section
+      if (!_tutorialSections.containsKey(tutorialId)) {
+        await loadSectionsForTutorial(tutorialId);
+      }
+      
+      final sections = _tutorialSections[tutorialId];
+      if (sections == null) {
+        _error = 'Tutorial sections not found';
+        return false;
+      }
+      
+      final sectionIndex = sections.indexWhere((s) => s.id == sectionId);
+      if (sectionIndex < 0) {
+        _error = 'Section not found';
+        return false;
+      }
+      
+      // Create update data
+      final updateData = <String, dynamic>{};
+      if (title != null) updateData['title'] = title;
+      if (description != null) updateData['description'] = description;
+      if (orderIndex != null) updateData['orderIndex'] = orderIndex;
+      if (isLocked != null) updateData['isLocked'] = isLocked;
+      
+      // Update in Firebase
+      await _firebaseService.firestore
+          .collection('tutorialSections')
+          .doc(sectionId)
+          .update(updateData);
+      
+      // Update local object
+      final updatedSection = sections[sectionIndex].copyWith(
+        title: title,
+        description: description,
+        orderIndex: orderIndex,
+        isLocked: isLocked,
+      );
+      
+      _tutorialSections[tutorialId]![sectionIndex] = updatedSection;
+      
+      // Re-sort if order index changed
+      if (orderIndex != null) {
+        _tutorialSections[tutorialId]!.sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+      }
+      
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to update section: ${e.toString()}';
+      print(_error);
+      return false;
+    }
+  }
+  
+  // Delete a section
+  Future<bool> deleteSection({
+    required String sectionId,
+    required String tutorialId,
+  }) async {
+    try {
+      // Delete from Firebase
+      await _firebaseService.firestore
+          .collection('tutorialSections')
+          .doc(sectionId)
+          .delete();
+      
+      // Update local store if needed
+      if (_tutorialSections.containsKey(tutorialId)) {
+        _tutorialSections[tutorialId]!.removeWhere((section) => section.id == sectionId);
+        notifyListeners();
+      }
+      
+      return true;
+    } catch (e) {
+      _error = 'Failed to delete section: ${e.toString()}';
+      print(_error);
+      return false;
+    }
+  }
+  
+  // Add a chapter to a section
+  Future<bool> addChapter({
+    required String sectionId,
+    required String tutorialId,
+    required String title,
+    String? description,
+    required int orderIndex,
+    String? videoUrl,
+    required int videoStartTime,
+    required int durationSeconds,
+    bool isPreview = false,
+    Map<String, dynamic>? resources,
+  }) async {
+    try {
+      // Find section
+      if (!_tutorialSections.containsKey(tutorialId)) {
+        await loadSectionsForTutorial(tutorialId);
+      }
+      
+      final sections = _tutorialSections[tutorialId];
+      if (sections == null) {
+        _error = 'Tutorial sections not found';
+        return false;
+      }
+      
+      final sectionIndex = sections.indexWhere((s) => s.id == sectionId);
+      if (sectionIndex < 0) {
+        _error = 'Section not found';
+        return false;
+      }
+      
+      // Create new chapter
+      final chapter = TutorialChapterModel.create(
+        title: title,
+        description: description,
+        orderIndex: orderIndex,
+        videoUrl: videoUrl,
+        videoStartTime: videoStartTime,
+        durationSeconds: durationSeconds,
+        isPreview: isPreview,
+        resources: resources,
+      );
+      
+      // Add to section's chapters
+      final updatedChapters = [
+        ...sections[sectionIndex].chapters,
+        chapter,
+      ]..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+      
+      // Update section with new chapters
+      final updatedSection = sections[sectionIndex].copyWith(
+        chapters: updatedChapters,
+      );
+      
+      // Update in Firebase
+      await _firebaseService.firestore
+          .collection('tutorialSections')
+          .doc(sectionId)
+          .update({
+            'chapters': updatedChapters.map((c) => c.toJson()).toList(),
+          });
+      
+      // Update local store
+      _tutorialSections[tutorialId]![sectionIndex] = updatedSection;
+      
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to add chapter: ${e.toString()}';
+      print(_error);
+      return false;
+    }
+  }
+  
+  // Update a chapter
+  Future<bool> updateChapter({
+    required String sectionId,
+    required String tutorialId,
+    required String chapterId,
+    String? title,
+    String? description,
+    int? orderIndex,
+    String? videoUrl,
+    int? videoStartTime,
+    int? durationSeconds,
+    bool? isPreview,
+    Map<String, dynamic>? resources,
+  }) async {
+    try {
+      // Find section
+      if (!_tutorialSections.containsKey(tutorialId)) {
+        await loadSectionsForTutorial(tutorialId);
+      }
+      
+      final sections = _tutorialSections[tutorialId];
+      if (sections == null) {
+        _error = 'Tutorial sections not found';
+        return false;
+      }
+      
+      final sectionIndex = sections.indexWhere((s) => s.id == sectionId);
+      if (sectionIndex < 0) {
+        _error = 'Section not found';
+        return false;
+      }
+      
+      // Find chapter
+      final chapters = sections[sectionIndex].chapters;
+      final chapterIndex = chapters.indexWhere((c) => c.id == chapterId);
+      
+      if (chapterIndex < 0) {
+        _error = 'Chapter not found';
+        return false;
+      }
+      
+      // Update chapter
+      final updatedChapter = chapters[chapterIndex].copyWith(
+        title: title,
+        description: description,
+        orderIndex: orderIndex,
+        videoUrl: videoUrl,
+        videoStartTime: videoStartTime,
+        durationSeconds: durationSeconds,
+        isPreview: isPreview,
+        resources: resources,
+      );
+      
+      // Create updated chapters list
+      final updatedChapters = [...chapters];
+      updatedChapters[chapterIndex] = updatedChapter;
+      
+      // Re-sort if order index changed
+      if (orderIndex != null) {
+        updatedChapters.sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+      }
+      
+      // Update section with new chapters
+      final updatedSection = sections[sectionIndex].copyWith(
+        chapters: updatedChapters,
+      );
+      
+      // Update in Firebase
+      await _firebaseService.firestore
+          .collection('tutorialSections')
+          .doc(sectionId)
+          .update({
+            'chapters': updatedChapters.map((c) => c.toJson()).toList(),
+          });
+      
+      // Update local store
+      _tutorialSections[tutorialId]![sectionIndex] = updatedSection;
+      
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to update chapter: ${e.toString()}';
+      print(_error);
+      return false;
+    }
+  }
+  
+  // Delete a chapter
+  Future<bool> deleteChapter({
+    required String sectionId,
+    required String tutorialId,
+    required String chapterId,
+  }) async {
+    try {
+      // Find section
+      if (!_tutorialSections.containsKey(tutorialId)) {
+        await loadSectionsForTutorial(tutorialId);
+      }
+      
+      final sections = _tutorialSections[tutorialId];
+      if (sections == null) {
+        _error = 'Tutorial sections not found';
+        return false;
+      }
+      
+      final sectionIndex = sections.indexWhere((s) => s.id == sectionId);
+      if (sectionIndex < 0) {
+        _error = 'Section not found';
+        return false;
+      }
+      
+      // Remove chapter
+      final updatedChapters = [...sections[sectionIndex].chapters];
+      updatedChapters.removeWhere((chapter) => chapter.id == chapterId);
+      
+      // Update section
+      final updatedSection = sections[sectionIndex].copyWith(
+        chapters: updatedChapters,
+      );
+      
+      // Update in Firebase
+      await _firebaseService.firestore
+          .collection('tutorialSections')
+          .doc(sectionId)
+          .update({
+            'chapters': updatedChapters.map((c) => c.toJson()).toList(),
+          });
+      
+      // Update local store
+      _tutorialSections[tutorialId]![sectionIndex] = updatedSection;
+      
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to delete chapter: ${e.toString()}';
+      print(_error);
+      return false;
+    }
+  }
+  
+  // Get a specific chapter from tutorial
+  TutorialChapterModel? getChapter({
+    required String tutorialId,
+    required String sectionId,
+    required String chapterId,
+  }) {
+    final sections = _tutorialSections[tutorialId];
+    if (sections == null) return null;
+    
+    final section = sections.firstWhere(
+      (s) => s.id == sectionId,
+      orElse: () => TutorialSectionModel(
+        id: '',
+        tutorialId: '',
+        title: '',
+        description: '',
+        orderIndex: 0,
+        chapters: [],
+      ),
+    );
+    
+    if (section.id.isEmpty) return null;
+    
+    return section.chapters.firstWhere(
+      (c) => c.id == chapterId,
+      orElse: () => TutorialChapterModel(
+        id: '',
+        title: '',
+        orderIndex: 0,
+        videoStartTime: 0,
+        durationSeconds: 0,
+      ),
+    );
+  }
+  
+  // Track completed chapters
+  Future<bool> markChapterAsCompleted({
+    required String userId,
+    required String tutorialId,
+    required String sectionId,
+    required String chapterId,
+  }) async {
+    try {
+      // Get existing progress
+      final progress = getProgressForTutorial(tutorialId);
+      
+      if (progress == null) {
+        // Create new progress with this chapter completed
+        return await updateTutorialProgress(
+          userId: userId,
+          tutorialId: tutorialId,
+          progress: 0.1, // Start with minimal progress
+          completedSections: [chapterId],
+        );
+      } else {
+        // Update existing progress
+        final completedSections = progress.completedSections ?? [];
+        
+        if (!completedSections.contains(chapterId)) {
+          completedSections.add(chapterId);
+          
+          // Calculate new overall progress
+          final sections = await loadSectionsForTutorial(tutorialId);
+          int totalChapters = 0;
+          for (final section in sections) {
+            totalChapters += section.chapters.length;
+          }
+          
+          // Calculate progress as percentage of completed chapters
+          double newProgress = totalChapters > 0 
+              ? completedSections.length / totalChapters 
+              : progress.progress;
+          
+          // If all chapters completed, mark as complete
+          bool isComplete = totalChapters > 0 && completedSections.length >= totalChapters;
+          
+          return await updateTutorialProgress(
+            userId: userId,
+            tutorialId: tutorialId,
+            progress: newProgress,
+            isCompleted: isComplete,
+            completedSections: completedSections,
+          );
+        }
+        
+        return true; // Already marked as completed
+      }
+    } catch (e) {
+      _error = 'Failed to mark chapter as completed: ${e.toString()}';
+      print(_error);
+      return false;
+    }
+  }
+  
+  // Check if a chapter is completed
+  bool isChapterCompleted({
+    required String tutorialId,
+    required String chapterId,
+  }) {
+    final progress = getProgressForTutorial(tutorialId);
+    if (progress == null || progress.completedSections == null) {
+      return false;
+    }
+    
+    return progress.completedSections!.contains(chapterId);
+  }
+}
 }
