@@ -10,6 +10,8 @@ import 'package:fitsaga/screens/sessions/booking_screen.dart';
 import 'package:fitsaga/screens/sessions/session_detail_screen.dart';
 import 'package:fitsaga/screens/sessions/user_bookings_screen.dart';
 import 'package:fitsaga/screens/sessions/booking_confirmation_screen.dart';
+import 'package:fitsaga/screens/credits/credit_management_screen.dart';
+import 'package:fitsaga/screens/credits/credit_history_screen.dart';
 import 'package:fitsaga/screens/tutorials/tutorial_list_screen.dart';
 import 'package:fitsaga/screens/tutorials/tutorial_detail_screen.dart';
 
@@ -27,6 +29,8 @@ class AppRouter {
   static const String userBookings = '/user/bookings';
   static const String tutorials = '/tutorials';
   static const String tutorialDetail = '/tutorials/detail';
+  static const String creditManagement = '/credits';
+  static const String creditHistory = '/credits/history';
   static const String instructorDashboard = '/instructor/dashboard';
   static const String adminDashboard = '/admin/dashboard';
 
@@ -86,6 +90,18 @@ class AppRouter {
       case tutorials:
         return MaterialPageRoute(
           builder: (_) => const TutorialListScreen(),
+          settings: settings,
+        );
+        
+      case creditManagement:
+        return MaterialPageRoute(
+          builder: (_) => const CreditManagementScreen(),
+          settings: settings,
+        );
+        
+      case creditHistory:
+        return MaterialPageRoute(
+          builder: (_) => const CreditHistoryScreen(),
           settings: settings,
         );
 

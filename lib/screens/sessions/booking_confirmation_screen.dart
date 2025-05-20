@@ -123,34 +123,62 @@ class BookingConfirmationScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 30),
                   
-                  // Cancellation policy
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey[300]!),
+                  // Cancellation policy card
+                  Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Cancellation Policy',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                    elevation: 2,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.info_outline, color: Colors.blue[700]),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Cancellation Policy',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '• Full refund if cancelled 24+ hours before session\n'
-                          '• 50% refund if cancelled 12-24 hours before session\n'
-                          '• No refund if cancelled less than 12 hours before session',
-                          style: TextStyle(
-                            color: Colors.grey[800],
+                          const SizedBox(height: 16),
+                          _buildCancellationPolicyItem(
+                            '24+ hours before',
+                            'Full credit refund',
+                            Icons.check_circle,
+                            Colors.green,
                           ),
-                        ),
-                      ],
+                          const Divider(height: 24),
+                          _buildCancellationPolicyItem(
+                            '12-24 hours before',
+                            '50% credit refund',
+                            Icons.remove_circle_outline,
+                            Colors.orange,
+                          ),
+                          const Divider(height: 24),
+                          _buildCancellationPolicyItem(
+                            'Less than 12 hours',
+                            'No refund available',
+                            Icons.cancel_outlined,
+                            Colors.red,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'To cancel your booking, go to My Bookings section in the app.',
+                            style: TextStyle(
+                              fontStyle: FontStyle.italic,
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -272,6 +300,48 @@ class BookingConfirmationScreen extends StatelessWidget {
           style: TextStyle(
             fontWeight: FontWeight.w500,
             color: valueColor,
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildCancellationPolicyItem(String timeframe, String policy, IconData icon, Color color) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: color,
+            size: 24,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                timeframe,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                policy,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ),
       ],

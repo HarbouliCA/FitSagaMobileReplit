@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_core/firebase_core.dart';
+// Temporarily commenting out Firebase for web compatibility
+// import 'package:firebase_core/firebase_core.dart';
 import 'package:fitsaga/providers/auth_provider.dart';
 import 'package:fitsaga/navigation/app_router.dart';
 import 'package:fitsaga/theme/app_theme.dart';
@@ -8,13 +9,13 @@ import 'package:fitsaga/theme/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Firebase
-  try {
-    await Firebase.initializeApp();
-  } catch (e) {
-    print('Failed to initialize Firebase: $e');
-    // Continue without Firebase for local testing
-  }
+  // Initialize Firebase - temporarily disabled for web compatibility
+  // try {
+  //   await Firebase.initializeApp();
+  // } catch (e) {
+  //   print('Failed to initialize Firebase: $e');
+  //   // Continue without Firebase for local testing
+  // }
   
   runApp(const MyApp());
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+// Temporarily commented out for web compatibility
+// import 'package:firebase_auth/firebase_auth.dart';
+// import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitsaga/models/user_model.dart';
 
 class AuthProvider with ChangeNotifier {

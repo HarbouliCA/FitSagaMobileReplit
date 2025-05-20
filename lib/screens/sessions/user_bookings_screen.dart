@@ -128,7 +128,33 @@ class _UserBookingsScreenState extends State<UserBookingsScreen> with SingleTick
     final session = _sessionsCache[booking.sessionId];
     if (session == null) return;
     
-    // Show confirmation dialog
+    // Calculate time until session
+    final now = DateTime.now();
+    final sessionTime = session.date;
+    final hoursUntilSession = sessionTime.difference(now).inHours;
+    
+    // Determine refund amount based on cancellation policy
+    int refundAmount = 0;
+    String refundMessage = '';
+    Color refundColor = Colors.red;
+    
+    if (hoursUntilSession >= 24) {
+      // Full refund
+      refundAmount = booking.creditsUsed;
+      refundMessage = 'You will receive a full refund of ${booking.creditsUsed} credits';
+      refundColor = Colors.green;
+    } else if (hoursUntilSession >= 12) {
+      // Partial refund (50%)
+      refundAmount = (booking.creditsUsed / 2).ceil();
+      refundMessage = 'You will receive a partial refund of $refundAmount credits (50%)';
+      refundColor = Colors.orange;
+    } else {
+      // No refund
+      refundMessage = 'No refund will be applied as per the cancellation policy';
+      refundColor = Colors.red;
+    }
+    
+    // Show enhanced cancellation dialog
     final shouldCancel = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -137,21 +163,118 @@ class _UserBookingsScreenState extends State<UserBookingsScreen> with SingleTick
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Are you sure you want to cancel your booking for ${session.title}?'),
-            const SizedBox(height: 12),
-            const Text(
-              'Cancellation Policy:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
             Text(
-              '• Full refund if cancelled 24+ hours before session\n'
-              '• 50% refund if cancelled 12-24 hours before session\n'
-              '• No refund if cancelled less than 12 hours before session',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[700],
+              'Are you sure you want to cancel your booking for ${session.title}?',
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            
+            // Session details reminder
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
               ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    session.title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text(
+                        session.formattedDate,
+                        style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text(
+                        session.formattedTimeRange,
+                        style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Refund information
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: refundColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: refundColor.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        refundAmount > 0 ? Icons.credit_score : Icons.money_off, 
+                        color: refundColor,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Refund Summary',
+                        style: TextStyle(
+                          color: refundColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    refundMessage,
+                    style: TextStyle(
+                      color: refundColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Full policy details
+            ExpansionTile(
+              title: const Text(
+                'Cancellation Policy Details',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              ),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              children: [
+                Text(
+                  '• Full refund if cancelled 24+ hours before session\n'
+                  '• 50% refund if cancelled 12-24 hours before session\n'
+                  '• No refund if cancelled less than 12 hours before session',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[700],
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -178,25 +301,46 @@ class _UserBookingsScreenState extends State<UserBookingsScreen> with SingleTick
     });
     
     try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      
       // In a real app, this would call the BookingService
       // For demo purposes, we'll simulate API call
       await Future.delayed(const Duration(seconds: 1));
       
-      // Move booking to cancelled list
+      // Process refund
+      if (refundAmount > 0) {
+        await authProvider.addCredits(gymCredits: refundAmount);
+      }
+      
+      // Move booking to cancelled list with updated information
+      final cancelledBooking = booking.copyWith(
+        status: 'cancelled',
+        cancellationReason: 'User cancelled',
+        cancelledAt: DateTime.now(),
+      );
+      
       setState(() {
         _upcomingBookings.remove(booking);
-        _cancelledBookings.add(booking.copyWith(
-          status: 'cancelled',
-          cancellationReason: 'User cancelled',
-          cancelledAt: DateTime.now(),
-        ));
+        _cancelledBookings.add(cancelledBooking);
       });
       
+      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Booking cancelled successfully'),
+        SnackBar(
+          content: Text(
+            refundAmount > 0
+              ? 'Booking cancelled successfully. ${refundAmount} credits refunded.'
+              : 'Booking cancelled successfully. No credits were refunded.',
+          ),
           backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
+          duration: const Duration(seconds: 3),
+          action: SnackBarAction(
+            label: 'View Bookings',
+            onPressed: () {
+              _tabController.animateTo(2); // Navigate to cancelled tab
+            },
+            textColor: Colors.white,
+          ),
         ),
       );
     } catch (e) {

@@ -393,9 +393,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 8),
             TextButton(
               onPressed: () {
-                // Navigate to buy credits screen
+                Navigator.of(context).pushNamed('/credits');
               },
-              child: const Text('Buy More'),
+              child: const Text('Manage Credits'),
             ),
           ],
         ),

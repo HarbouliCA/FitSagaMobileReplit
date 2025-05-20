@@ -2,6 +2,7 @@ modules = ["flutter", "flutter/3.19.3"]
 
 [nix]
 channel = "stable-24_05"
+packages = ["flutter"]
 
 [workflows]
 runButton = "Project"
@@ -26,3 +27,7 @@ waitForPort = 5000
 
 [deployment]
 run = ["sh", "-c", "flutter pub get && flutter run -d web-server --web-port 5000 --web-hostname 0.0.0.0"]
+
+[[ports]]
+localPort = 5000
+externalPort = 80
