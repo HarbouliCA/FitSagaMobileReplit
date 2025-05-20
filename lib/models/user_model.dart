@@ -1,59 +1,50 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:equatable/equatable.dart';
 
 enum UserRole {
-  client,      // Regular gym members who can book sessions
-  instructor,  // Instructors who can create and lead sessions
-  admin,       // Administrators with full access to all features
+  client,
+  instructor,
+  admin
 }
 
-class UserModel {
+class UserModel extends Equatable {
   final String id;
   final String email;
   final String name;
   final UserRole role;
-  final String? photoUrl;
-  final bool isActive;
+  final int credits;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final String? photoUrl;
+  final String? phoneNumber;
+  final bool isActive;
+  final Map<String, dynamic>? metadata;
 
   const UserModel({
     required this.id,
     required this.email,
     required this.name,
     required this.role,
-    this.photoUrl,
-    required this.isActive,
+    required this.credits,
     required this.createdAt,
     this.updatedAt,
+    this.photoUrl,
+    this.phoneNumber,
+    this.isActive = true,
+    this.metadata,
   });
 
-  // Create a copy of this user with optional field updates
-  UserModel copyWith({
-    String? id,
-    String? email,
-    String? name,
-    UserRole? role,
-    String? photoUrl,
-    bool? isActive,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return UserModel(
-      id: id ?? this.id,
-      email: email ?? this.email,
-      name: name ?? this.name,
-      role: role ?? this.role,
-      photoUrl: photoUrl ?? this.photoUrl,
-      isActive: isActive ?? this.isActive,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
-
-  // Computed properties
+  // Role checkers
   bool get isAdmin => role == UserRole.admin;
-  bool get isInstructor => role == UserRole.admin || role == UserRole.instructor;
+  bool get isInstructor => role == UserRole.instructor;
   bool get isClient => role == UserRole.client;
+  
+  // Role-based permissions
+  bool get canManageSessions => isAdmin || isInstructor;
+  bool get canManageAllUsers => isAdmin;
+  bool get canAccessAdmin => isAdmin;
+  bool get canCreateTutorials => isAdmin || isInstructor;
+  bool get canBookSessions => isClient || isAdmin;
 
   // Factory method to create a UserModel from Firestore document
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
@@ -63,15 +54,45 @@ class UserModel {
       id: doc.id,
       email: data['email'] ?? '',
       name: data['name'] ?? '',
-      role: _userRoleFromString(data['role'] ?? 'client'),
-      photoUrl: data['photoUrl'],
-      isActive: data['isActive'] ?? true,
-      createdAt: data['createdAt'] != null 
-          ? (data['createdAt'] as Timestamp).toDate() 
-          : DateTime.now(),
+      role: _parseRole(data['role']),
+      credits: data['credits'] ?? 0,
+      createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: data['updatedAt'] != null 
           ? (data['updatedAt'] as Timestamp).toDate() 
           : null,
+      photoUrl: data['photoUrl'],
+      phoneNumber: data['phoneNumber'],
+      isActive: data['isActive'] ?? true,
+      metadata: data['metadata'],
+    );
+  }
+
+  // Create a copy with modified fields
+  UserModel copyWith({
+    String? id,
+    String? email,
+    String? name,
+    UserRole? role,
+    int? credits,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? photoUrl,
+    String? phoneNumber,
+    bool? isActive,
+    Map<String, dynamic>? metadata,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      email: email ?? this.email,
+      name: name ?? this.name,
+      role: role ?? this.role,
+      credits: credits ?? this.credits,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      photoUrl: photoUrl ?? this.photoUrl,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      isActive: isActive ?? this.isActive,
+      metadata: metadata ?? this.metadata,
     );
   }
 
@@ -80,17 +101,20 @@ class UserModel {
     return {
       'email': email,
       'name': name,
-      'role': _userRoleToString(role),
-      'photoUrl': photoUrl,
-      'isActive': isActive,
+      'role': _roleToString(role),
+      'credits': credits,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+      'photoUrl': photoUrl,
+      'phoneNumber': phoneNumber,
+      'isActive': isActive,
+      'metadata': metadata,
     };
   }
 
   // Helper methods for role conversion
-  static UserRole _userRoleFromString(String role) {
-    switch (role.toLowerCase()) {
+  static UserRole _parseRole(String? roleStr) {
+    switch (roleStr?.toLowerCase()) {
       case 'admin':
         return UserRole.admin;
       case 'instructor':
@@ -101,7 +125,7 @@ class UserModel {
     }
   }
 
-  static String _userRoleToString(UserRole role) {
+  static String _roleToString(UserRole role) {
     switch (role) {
       case UserRole.admin:
         return 'admin';
@@ -112,8 +136,23 @@ class UserModel {
     }
   }
 
+  // For equality comparison
+  @override
+  List<Object?> get props => [
+    id,
+    email,
+    name,
+    role,
+    credits,
+    createdAt,
+    updatedAt,
+    photoUrl,
+    phoneNumber,
+    isActive,
+  ];
+
   @override
   String toString() {
-    return 'UserModel(id: $id, name: $name, email: $email, role: $role)';
+    return 'UserModel(id: $id, name: $name, role: ${_roleToString(role)})';
   }
 }

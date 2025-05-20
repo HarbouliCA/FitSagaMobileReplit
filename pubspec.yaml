@@ -1,55 +1,100 @@
 name: fitsaga
-description: A cross-platform mobile app for gym management with role-based access, session booking, and tutorial features integrated with Firebase.
+description: A gym management mobile app with tutorial and admin features
 
-publish_to: 'none' 
+# The following line prevents the package from being accidentally published to
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
+# Version number - read by build system
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: ">=3.0.0 <4.0.0"
 
+# Dependencies specify other packages that your package needs in order to work.
 dependencies:
   flutter:
     sdk: flutter
-  
-  # Core
-  cupertino_icons: ^1.0.6
-  provider: ^6.1.1
-  flutter_dotenv: ^5.1.0
-  intl: ^0.18.1
-  logger: ^2.0.2+1
-  shared_preferences: ^2.2.2
-  
+
   # Firebase
-  firebase_core: ^2.24.2
-  firebase_auth: ^4.16.0
-  cloud_firestore: ^4.13.6
-  firebase_storage: ^11.5.6
+  firebase_core: ^2.15.1
+  firebase_auth: ^4.9.0
+  cloud_firestore: ^4.9.1
+  firebase_storage: ^11.2.6
+  firebase_messaging: ^14.6.7
+  
+  # State management
+  provider: ^6.0.5
+  equatable: ^2.0.5
   
   # UI
-  google_fonts: ^6.1.0
-  flutter_svg: ^2.0.9
-  cached_network_image: ^3.3.1
+  cupertino_icons: ^1.0.6
+  flutter_svg: ^2.0.7
+  cached_network_image: ^3.2.3
+  table_calendar: ^3.0.9
+  intl: ^0.18.1
+  flutter_markdown: ^0.6.17+3
+  url_launcher: ^6.1.14
+  image_picker: ^1.0.4
+  video_player: ^2.7.0
+  chewie: ^1.7.0
   shimmer: ^3.0.0
-  skeletons: ^0.0.3
   
-  # Video
-  video_player: ^2.8.2
+  # Utilities
+  uuid: ^3.0.7
+  shared_preferences: ^2.2.1
+  path_provider: ^2.1.1
+  http: ^1.1.0
+  logger: ^2.0.1
+  device_info_plus: ^9.0.3
+  package_info_plus: ^4.1.0
+  connectivity_plus: ^4.0.2
   
-  # Data
-  http: ^1.1.2
-  equatable: ^2.0.5
-  uuid: ^4.2.2
+  # Third party integrations for payment
+  in_app_purchase: ^3.1.10
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.1
+  flutter_lints: ^2.0.3
+  mockito: ^5.4.2
+  build_runner: ^2.4.6
 
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter packages.
 flutter:
+  # The following line ensures that the Material Icons font is
+  # included with your application, so that you can use the icons in
+  # the material Icons class.
   uses-material-design: true
-  
+
+  # To add assets to your application, add an assets section like this:
   assets:
     - assets/images/
     - assets/icons/
-    - .env
+    - assets/animations/
+
+  # An image asset can refer to one or more resolution-specific "variants", see
+  # https://flutter.dev/assets-and-images/#resolution-aware
+
+  # For details regarding adding assets from package dependencies, see
+  # https://flutter.dev/assets-and-images/#from-packages
+
+  # To add custom fonts to your application, add a fonts section here,
+  # in this "flutter" section. Each entry in this list should have a
+  # "family" key with the font family name, and a "fonts" key with a
+  # list giving the asset and other descriptors for the font.
+  fonts:
+    - family: Montserrat
+      fonts:
+        - asset: assets/fonts/Montserrat-Regular.ttf
+        - asset: assets/fonts/Montserrat-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Montserrat-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Montserrat-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Montserrat-Light.ttf
+          weight: 300

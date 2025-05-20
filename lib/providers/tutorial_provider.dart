@@ -4,55 +4,60 @@ import 'package:fitsaga/models/tutorial_model.dart';
 import 'package:fitsaga/models/user_model.dart';
 import 'package:fitsaga/services/firebase_service.dart';
 
+/// Provider for handling tutorials and user progress
 class TutorialProvider with ChangeNotifier {
   final FirebaseService _firebaseService;
   List<TutorialModel> _tutorials = [];
-  List<TutorialProgress> _userProgress = [];
-  List<TutorialRating> _userRatings = [];
+  Map<String, TutorialProgressModel> _userProgress = {};
   bool _isLoading = false;
   bool _isInitialized = false;
   String? _error;
   
   // Filters
-  TutorialCategory? _selectedCategory;
-  TutorialLevel? _selectedLevel;
-  bool _showOnlyFavorites = false;
+  TutorialDifficulty? _difficultyFilter;
+  TutorialCategory? _categoryFilter;
+  bool _onlyFavorites = false;
+  bool _onlyPremium = false;
   String? _searchQuery;
-
+  
   TutorialProvider(this._firebaseService);
-
+  
   // Getters
   bool get isLoading => _isLoading;
   bool get isInitialized => _isInitialized;
   String? get error => _error;
   List<TutorialModel> get tutorials => _tutorials;
-  List<TutorialProgress> get userProgress => _userProgress;
+  Map<String, TutorialProgressModel> get userProgress => _userProgress;
   
-  // Getters for filters
-  TutorialCategory? get selectedCategory => _selectedCategory;
-  TutorialLevel? get selectedLevel => _selectedLevel;
-  bool get showOnlyFavorites => _showOnlyFavorites;
+  // Filter getters
+  TutorialDifficulty? get difficultyFilter => _difficultyFilter;
+  TutorialCategory? get categoryFilter => _categoryFilter;
+  bool get onlyFavorites => _onlyFavorites;
+  bool get onlyPremium => _onlyPremium;
   String? get searchQuery => _searchQuery;
   
   // Set filters
   void setFilters({
+    TutorialDifficulty? difficulty,
     TutorialCategory? category,
-    TutorialLevel? level,
-    bool? onlyFavorites,
+    bool? favorites,
+    bool? premium,
     String? query,
   }) {
-    _selectedCategory = category;
-    _selectedLevel = level;
-    _showOnlyFavorites = onlyFavorites ?? _showOnlyFavorites;
+    _difficultyFilter = difficulty;
+    _categoryFilter = category;
+    _onlyFavorites = favorites ?? _onlyFavorites;
+    _onlyPremium = premium ?? _onlyPremium;
     _searchQuery = query;
     notifyListeners();
   }
   
   // Clear filters
   void clearFilters() {
-    _selectedCategory = null;
-    _selectedLevel = null;
-    _showOnlyFavorites = false;
+    _difficultyFilter = null;
+    _categoryFilter = null;
+    _onlyFavorites = false;
+    _onlyPremium = false;
     _searchQuery = null;
     notifyListeners();
   }
@@ -61,89 +66,63 @@ class TutorialProvider with ChangeNotifier {
   List<TutorialModel> get filteredTutorials {
     List<TutorialModel> result = List.from(_tutorials);
     
-    // Filter by category
-    if (_selectedCategory != null) {
-      result = result.where((tutorial) => tutorial.category == _selectedCategory).toList();
+    // Filter by difficulty
+    if (_difficultyFilter != null) {
+      result = result.where((tutorial) => tutorial.difficulty == _difficultyFilter).toList();
     }
     
-    // Filter by level
-    if (_selectedLevel != null) {
-      result = result.where((tutorial) => 
-          tutorial.level == _selectedLevel || tutorial.level == TutorialLevel.all).toList();
+    // Filter by category
+    if (_categoryFilter != null) {
+      result = result.where((tutorial) => tutorial.categories.contains(_categoryFilter)).toList();
+    }
+    
+    // Filter by premium status
+    if (_onlyPremium) {
+      result = result.where((tutorial) => tutorial.isPremium).toList();
     }
     
     // Filter by search query
     if (_searchQuery != null && _searchQuery!.isNotEmpty) {
       final query = _searchQuery!.toLowerCase();
       result = result.where((tutorial) => 
-          tutorial.title.toLowerCase().contains(query) ||
-          tutorial.description.toLowerCase().contains(query) ||
-          tutorial.tags.any((tag) => tag.toLowerCase().contains(query)) ||
-          tutorial.instructorName.toLowerCase().contains(query)
+        tutorial.title.toLowerCase().contains(query) ||
+        tutorial.description.toLowerCase().contains(query) ||
+        tutorial.tags.any((tag) => tag.toLowerCase().contains(query))
       ).toList();
     }
     
-    // Filter by favorites (would need to implement a favorites collection in Firestore)
-    if (_showOnlyFavorites) {
-      result = result.where((tutorial) => _isFavorite(tutorial.id)).toList();
-    }
+    // Sort by rating and then by creation date
+    result.sort((a, b) {
+      int ratingCompare = b.averageRating.compareTo(a.averageRating);
+      if (ratingCompare != 0) return ratingCompare;
+      return b.createdAt.compareTo(a.createdAt);
+    });
     
     return result;
   }
   
+  // Get popular tutorials (highest rated)
+  List<TutorialModel> get popularTutorials {
+    final tutorials = List<TutorialModel>.from(_tutorials);
+    tutorials.sort((a, b) => b.averageRating.compareTo(a.averageRating));
+    return tutorials.take(10).toList();
+  }
+  
+  // Get latest tutorials
+  List<TutorialModel> get latestTutorials {
+    final tutorials = List<TutorialModel>.from(_tutorials);
+    tutorials.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return tutorials.take(10).toList();
+  }
+  
   // Get tutorials by category
   List<TutorialModel> getTutorialsByCategory(TutorialCategory category) {
-    return _tutorials.where((tutorial) => tutorial.category == category).toList();
+    return _tutorials.where((tutorial) => tutorial.categories.contains(category)).toList();
   }
   
-  // Get tutorials by level
-  List<TutorialModel> getTutorialsByLevel(TutorialLevel level) {
-    return _tutorials.where((tutorial) => tutorial.level == level || tutorial.level == TutorialLevel.all).toList();
-  }
-  
-  // Get trending tutorials (based on view count)
-  List<TutorialModel> get trendingTutorials {
-    final sortedList = List<TutorialModel>.from(_tutorials);
-    sortedList.sort((a, b) => b.viewCount.compareTo(a.viewCount));
-    return sortedList.take(10).toList();
-  }
-  
-  // Get highest rated tutorials
-  List<TutorialModel> get highestRatedTutorials {
-    final sortedList = List<TutorialModel>.from(_tutorials);
-    sortedList.sort((a, b) => b.rating.compareTo(a.rating));
-    return sortedList.where((tutorial) => tutorial.rating > 0).take(10).toList();
-  }
-  
-  // Get recently added tutorials
-  List<TutorialModel> get recentTutorials {
-    final sortedList = List<TutorialModel>.from(_tutorials);
-    sortedList.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return sortedList.take(10).toList();
-  }
-  
-  // Get user's in-progress tutorials
-  List<TutorialModel> get inProgressTutorials {
-    final inProgressIds = _userProgress
-        .where((progress) => progress.progress > 0 && !progress.isCompleted)
-        .map((progress) => progress.tutorialId)
-        .toList();
-    
-    return _tutorials
-        .where((tutorial) => inProgressIds.contains(tutorial.id))
-        .toList();
-  }
-  
-  // Get user's completed tutorials
-  List<TutorialModel> get completedTutorials {
-    final completedIds = _userProgress
-        .where((progress) => progress.isCompleted)
-        .map((progress) => progress.tutorialId)
-        .toList();
-    
-    return _tutorials
-        .where((tutorial) => completedIds.contains(tutorial.id))
-        .toList();
+  // Get tutorials by difficulty
+  List<TutorialModel> getTutorialsByDifficulty(TutorialDifficulty difficulty) {
+    return _tutorials.where((tutorial) => tutorial.difficulty == difficulty).toList();
   }
   
   // Get tutorial by ID
@@ -155,53 +134,110 @@ class TutorialProvider with ChangeNotifier {
     }
   }
   
-  // Get user progress for a specific tutorial
-  TutorialProgress? getProgressForTutorial(String tutorialId) {
-    try {
-      return _userProgress.firstWhere(
-        (progress) => progress.tutorialId == tutorialId,
-      );
-    } catch (e) {
-      return null;
-    }
+  // Get user progress for tutorial
+  TutorialProgressModel? getProgressForTutorial(String tutorialId) {
+    return _userProgress[tutorialId];
   }
   
-  // Check if a tutorial is marked as favorite
-  bool _isFavorite(String tutorialId) {
-    // This would need to check against a user's favorites in Firestore
-    // For now, just return false as a placeholder
-    return false;
+  // Get completed tutorials for a user
+  List<TutorialModel> getCompletedTutorials() {
+    final completedIds = _userProgress.values
+        .where((progress) => progress.isCompleted)
+        .map((progress) => progress.tutorialId)
+        .toSet();
+    
+    return _tutorials.where((tutorial) => completedIds.contains(tutorial.id)).toList();
+  }
+  
+  // Get in-progress tutorials for a user
+  List<TutorialModel> getInProgressTutorials() {
+    final inProgressIds = _userProgress.values
+        .where((progress) => !progress.isCompleted && progress.progress > 0)
+        .map((progress) => progress.tutorialId)
+        .toSet();
+    
+    return _tutorials.where((tutorial) => inProgressIds.contains(tutorial.id)).toList();
+  }
+  
+  // Recommended tutorials based on user progress and preferences
+  List<TutorialModel> getRecommendedTutorials() {
+    // If no user progress, return popular tutorials
+    if (_userProgress.isEmpty) {
+      return popularTutorials;
+    }
+    
+    // Get completed tutorials
+    final completedTutorials = getCompletedTutorials();
+    if (completedTutorials.isEmpty) {
+      // If no completed tutorials, recommend beginner tutorials
+      return _tutorials
+          .where((t) => t.difficulty == TutorialDifficulty.beginner)
+          .take(5)
+          .toList();
+    }
+    
+    // Find common categories in completed tutorials
+    final Map<TutorialCategory, int> categoryCount = {};
+    for (final tutorial in completedTutorials) {
+      for (final category in tutorial.categories) {
+        categoryCount[category] = (categoryCount[category] ?? 0) + 1;
+      }
+    }
+    
+    // Get most common categories
+    final preferredCategories = categoryCount.entries
+        .sortedBy<num>((entry) => -entry.value)
+        .take(2)
+        .map((e) => e.key)
+        .toList();
+    
+    // Find user's highest completed difficulty
+    TutorialDifficulty highestDifficulty = TutorialDifficulty.beginner;
+    for (final tutorial in completedTutorials) {
+      if (tutorial.difficulty.index > highestDifficulty.index) {
+        highestDifficulty = tutorial.difficulty;
+      }
+    }
+    
+    // Get next difficulty level if available
+    final nextDifficulty = highestDifficulty.index < TutorialDifficulty.values.length - 1
+        ? TutorialDifficulty.values[highestDifficulty.index + 1]
+        : highestDifficulty;
+    
+    // Find tutorials in preferred categories and appropriate difficulty
+    // that the user hasn't completed yet
+    final completedIds = completedTutorials.map((t) => t.id).toSet();
+    final recommendedTutorials = _tutorials.where((tutorial) =>
+      !completedIds.contains(tutorial.id) &&
+      (tutorial.difficulty == highestDifficulty || tutorial.difficulty == nextDifficulty) &&
+      tutorial.categories.any((c) => preferredCategories.contains(c))
+    ).toList();
+    
+    // Sort by matches with preferred categories
+    recommendedTutorials.sort((a, b) {
+      final aMatches = a.categories.where((c) => preferredCategories.contains(c)).length;
+      final bMatches = b.categories.where((c) => preferredCategories.contains(c)).length;
+      return bMatches.compareTo(aMatches);
+    });
+    
+    return recommendedTutorials.take(10).toList();
   }
   
   // Load all tutorials
-  Future<void> loadTutorials({UserModel? user}) async {
+  Future<void> loadTutorials() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     
     try {
-      // Fetch tutorials from Firestore
-      final tutorialsRef = _firebaseService.firestore.collection('tutorials');
-      QuerySnapshot tutorialsSnapshot;
-      
-      // Admin sees all tutorials, others only see active ones
-      if (user != null && user.isAdmin) {
-        tutorialsSnapshot = await tutorialsRef.get();
-      } else {
-        tutorialsSnapshot = await tutorialsRef
-            .where('isActive', isEqualTo: true)
-            .get();
-      }
+      final QuerySnapshot tutorialsSnapshot = await _firebaseService.firestore
+          .collection('tutorials')
+          .where('isPublished', isEqualTo: true)
+          .get();
       
       _tutorials = tutorialsSnapshot.docs
           .map((doc) => TutorialModel.fromFirestore(doc))
           .toList();
-      
-      // If user is authenticated, load their progress
-      if (user != null) {
-        await _loadUserProgress(user.id);
-        await _loadUserRatings(user.id);
-      }
       
       _isInitialized = true;
       _isLoading = false;
@@ -214,137 +250,123 @@ class TutorialProvider with ChangeNotifier {
     }
   }
   
-  // Load user progress
-  Future<void> _loadUserProgress(String userId) async {
+  // Load user progress for tutorials
+  Future<void> loadUserProgress(String userId) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    
     try {
-      final progressRef = _firebaseService.firestore
-          .collection('tutorial_progress')
-          .where('userId', isEqualTo: userId);
+      final QuerySnapshot progressSnapshot = await _firebaseService.firestore
+          .collection('tutorialProgress')
+          .where('userId', isEqualTo: userId)
+          .get();
       
-      final progressSnapshot = await progressRef.get();
+      _userProgress = {};
+      for (final doc in progressSnapshot.docs) {
+        final progress = TutorialProgressModel.fromFirestore(doc);
+        _userProgress[progress.tutorialId] = progress;
+      }
       
-      _userProgress = progressSnapshot.docs
-          .map((doc) => TutorialProgress.fromFirestore(doc))
-          .toList();
+      _isLoading = false;
+      notifyListeners();
     } catch (e) {
-      _error = 'Failed to load tutorial progress: $e';
+      _error = 'Failed to load user progress: $e';
+      _isLoading = false;
+      notifyListeners();
       rethrow;
     }
   }
   
-  // Load user ratings
-  Future<void> _loadUserRatings(String userId) async {
-    try {
-      final ratingsRef = _firebaseService.firestore
-          .collection('tutorial_ratings')
-          .where('userId', isEqualTo: userId);
-      
-      final ratingsSnapshot = await ratingsRef.get();
-      
-      _userRatings = ratingsSnapshot.docs
-          .map((doc) => TutorialRating.fromFirestore(doc))
-          .toList();
-    } catch (e) {
-      _error = 'Failed to load tutorial ratings: $e';
-      rethrow;
-    }
-  }
-  
-  // Update user's tutorial progress
+  // Update user progress for a tutorial
   Future<bool> updateTutorialProgress({
     required String userId,
     required String tutorialId,
     required double progress,
-    required int positionInSeconds,
-    bool? markAsCompleted,
+    bool? isCompleted,
   }) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     
     try {
-      // Check if a progress record already exists
-      final progressRef = _firebaseService.firestore
-          .collection('tutorial_progress')
+      // Get existing progress or create new
+      final existingProgressDoc = await _firebaseService.firestore
+          .collection('tutorialProgress')
           .where('userId', isEqualTo: userId)
-          .where('tutorialId', isEqualTo: tutorialId);
+          .where('tutorialId', isEqualTo: tutorialId)
+          .limit(1)
+          .get();
       
-      final progressSnapshot = await progressRef.get();
       final now = DateTime.now();
       
-      if (progressSnapshot.docs.isNotEmpty) {
+      if (existingProgressDoc.docs.isNotEmpty) {
         // Update existing progress
-        final docId = progressSnapshot.docs.first.id;
-        final existingProgress = TutorialProgress.fromFirestore(progressSnapshot.docs.first);
+        final docId = existingProgressDoc.docs.first.id;
+        final existingProgress = TutorialProgressModel.fromFirestore(existingProgressDoc.docs.first);
         
-        // Only mark as completed if specified, otherwise keep existing value
-        final isCompleted = markAsCompleted ?? existingProgress.isCompleted;
+        // Determine completion status
+        final bool completed = isCompleted ?? (progress >= 1.0);
         
+        // Update progress document
         await _firebaseService.firestore
-            .collection('tutorial_progress')
+            .collection('tutorialProgress')
             .doc(docId)
             .update({
               'progress': progress,
-              'isCompleted': isCompleted,
-              'lastWatched': Timestamp.fromDate(now),
-              'lastPositionInSeconds': positionInSeconds,
-              'updatedAt': Timestamp.fromDate(now),
+              'isCompleted': completed,
+              'lastAccessedAt': Timestamp.fromDate(now),
+              if (completed && existingProgress.completedAt == null)
+                'completedAt': Timestamp.fromDate(now),
             });
         
-        // Update local progress list
-        final index = _userProgress.indexWhere((p) => p.id == docId);
-        if (index != -1) {
-          _userProgress[index] = TutorialProgress(
-            id: docId,
-            userId: userId,
-            tutorialId: tutorialId,
-            progress: progress,
-            isCompleted: isCompleted,
-            lastWatched: now,
-            lastPositionInSeconds: positionInSeconds,
-            createdAt: existingProgress.createdAt,
-            updatedAt: now,
-          );
-        }
+        // Update local state
+        _userProgress[tutorialId] = existingProgress.copyWith(
+          progress: progress,
+          isCompleted: completed,
+          lastAccessedAt: now,
+          completedAt: completed && existingProgress.completedAt == null ? now : existingProgress.completedAt,
+        );
       } else {
-        // Create new progress record
-        final newProgress = {
-          'userId': userId,
-          'tutorialId': tutorialId,
-          'progress': progress,
-          'isCompleted': markAsCompleted ?? false,
-          'lastWatched': Timestamp.fromDate(now),
-          'lastPositionInSeconds': positionInSeconds,
-          'createdAt': Timestamp.fromDate(now),
-          'updatedAt': Timestamp.fromDate(now),
-        };
+        // Create new progress document
+        final bool completed = isCompleted ?? (progress >= 1.0);
         
-        final docRef = await _firebaseService.firestore
-            .collection('tutorial_progress')
-            .add(newProgress);
-        
-        // Add to local progress list
-        _userProgress.add(TutorialProgress(
-          id: docRef.id,
+        final newProgress = TutorialProgressModel(
+          id: '', // Will be set after Firestore adds the document
           userId: userId,
           tutorialId: tutorialId,
           progress: progress,
-          isCompleted: markAsCompleted ?? false,
-          lastWatched: now,
-          lastPositionInSeconds: positionInSeconds,
-          createdAt: now,
-          updatedAt: now,
-        ));
+          isCompleted: completed,
+          startedAt: now,
+          completedAt: completed ? now : null,
+          lastAccessedAt: now,
+        );
+        
+        // Add to Firestore
+        final docRef = await _firebaseService.firestore
+            .collection('tutorialProgress')
+            .add(newProgress.toFirestore());
+        
+        // Update local state
+        _userProgress[tutorialId] = newProgress.copyWith(id: docRef.id);
       }
       
-      // Increment view count for the tutorial
-      await _incrementTutorialViewCount(tutorialId);
+      // Update tutorial view count
+      final tutorial = getTutorialById(tutorialId);
+      if (tutorial != null) {
+        await _firebaseService.firestore
+            .collection('tutorials')
+            .doc(tutorialId)
+            .update({
+              'viewCount': FieldValue.increment(1),
+            });
+      }
       
       _isLoading = false;
       notifyListeners();
       return true;
     } catch (e) {
-      _error = 'Failed to update tutorial progress: $e';
+      _error = 'Failed to update progress: $e';
       _isLoading = false;
       notifyListeners();
       return false;
@@ -356,146 +378,121 @@ class TutorialProvider with ChangeNotifier {
     required String userId,
     required String tutorialId,
     required int rating,
-    String? comment,
+    String? feedback,
   }) async {
-    if (rating < 1 || rating > 5) {
-      _error = 'Rating must be between 1 and 5';
-      notifyListeners();
-      return false;
-    }
-    
     _isLoading = true;
     _error = null;
     notifyListeners();
     
     try {
-      // Check if user has already rated this tutorial
-      final ratingRef = _firebaseService.firestore
-          .collection('tutorial_ratings')
-          .where('userId', isEqualTo: userId)
-          .where('tutorialId', isEqualTo: tutorialId);
-      
-      final ratingSnapshot = await ratingRef.get();
-      final now = DateTime.now();
-      
-      // Prepare for updating the tutorial's average rating
-      final tutorialRef = _firebaseService.firestore
-          .collection('tutorials')
-          .doc(tutorialId);
-      
-      final tutorialDoc = await tutorialRef.get();
-      if (!tutorialDoc.exists) {
-        _error = 'Tutorial not found';
-        _isLoading = false;
-        notifyListeners();
-        return false;
+      // Validate rating (1-5 stars)
+      if (rating < 1 || rating > 5) {
+        throw Exception('Rating must be between 1 and 5');
       }
       
-      final tutorial = TutorialModel.fromFirestore(tutorialDoc);
+      // Get progress document to update
+      final progressQuery = await _firebaseService.firestore
+          .collection('tutorialProgress')
+          .where('userId', isEqualTo: userId)
+          .where('tutorialId', isEqualTo: tutorialId)
+          .limit(1)
+          .get();
       
+      String progressDocId;
+      if (progressQuery.docs.isNotEmpty) {
+        // Update existing progress
+        progressDocId = progressQuery.docs.first.id;
+        
+        await _firebaseService.firestore
+            .collection('tutorialProgress')
+            .doc(progressDocId)
+            .update({
+              'userRating': rating,
+              if (feedback != null) 'userFeedback': feedback,
+              'lastAccessedAt': FieldValue.serverTimestamp(),
+            });
+        
+        // Update local state
+        final existingProgress = TutorialProgressModel.fromFirestore(progressQuery.docs.first);
+        _userProgress[tutorialId] = existingProgress.copyWith(
+          userRating: rating,
+          userFeedback: feedback ?? existingProgress.userFeedback,
+          lastAccessedAt: DateTime.now(),
+        );
+      } else {
+        // Create new progress entry with rating
+        final newProgress = TutorialProgressModel(
+          id: '', // Will be set after Firestore adds the document
+          userId: userId,
+          tutorialId: tutorialId,
+          progress: 0,
+          isCompleted: false,
+          lastAccessedAt: DateTime.now(),
+          userRating: rating,
+          userFeedback: feedback,
+        );
+        
+        // Add to Firestore
+        final docRef = await _firebaseService.firestore
+            .collection('tutorialProgress')
+            .add(newProgress.toFirestore());
+        
+        progressDocId = docRef.id;
+        
+        // Update local state
+        _userProgress[tutorialId] = newProgress.copyWith(id: progressDocId);
+      }
+      
+      // Update tutorial rating in a transaction for consistency
       await _firebaseService.firestore.runTransaction((transaction) async {
-        if (ratingSnapshot.docs.isNotEmpty) {
-          // Update existing rating
-          final docId = ratingSnapshot.docs.first.id;
-          final oldRating = (ratingSnapshot.docs.first.data() as Map<String, dynamic>)['rating'] ?? 0;
-          
-          // Update the rating document
-          transaction.update(
-            _firebaseService.firestore.collection('tutorial_ratings').doc(docId),
-            {
-              'rating': rating,
-              'comment': comment,
-              'updatedAt': Timestamp.fromDate(now),
-            },
-          );
-          
-          // Update tutorial's average rating
-          // Formula: ((oldAvg * count) - oldRating + newRating) / count
-          if (tutorial.ratingCount > 0) {
-            double newAverage = ((tutorial.rating * tutorial.ratingCount) - oldRating + rating) / tutorial.ratingCount;
-            
-            transaction.update(
-              tutorialRef,
-              {
-                'rating': newAverage,
-                'updatedAt': Timestamp.fromDate(now),
-              },
-            );
-            
-            // Update local tutorial
-            final index = _tutorials.indexWhere((t) => t.id == tutorialId);
-            if (index != -1) {
-              _tutorials[index] = _tutorials[index].copyWith(
-                rating: newAverage,
-                updatedAt: now,
-              );
-            }
-          }
-          
-          // Update local ratings list
-          final ratingIndex = _userRatings.indexWhere((r) => r.id == docId);
-          if (ratingIndex != -1) {
-            _userRatings[ratingIndex] = TutorialRating(
-              id: docId,
-              userId: userId,
-              tutorialId: tutorialId,
-              rating: rating,
-              comment: comment,
-              createdAt: _userRatings[ratingIndex].createdAt,
-              updatedAt: now,
-            );
-          }
+        // Get the tutorial document
+        final tutorialDoc = await transaction.get(_firebaseService.firestore.collection('tutorials').doc(tutorialId));
+        
+        if (!tutorialDoc.exists) {
+          throw Exception('Tutorial not found');
+        }
+        
+        // Calculate new rating
+        final currentRating = tutorialDoc.data()?['averageRating'] ?? 0.0;
+        final currentCount = tutorialDoc.data()?['ratingCount'] ?? 0;
+        
+        // Check if this user has already rated before
+        bool isNewRating = true;
+        if (progressQuery.docs.isNotEmpty) {
+          final oldRating = progressQuery.docs.first.data()?['userRating'];
+          isNewRating = oldRating == null;
+        }
+        
+        double newAverage;
+        int newCount;
+        
+        if (isNewRating) {
+          // Brand new rating
+          newCount = currentCount + 1;
+          final totalPoints = (currentRating * currentCount) + rating;
+          newAverage = totalPoints / newCount;
         } else {
-          // Create new rating
-          final newRatingRef = _firebaseService.firestore
-              .collection('tutorial_ratings')
-              .doc();
-          
-          transaction.set(
-            newRatingRef,
-            {
-              'userId': userId,
-              'tutorialId': tutorialId,
-              'rating': rating,
-              'comment': comment,
-              'createdAt': Timestamp.fromDate(now),
-              'updatedAt': Timestamp.fromDate(now),
-            },
+          // Updating existing rating - need to remove old rating first
+          final oldRating = progressQuery.docs.first.data()?['userRating'] ?? 0;
+          final totalPointsMinusOld = (currentRating * currentCount) - oldRating;
+          final totalPoints = totalPointsMinusOld + rating;
+          newCount = currentCount; // Count stays the same
+          newAverage = totalPoints / newCount;
+        }
+        
+        // Update the tutorial document
+        transaction.update(tutorialDoc.reference, {
+          'averageRating': newAverage,
+          'ratingCount': newCount,
+        });
+        
+        // Update local tutorial object
+        final index = _tutorials.indexWhere((t) => t.id == tutorialId);
+        if (index != -1) {
+          _tutorials[index] = _tutorials[index].copyWith(
+            averageRating: newAverage,
+            ratingCount: newCount,
           );
-          
-          // Update tutorial's average rating and increment count
-          // Formula: ((oldAvg * oldCount) + newRating) / (oldCount + 1)
-          double newAverage = ((tutorial.rating * tutorial.ratingCount) + rating) / (tutorial.ratingCount + 1);
-          
-          transaction.update(
-            tutorialRef,
-            {
-              'rating': newAverage,
-              'ratingCount': FieldValue.increment(1),
-              'updatedAt': Timestamp.fromDate(now),
-            },
-          );
-          
-          // Update local tutorial
-          final index = _tutorials.indexWhere((t) => t.id == tutorialId);
-          if (index != -1) {
-            _tutorials[index] = _tutorials[index].copyWith(
-              rating: newAverage,
-              ratingCount: _tutorials[index].ratingCount + 1,
-              updatedAt: now,
-            );
-          }
-          
-          // Add to local ratings list
-          _userRatings.add(TutorialRating(
-            id: newRatingRef.id,
-            userId: userId,
-            tutorialId: tutorialId,
-            rating: rating,
-            comment: comment,
-            createdAt: now,
-            updatedAt: now,
-          ));
         }
       });
       
@@ -510,98 +507,60 @@ class TutorialProvider with ChangeNotifier {
     }
   }
   
-  // Toggle favorite status for a tutorial
-  Future<bool> toggleFavorite(String userId, String tutorialId) async {
+  // Create a new tutorial (for admin/instructor)
+  Future<bool> createTutorial({
+    required String title,
+    required String description,
+    required String content,
+    required String authorId,
+    required String authorName,
+    required List<TutorialCategory> categories,
+    required TutorialDifficulty difficulty,
+    required int durationMinutes,
+    required List<String> tags,
+    String? thumbnailUrl,
+    String? videoUrl,
+    bool isPremium = false,
+    bool isPublished = false,
+  }) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     
     try {
-      // Check if tutorial is already a favorite
-      final favoriteRef = _firebaseService.firestore
-          .collection('user_favorites')
-          .where('userId', isEqualTo: userId)
-          .where('tutorialId', isEqualTo: tutorialId);
-      
-      final favoriteSnapshot = await favoriteRef.get();
-      
-      if (favoriteSnapshot.docs.isNotEmpty) {
-        // Remove from favorites
-        await _firebaseService.firestore
-            .collection('user_favorites')
-            .doc(favoriteSnapshot.docs.first.id)
-            .delete();
-      } else {
-        // Add to favorites
-        await _firebaseService.firestore
-            .collection('user_favorites')
-            .add({
-              'userId': userId,
-              'tutorialId': tutorialId,
-              'createdAt': FieldValue.serverTimestamp(),
-            });
-      }
-      
-      _isLoading = false;
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _error = 'Failed to update favorites: $e';
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    }
-  }
-  
-  // Increment tutorial view count
-  Future<void> _incrementTutorialViewCount(String tutorialId) async {
-    try {
-      await _firebaseService.firestore
-          .collection('tutorials')
-          .doc(tutorialId)
-          .update({
-            'viewCount': FieldValue.increment(1),
-          });
-      
-      // Update local tutorial
-      final index = _tutorials.indexWhere((t) => t.id == tutorialId);
-      if (index != -1) {
-        _tutorials[index] = _tutorials[index].copyWith(
-          viewCount: _tutorials[index].viewCount + 1,
-        );
-      }
-    } catch (e) {
-      // Don't throw error for view count updates, just log it
-      print('Failed to update view count: $e');
-    }
-  }
-  
-  // Create a new tutorial (Admin/Instructor function)
-  Future<bool> createTutorial(TutorialModel tutorial) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-    
-    try {
-      // Validate tutorial data
-      if (tutorial.title.isEmpty || tutorial.description.isEmpty) {
-        _error = 'Title and description are required';
-        _isLoading = false;
-        notifyListeners();
-        return false;
-      }
+      final tutorial = TutorialModel(
+        id: '', // Will be set after Firestore adds the document
+        title: title,
+        description: description,
+        content: content,
+        authorId: authorId,
+        authorName: authorName,
+        categories: categories,
+        difficulty: difficulty,
+        durationMinutes: durationMinutes,
+        tags: tags,
+        thumbnailUrl: thumbnailUrl,
+        videoUrl: videoUrl,
+        averageRating: 0.0,
+        ratingCount: 0,
+        viewCount: 0,
+        isPublished: isPublished,
+        isPremium: isPremium,
+        createdAt: DateTime.now(),
+      );
       
       // Add to Firestore
       final docRef = await _firebaseService.firestore
           .collection('tutorials')
           .add(tutorial.toFirestore());
       
-      // Add to local list with generated ID
-      final newTutorial = tutorial.copyWith(id: docRef.id);
-      _tutorials.add(newTutorial);
+      // Add to local state if published
+      if (isPublished) {
+        _tutorials.add(tutorial.copyWith(id: docRef.id));
+        notifyListeners();
+      }
       
       _isLoading = false;
-      notifyListeners();
       return true;
     } catch (e) {
       _error = 'Failed to create tutorial: $e';
@@ -611,35 +570,81 @@ class TutorialProvider with ChangeNotifier {
     }
   }
   
-  // Update an existing tutorial (Admin/Instructor function)
-  Future<bool> updateTutorial(TutorialModel updatedTutorial) async {
+  // Update an existing tutorial
+  Future<bool> updateTutorial({
+    required String id,
+    String? title,
+    String? description,
+    String? content,
+    List<TutorialCategory>? categories,
+    TutorialDifficulty? difficulty,
+    int? durationMinutes,
+    List<String>? tags,
+    String? thumbnailUrl,
+    String? videoUrl,
+    bool? isPremium,
+    bool? isPublished,
+  }) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     
     try {
-      // Validate tutorial data
-      if (updatedTutorial.title.isEmpty || updatedTutorial.description.isEmpty) {
-        _error = 'Title and description are required';
-        _isLoading = false;
-        notifyListeners();
-        return false;
+      // Get current tutorial
+      final tutorial = getTutorialById(id);
+      if (tutorial == null) {
+        throw Exception('Tutorial not found');
       }
+      
+      // Create updated data map
+      final updateData = {
+        if (title != null) 'title': title,
+        if (description != null) 'description': description,
+        if (content != null) 'content': content,
+        if (categories != null) 'categories': categories.map((c) => c.toString().split('.').last).toList(),
+        if (difficulty != null) 'difficulty': difficulty.toString().split('.').last,
+        if (durationMinutes != null) 'durationMinutes': durationMinutes,
+        if (tags != null) 'tags': tags,
+        if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
+        if (videoUrl != null) 'videoUrl': videoUrl,
+        if (isPremium != null) 'isPremium': isPremium,
+        if (isPublished != null) 'isPublished': isPublished,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      };
       
       // Update in Firestore
       await _firebaseService.firestore
           .collection('tutorials')
-          .doc(updatedTutorial.id)
-          .update(updatedTutorial.toFirestore());
+          .doc(id)
+          .update(updateData);
       
-      // Update in local list
-      final index = _tutorials.indexWhere((t) => t.id == updatedTutorial.id);
+      // Update local state
+      final index = _tutorials.indexWhere((t) => t.id == id);
       if (index != -1) {
-        _tutorials[index] = updatedTutorial;
+        _tutorials[index] = _tutorials[index].copyWith(
+          title: title,
+          description: description,
+          content: content,
+          categories: categories,
+          difficulty: difficulty,
+          durationMinutes: durationMinutes,
+          tags: tags,
+          thumbnailUrl: thumbnailUrl,
+          videoUrl: videoUrl,
+          isPremium: isPremium,
+          isPublished: isPublished,
+          updatedAt: DateTime.now(),
+        );
+        
+        // If tutorial is unpublished, remove from local list
+        if (isPublished == false) {
+          _tutorials.removeAt(index);
+        }
+        
+        notifyListeners();
       }
       
       _isLoading = false;
-      notifyListeners();
       return true;
     } catch (e) {
       _error = 'Failed to update tutorial: $e';
@@ -649,8 +654,8 @@ class TutorialProvider with ChangeNotifier {
     }
   }
   
-  // Delete a tutorial (Admin function)
-  Future<bool> deleteTutorial(String tutorialId) async {
+  // Delete a tutorial
+  Future<bool> deleteTutorial(String id) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -659,11 +664,27 @@ class TutorialProvider with ChangeNotifier {
       // Delete from Firestore
       await _firebaseService.firestore
           .collection('tutorials')
-          .doc(tutorialId)
+          .doc(id)
           .delete();
       
-      // Remove from local list
-      _tutorials.removeWhere((t) => t.id == tutorialId);
+      // Delete from local state
+      _tutorials.removeWhere((t) => t.id == id);
+      
+      // Also delete all progress entries for this tutorial
+      final progressQuery = await _firebaseService.firestore
+          .collection('tutorialProgress')
+          .where('tutorialId', isEqualTo: id)
+          .get();
+      
+      // Batch delete all progress entries
+      final batch = _firebaseService.firestore.batch();
+      for (final doc in progressQuery.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+      
+      // Remove from local progress map
+      _userProgress.remove(id);
       
       _isLoading = false;
       notifyListeners();
@@ -676,19 +697,22 @@ class TutorialProvider with ChangeNotifier {
     }
   }
   
-  // Refresh tutorials data
-  Future<void> refreshTutorials(String userId) async {
-    return loadTutorials();
-  }
-  
   // Clear all data (used during logout)
   void clear() {
     _tutorials = [];
-    _userProgress = [];
-    _userRatings = [];
+    _userProgress = {};
     _isInitialized = false;
     _error = null;
     clearFilters();
     notifyListeners();
+  }
+}
+
+// Extension for sorting
+extension SortedBy<T> on Iterable<T> {
+  List<T> sortedBy<R extends Comparable>(R Function(T) key) {
+    final list = toList();
+    list.sort((a, b) => key(a).compareTo(key(b)));
+    return list;
   }
 }
