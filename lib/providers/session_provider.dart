@@ -215,8 +215,150 @@ class SessionProvider with ChangeNotifier {
   }
   
   // Check for conflicts
-  List<SessionModel> checkForConflicts(SessionModel newSession) {
-    return _sessions.where((session) => newSession.hasConflict(session)).toList();
+  List<SessionModel> checkForConflicts(SessionModel newSession, {bool checkRecurring = true}) {
+    List<SessionModel> conflicts = [];
+    
+    // First check direct conflicts with the new session
+    for (final session in _sessions) {
+      if (newSession.hasConflict(session)) {
+        conflicts.add(session);
+      }
+    }
+    
+    // If this is a recurring session, check conflicts for future instances
+    if (checkRecurring && newSession.isRecurring && newSession.recurringRule != null) {
+      final futureConflicts = _checkRecurringConflicts(
+        newSession: newSession,
+        recurringRule: newSession.recurringRule!,
+        startDate: newSession.startTime,
+        occurrences: 10, // Check the next 10 occurrences
+      );
+      
+      conflicts.addAll(futureConflicts);
+    }
+    
+    return conflicts;
+  }
+  
+  // Check for conflicts with future instances of recurring sessions
+  List<SessionModel> _checkRecurringConflicts({
+    required SessionModel newSession,
+    required String recurringRule,
+    required DateTime startDate,
+    required int occurrences,
+  }) {
+    List<SessionModel> conflicts = [];
+    final futureDates = _generateRecurringDates(
+      startDate: startDate,
+      rule: recurringRule,
+      occurrences: occurrences,
+    );
+    
+    for (final date in futureDates) {
+      // Create a virtual session at this date for conflict checking
+      final virtualSession = newSession.copyWith(
+        id: 'virtual-${const Uuid().v4()}',
+        startTime: date,
+      );
+      
+      for (final existingSession in _sessions) {
+        // Only check against future sessions
+        if (existingSession.startTime.isAfter(DateTime.now())) {
+          if (virtualSession.hasConflict(existingSession)) {
+            if (!conflicts.any((s) => s.id == existingSession.id)) {
+              conflicts.add(existingSession);
+            }
+          }
+        }
+      }
+    }
+    
+    return conflicts;
+  }
+  
+  // Generate recurring dates based on an RRULE
+  List<DateTime> _generateRecurringDates({
+    required DateTime startDate,
+    required String rule,
+    required int occurrences,
+  }) {
+    List<DateTime> dates = [];
+    
+    // Parse the RRULE format
+    Map<String, String> ruleMap = {};
+    for (var part in rule.split(';')) {
+      final keyValue = part.split('=');
+      if (keyValue.length == 2) {
+        ruleMap[keyValue[0]] = keyValue[1];
+      }
+    }
+    
+    final freq = ruleMap['FREQ'];
+    final byDay = ruleMap['BYDAY']?.split(',');
+    
+    if (freq == null) {
+      return dates;
+    }
+    
+    // Map of weekday abbreviations to day of week numbers
+    const weekdayMap = {
+      'MO': DateTime.monday,
+      'TU': DateTime.tuesday,
+      'WE': DateTime.wednesday,
+      'TH': DateTime.thursday,
+      'FR': DateTime.friday,
+      'SA': DateTime.saturday,
+      'SU': DateTime.sunday,
+    };
+    
+    // Iterate starting from the day after startDate
+    DateTime currentDate = startDate.add(const Duration(days: 1));
+    
+    while (dates.length < occurrences) {
+      bool includeDate = false;
+      
+      switch (freq) {
+        case 'DAILY':
+          includeDate = true;
+          break;
+        case 'WEEKLY':
+          if (byDay != null && byDay.isNotEmpty) {
+            // Check if current day is in the BYDAY list
+            includeDate = byDay.any((day) => weekdayMap[day] == currentDate.weekday);
+          } else {
+            // If no BYDAY specified, use same day of week as start date
+            includeDate = currentDate.weekday == startDate.weekday;
+          }
+          break;
+        case 'MONTHLY':
+          // Same day of month
+          includeDate = currentDate.day == startDate.day;
+          break;
+        case 'YEARLY':
+          // Same month and day
+          includeDate = currentDate.month == startDate.month && 
+                      currentDate.day == startDate.day;
+          break;
+      }
+      
+      if (includeDate) {
+        // Create date with same time of day as start date
+        final DateTime dateWithCorrectTime = DateTime(
+          currentDate.year,
+          currentDate.month,
+          currentDate.day,
+          startDate.hour,
+          startDate.minute,
+        );
+        
+        dates.add(dateWithCorrectTime);
+      }
+      
+      // Move to next day
+      currentDate = currentDate.add(const Duration(days: 1));
+    }
+    
+    return dates;
   }
   
   // Load all sessions

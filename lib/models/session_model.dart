@@ -60,9 +60,34 @@ class SessionModel extends Equatable {
   bool hasConflict(SessionModel other) {
     if (id == other.id) return false; // Same session
     
-    // Check if instructor is the same
+    // Only check for conflicts with upcoming and ongoing sessions
+    if (other.status == SessionStatus.completed || other.status == SessionStatus.cancelled) {
+      return false;
+    }
+    
+    // Check if this is a recurring instance and the other session is its parent
+    if (parentRecurringSessionId != null && other.id == parentRecurringSessionId) {
+      return false;
+    }
+    
+    // Check if the other session is a recurring instance of this parent session
+    if (isRecurring && other.parentRecurringSessionId == id) {
+      return false;
+    }
+    
+    // Check if instructor is the same (instructors can't be in two places at once)
     if (instructorId == other.instructorId) {
       // Check time overlap
+      if (startTime.isBefore(other.endTime) && 
+          endTime.isAfter(other.startTime)) {
+        return true;
+      }
+    }
+    
+    // If this is for the same client, check for client double-booking
+    // This would need to compare the participant lists
+    bool hasParticipantOverlap = participantIds.any((id) => other.participantIds.contains(id));
+    if (hasParticipantOverlap) {
       if (startTime.isBefore(other.endTime) && 
           endTime.isAfter(other.startTime)) {
         return true;
