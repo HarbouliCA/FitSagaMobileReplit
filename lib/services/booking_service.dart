@@ -1,147 +1,155 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitsaga/models/booking_model.dart';
 import 'package:fitsaga/models/credit_model.dart';
-import 'package:fitsaga/models/session_model.dart';
-import 'package:fitsaga/models/user_model.dart';
-import 'package:fitsaga/services/firebase_service.dart';
-import 'package:uuid/uuid.dart';
 
 class BookingService {
-  final FirebaseService _firebaseService;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   
-  BookingService(this._firebaseService);
+  // Get user bookings
+  Future<List<BookingModel>> getUserBookings({
+    required String userId,
+    bool upcoming = true,
+    int limit = 10,
+  }) async {
+    try {
+      // For demo purposes, return sample bookings
+      final allBookings = BookingModel.getSampleBookings(userId);
+      
+      if (upcoming) {
+        // Filter upcoming bookings (status is confirmed and date is in the future)
+        return allBookings
+            .where((booking) => 
+                booking.status == BookingStatus.confirmed && 
+                booking.sessionDate.isAfter(DateTime.now()))
+            .toList();
+      } else {
+        // Filter past bookings (date is in the past or status is not confirmed)
+        return allBookings
+            .where((booking) => 
+                booking.sessionDate.isBefore(DateTime.now()) || 
+                booking.status != BookingStatus.confirmed)
+            .toList();
+      }
+      
+      // In a real app, we would query Firestore like this:
+      /*
+      final now = DateTime.now();
+      
+      var query = _firestore
+          .collection('bookings')
+          .where('userId', isEqualTo: userId)
+          .limit(limit);
+      
+      if (upcoming) {
+        query = query
+            .where('status', isEqualTo: 'confirmed')
+            .where('sessionDate', isGreaterThanOrEqualTo: Timestamp.fromDate(now))
+            .orderBy('sessionDate', descending: false);
+      } else {
+        query = query
+            .where('sessionDate', isLessThan: Timestamp.fromDate(now))
+            .orderBy('sessionDate', descending: true);
+      }
+      
+      final querySnapshot = await query.get();
+      
+      return querySnapshot.docs
+          .map((doc) => BookingModel.fromFirestore(doc))
+          .toList();
+      */
+    } catch (e) {
+      throw Exception('Failed to get bookings: $e');
+    }
+  }
   
   // Book a session
   Future<BookingResult> bookSession({
     required String userId,
     required String sessionId,
+    required String sessionTitle,
+    required String? instructorId,
+    required String? instructorName,
+    required DateTime sessionDate,
+    required DateTime startTime,
+    required DateTime endTime,
+    required int creditsRequired,
   }) async {
-    final firestore = _firebaseService.firestore;
-    
     try {
-      // Use transaction to ensure consistency
-      return await firestore.runTransaction((transaction) async {
-        // Get session
-        final sessionDoc = await transaction.get(
-          firestore.collection('sessions').doc(sessionId),
-        );
-        
-        if (!sessionDoc.exists) {
-          return BookingResult.error('Session not found');
-        }
-        
-        final sessionData = sessionDoc.data() as Map<String, dynamic>;
-        final SessionModel session = SessionModel.fromJson({
-          'id': sessionDoc.id,
-          ...sessionData,
-        });
-        
-        // Check if session is bookable
-        if (!session.isActive) {
-          return BookingResult.error('This session is not active');
-        }
-        
-        if (session.startTime.isBefore(DateTime.now())) {
-          return BookingResult.error('Cannot book a session that has already started');
-        }
-        
-        // Check capacity
-        if (session.currentBookings >= session.maxCapacity) {
-          return BookingResult.error('Session is full');
-        }
-        
-        // Get user document to check credits
-        final userDoc = await transaction.get(
-          firestore.collection('clients').doc(userId),
-        );
-        
-        if (!userDoc.exists) {
-          return BookingResult.error('User not found');
-        }
-        
-        final userData = userDoc.data() as Map<String, dynamic>;
-        final UserCredit userCredit = UserCredit.fromFirestore(userDoc);
-        
-        // Get required credits for the session
-        final int requiredCredits = session.creditCost;
-        
-        // Check if user has enough credits
-        if (!userCredit.hasSufficientCredits(requiredCredits)) {
-          return BookingResult.error('Insufficient credits');
-        }
-        
-        // Check if user has already booked this session
-        final existingBookingQuery = await firestore
-            .collection('bookings')
-            .where('userId', isEqualTo: userId)
-            .where('sessionId', isEqualTo: sessionId)
-            .where('status', isEqualTo: 'confirmed')
-            .get();
-        
-        if (existingBookingQuery.docs.isNotEmpty) {
-          return BookingResult.error('You have already booked this session');
-        }
-        
+      // Check if user has enough credits
+      final userCredit = await _getUserCredit(userId);
+      
+      if (userCredit == null) {
+        return BookingResult.error('User credit information not found');
+      }
+      
+      if (!userCredit.isUnlimited && userCredit.gymCredits < creditsRequired) {
+        return BookingResult.error('Not enough credits. Required: $creditsRequired, Available: ${userCredit.gymCredits}');
+      }
+      
+      // Check if session has available slots
+      final isAvailable = await _checkSessionAvailability(sessionId);
+      if (!isAvailable) {
+        return BookingResult.error('Session is fully booked');
+      }
+      
+      // Create booking
+      final booking = BookingModel(
+        id: 'booking-${DateTime.now().millisecondsSinceEpoch}',
+        userId: userId,
+        sessionId: sessionId,
+        sessionTitle: sessionTitle,
+        instructorId: instructorId,
+        instructorName: instructorName,
+        sessionDate: sessionDate,
+        startTime: startTime,
+        endTime: endTime,
+        creditsUsed: creditsRequired,
+        status: BookingStatus.confirmed,
+        bookedAt: DateTime.now(),
+      );
+      
+      // In a real app, we would use a Firestore transaction to ensure data consistency
+      /*
+      await _firestore.runTransaction((transaction) async {
         // Create booking document
-        final String bookingId = const Uuid().v4();
-        final bookingRef = firestore.collection('bookings').doc(bookingId);
+        final bookingRef = _firestore.collection('bookings').doc();
+        transaction.set(bookingRef, booking.copyWith(id: bookingRef.id).toFirestore());
         
-        final BookingModel booking = BookingModel(
-          id: bookingId,
-          userId: userId,
-          sessionId: sessionId,
-          status: BookingStatus.confirmed,
-          creditsUsed: requiredCredits,
-          bookedAt: DateTime.now(),
-          sessionTitle: session.title,
-          sessionStartTime: session.startTime,
-          sessionEndTime: session.endTime,
-          instructorId: session.instructorId,
-          instructorName: session.instructorName,
-        );
+        // Update session capacity
+        final sessionRef = _firestore.collection('sessions').doc(sessionId);
+        transaction.update(sessionRef, {'currentBookings': FieldValue.increment(1)});
         
-        transaction.set(bookingRef, booking.toFirestore());
-        
-        // Deduct credits from user account if not unlimited
+        // Deduct credits if not unlimited
         if (!userCredit.isUnlimited) {
-          // Try to use interval credits first, then gym credits
-          int newGymCredits = userCredit.gymCredits;
-          int newIntervalCredits = userCredit.intervalCredits;
-          
-          if (userCredit.intervalCredits >= requiredCredits) {
-            // Use interval credits
-            newIntervalCredits = userCredit.intervalCredits - requiredCredits;
-          } else {
-            // Use gym credits
-            newGymCredits = userCredit.gymCredits - requiredCredits;
-          }
-          
-          // Update user document
-          transaction.update(userDoc.reference, {
-            'gymCredits': newGymCredits,
-            'intervalCredits': newIntervalCredits,
-          });
-          
-          // Create credit adjustment record
-          final adjustmentRef = firestore.collection('creditAdjustments').doc();
-          transaction.set(adjustmentRef, {
-            'clientId': userId,
-            'previousGymCredits': userCredit.gymCredits,
-            'previousIntervalCredits': userCredit.intervalCredits,
-            'newGymCredits': newGymCredits,
-            'newIntervalCredits': newIntervalCredits,
-            'reason': 'Session booking: ${session.title}',
-            'adjustedAt': FieldValue.serverTimestamp(),
-          });
+          final creditRef = _firestore.collection('userCredits').doc(userCredit.id);
+          transaction.update(creditRef, {'gymCredits': FieldValue.increment(-creditsRequired)});
         }
         
-        // Update session booking count
-        transaction.update(sessionDoc.reference, {
-          'currentBookings': FieldValue.increment(1),
-        });
-        
-        return BookingResult.success(bookingId);
+        // Create credit adjustment record
+        final adjustmentRef = _firestore.collection('creditAdjustments').doc();
+        transaction.set(adjustmentRef, CreditAdjustment(
+          id: adjustmentRef.id,
+          userId: userId,
+          gymCreditChange: -creditsRequired,
+          intervalCreditChange: 0,
+          reason: 'Booked: $sessionTitle',
+          relatedBookingId: bookingRef.id,
+          adjustedAt: DateTime.now(),
+          adjustedBy: 'system',
+        ).toFirestore());
       });
+      */
+      
+      // Update remaining credits
+      final remainingCredits = userCredit.isUnlimited 
+          ? userCredit.gymCredits 
+          : userCredit.gymCredits - creditsRequired;
+      
+      return BookingResult.success(
+        bookingId: booking.id,
+        creditsUsed: creditsRequired,
+        remainingCredits: remainingCredits,
+      );
     } catch (e) {
       return BookingResult.error('Failed to book session: $e');
     }
@@ -152,188 +160,93 @@ class BookingService {
     required String userId,
     required String bookingId,
   }) async {
-    final firestore = _firebaseService.firestore;
-    
     try {
-      return await firestore.runTransaction((transaction) async {
-        // Get booking
-        final bookingDoc = await transaction.get(
-          firestore.collection('bookings').doc(bookingId),
-        );
-        
-        if (!bookingDoc.exists) {
-          return BookingResult.error('Booking not found');
-        }
-        
-        final bookingData = bookingDoc.data() as Map<String, dynamic>;
-        final BookingModel booking = BookingModel.fromFirestore(bookingDoc);
-        
-        // Verify ownership
-        if (booking.userId != userId) {
-          return BookingResult.error('You do not have permission to cancel this booking');
-        }
-        
-        // Check if booking is already cancelled
-        if (booking.status == BookingStatus.cancelled) {
-          return BookingResult.error('Booking is already cancelled');
-        }
-        
-        // Check cancellation deadline
-        if (!booking.canBeCancelled()) {
-          return BookingResult.error('Cannot cancel booking less than 24 hours before the session');
-        }
-        
-        // Get session
-        final sessionDoc = await transaction.get(
-          firestore.collection('sessions').doc(booking.sessionId),
-        );
-        
-        if (!sessionDoc.exists) {
-          return BookingResult.error('Session not found');
-        }
-        
-        // Get user to refund credits
-        final userDoc = await transaction.get(
-          firestore.collection('clients').doc(userId),
-        );
-        
-        if (!userDoc.exists) {
-          return BookingResult.error('User not found');
-        }
-        
-        final UserCredit userCredit = UserCredit.fromFirestore(userDoc);
-        
+      // For demo, find the booking in sample data
+      final allBookings = BookingModel.getSampleBookings(userId);
+      final bookingIndex = allBookings.indexWhere((b) => b.id == bookingId);
+      
+      if (bookingIndex == -1) {
+        return BookingResult.error('Booking not found');
+      }
+      
+      final booking = allBookings[bookingIndex];
+      
+      // Check if booking can be cancelled
+      if (booking.status != BookingStatus.confirmed) {
+        return BookingResult.error('Only confirmed bookings can be cancelled');
+      }
+      
+      // Check cancellation policy (e.g., 24 hours before session)
+      if (!booking.canBeCancelled()) {
+        return BookingResult.error('Booking cannot be cancelled within 24 hours of the session');
+      }
+      
+      // In a real app, we would use a transaction:
+      /*
+      await _firestore.runTransaction((transaction) async {
         // Update booking status
-        transaction.update(bookingDoc.reference, {
-          'status': BookingStatus.cancelled.toStringValue(),
+        final bookingRef = _firestore.collection('bookings').doc(bookingId);
+        transaction.update(bookingRef, {
+          'status': 'cancelled',
           'cancelledAt': FieldValue.serverTimestamp(),
         });
         
-        // Update session booking count
-        transaction.update(sessionDoc.reference, {
-          'currentBookings': FieldValue.increment(-1),
-        });
+        // Update session capacity
+        final sessionRef = _firestore.collection('sessions').doc(booking.sessionId);
+        transaction.update(sessionRef, {'currentBookings': FieldValue.increment(-1)});
         
-        // Refund credits if not unlimited
-        if (!userCredit.isUnlimited) {
-          final newGymCredits = userCredit.gymCredits + booking.creditsUsed;
+        // Refund credits
+        final userCreditRef = _firestore.collection('userCredits').where('userId', isEqualTo: userId).limit(1);
+        final creditSnapshot = await userCreditRef.get();
+        
+        if (!creditSnapshot.docs.isEmpty) {
+          final creditDoc = creditSnapshot.docs.first;
+          final creditId = creditDoc.id;
           
-          transaction.update(userDoc.reference, {
-            'gymCredits': newGymCredits,
-          });
+          // Update credits
+          final creditRef = _firestore.collection('userCredits').doc(creditId);
+          transaction.update(creditRef, {'gymCredits': FieldValue.increment(booking.creditsUsed)});
           
-          // Create credit adjustment record for refund
-          final adjustmentRef = firestore.collection('creditAdjustments').doc();
-          transaction.set(adjustmentRef, {
-            'clientId': userId,
-            'previousGymCredits': userCredit.gymCredits,
-            'previousIntervalCredits': userCredit.intervalCredits,
-            'newGymCredits': newGymCredits,
-            'newIntervalCredits': userCredit.intervalCredits,
-            'reason': 'Booking cancellation refund: ${booking.sessionTitle ?? booking.sessionId}',
-            'adjustedAt': FieldValue.serverTimestamp(),
-          });
+          // Create credit adjustment record
+          final adjustmentRef = _firestore.collection('creditAdjustments').doc();
+          transaction.set(adjustmentRef, CreditAdjustment(
+            id: adjustmentRef.id,
+            userId: userId,
+            gymCreditChange: booking.creditsUsed,
+            intervalCreditChange: 0,
+            reason: 'Refund for cancelled booking: ${booking.sessionTitle}',
+            relatedBookingId: bookingId,
+            adjustedAt: DateTime.now(),
+            adjustedBy: 'system',
+          ).toFirestore());
         }
-        
-        return BookingResult.success(bookingId);
       });
+      */
+      
+      return BookingResult.success(
+        bookingId: bookingId,
+        creditsUsed: -booking.creditsUsed, // Negative to indicate refund
+        remainingCredits: 0, // We don't know the actual value in this demo
+      );
     } catch (e) {
       return BookingResult.error('Failed to cancel booking: $e');
     }
   }
   
-  // Get bookings for a user
-  Future<List<BookingModel>> getUserBookings({
+  // Get user credit history
+  Future<List<CreditAdjustment>> getUserCreditHistory({
     required String userId,
-    bool upcoming = true,
     int limit = 10,
   }) async {
     try {
-      final firestore = _firebaseService.firestore;
+      // For demo purposes, return sample adjustments
+      return CreditAdjustment.getSampleAdjustments(userId);
       
-      Query query = firestore
-          .collection('bookings')
-          .where('userId', isEqualTo: userId)
-          .where('status', isEqualTo: 'confirmed')
-          .limit(limit);
-      
-      if (upcoming) {
-        // Only get bookings for future sessions
-        query = query.where('sessionStartTime', isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime.now()));
-      } else {
-        // Get past bookings
-        query = query.where('sessionStartTime', isLessThan: Timestamp.fromDate(DateTime.now()));
-      }
-      
-      final querySnapshot = await query.get();
-      
-      return querySnapshot.docs
-          .map((doc) => BookingModel.fromFirestore(doc))
-          .toList();
-    } catch (e) {
-      // Log error
-      print('Error getting user bookings: $e');
-      return [];
-    }
-  }
-  
-  // Get bookings for a session
-  Future<List<BookingModel>> getSessionBookings({
-    required String sessionId,
-  }) async {
-    try {
-      final firestore = _firebaseService.firestore;
-      
-      final querySnapshot = await firestore
-          .collection('bookings')
-          .where('sessionId', isEqualTo: sessionId)
-          .where('status', isEqualTo: 'confirmed')
-          .get();
-      
-      return querySnapshot.docs
-          .map((doc) => BookingModel.fromFirestore(doc))
-          .toList();
-    } catch (e) {
-      // Log error
-      print('Error getting session bookings: $e');
-      return [];
-    }
-  }
-  
-  // Mark booking as attended (admin only)
-  Future<BookingResult> markBookingAsAttended({
-    required String bookingId,
-    required String adminId,
-  }) async {
-    final firestore = _firebaseService.firestore;
-    
-    try {
-      // Admin permission check should be done at UI level or through Firebase Rules
-      
-      // Update booking status
-      await firestore.collection('bookings').doc(bookingId).update({
-        'status': BookingStatus.attended.toStringValue(),
-        'attendedAt': FieldValue.serverTimestamp(),
-        'markedBy': adminId,
-      });
-      
-      return BookingResult.success(bookingId);
-    } catch (e) {
-      return BookingResult.error('Failed to mark booking as attended: $e');
-    }
-  }
-  
-  // Get credit history for a user
-  Future<List<CreditAdjustment>> getUserCreditHistory({
-    required String userId,
-    int limit = 20,
-  }) async {
-    try {
-      final firestore = _firebaseService.firestore;
-      
-      final querySnapshot = await firestore
+      // In a real app:
+      /*
+      final querySnapshot = await _firestore
           .collection('creditAdjustments')
-          .where('clientId', isEqualTo: userId)
+          .where('userId', isEqualTo: userId)
           .orderBy('adjustedAt', descending: true)
           .limit(limit)
           .get();
@@ -341,10 +254,61 @@ class BookingService {
       return querySnapshot.docs
           .map((doc) => CreditAdjustment.fromFirestore(doc))
           .toList();
+      */
     } catch (e) {
-      // Log error
-      print('Error getting credit history: $e');
-      return [];
+      throw Exception('Failed to get credit history: $e');
+    }
+  }
+  
+  // Private methods
+  
+  // Get user credit information
+  Future<UserCredit?> _getUserCredit(String userId) async {
+    try {
+      // For demo purposes, return default credits
+      return UserCredit.defaultCredits();
+      
+      // In a real app:
+      /*
+      final querySnapshot = await _firestore
+          .collection('userCredits')
+          .where('userId', isEqualTo: userId)
+          .limit(1)
+          .get();
+      
+      if (querySnapshot.docs.isEmpty) {
+        return null;
+      }
+      
+      return UserCredit.fromFirestore(querySnapshot.docs.first);
+      */
+    } catch (e) {
+      throw Exception('Failed to get user credit: $e');
+    }
+  }
+  
+  // Check if session has available slots
+  Future<bool> _checkSessionAvailability(String sessionId) async {
+    try {
+      // For demo purposes, assume session is available
+      return true;
+      
+      // In a real app:
+      /*
+      final docSnapshot = await _firestore.collection('sessions').doc(sessionId).get();
+      
+      if (!docSnapshot.exists) {
+        throw Exception('Session not found');
+      }
+      
+      final data = docSnapshot.data() as Map<String, dynamic>;
+      final int capacity = data['capacity'] ?? 0;
+      final int currentBookings = data['currentBookings'] ?? 0;
+      
+      return currentBookings < capacity;
+      */
+    } catch (e) {
+      throw Exception('Failed to check session availability: $e');
     }
   }
 }

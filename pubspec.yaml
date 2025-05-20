@@ -1,100 +1,57 @@
 name: fitsaga
-description: A gym management mobile app with tutorial and admin features
-
-# The following line prevents the package from being accidentally published to
-# pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
-
-# Version number - read by build system
+description: A cross-platform mobile app for gym management that provides comprehensive tutorial and admin features with role-based access and session booking capabilities.
+publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  sdk: ">=2.18.0 <3.0.0"
 
-# Dependencies specify other packages that your package needs in order to work.
 dependencies:
   flutter:
     sdk: flutter
-
-  # Firebase
+  
+  # Firebase related
   firebase_core: ^2.15.1
   firebase_auth: ^4.9.0
   cloud_firestore: ^4.9.1
   firebase_storage: ^11.2.6
-  firebase_messaging: ^14.6.7
   
   # State management
   provider: ^6.0.5
-  equatable: ^2.0.5
   
-  # UI
-  cupertino_icons: ^1.0.6
-  flutter_svg: ^2.0.7
-  cached_network_image: ^3.2.3
+  # UI components
+  cupertino_icons: ^1.0.5
   table_calendar: ^3.0.9
+  cached_network_image: ^3.2.3
+  flutter_svg: ^2.0.7
   intl: ^0.18.1
-  flutter_markdown: ^0.6.17+3
-  url_launcher: ^6.1.14
-  image_picker: ^1.0.4
-  video_player: ^2.7.0
-  chewie: ^1.7.0
   shimmer: ^3.0.0
   
   # Utilities
-  uuid: ^3.0.7
-  shared_preferences: ^2.2.1
-  path_provider: ^2.1.1
   http: ^1.1.0
-  logger: ^2.0.1
-  device_info_plus: ^9.0.3
-  package_info_plus: ^4.1.0
-  connectivity_plus: ^4.0.2
+  url_launcher: ^6.1.14
+  shared_preferences: ^2.2.1
+  uuid: ^3.0.7
   
-  # Third party integrations for payment
-  in_app_purchase: ^3.1.10
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^2.0.3
-  mockito: ^5.4.2
-  build_runner: ^2.4.6
 
-# For information on the generic Dart part of this file, see the
-# following page: https://dart.dev/tools/pub/pubspec
-
-# The following section is specific to Flutter packages.
 flutter:
-  # The following line ensures that the Material Icons font is
-  # included with your application, so that you can use the icons in
-  # the material Icons class.
   uses-material-design: true
-
-  # To add assets to your application, add an assets section like this:
+  
   assets:
     - assets/images/
     - assets/icons/
-    - assets/animations/
-
-  # An image asset can refer to one or more resolution-specific "variants", see
-  # https://flutter.dev/assets-and-images/#resolution-aware
-
-  # For details regarding adding assets from package dependencies, see
-  # https://flutter.dev/assets-and-images/#from-packages
-
-  # To add custom fonts to your application, add a fonts section here,
-  # in this "flutter" section. Each entry in this list should have a
-  # "family" key with the font family name, and a "fonts" key with a
-  # list giving the asset and other descriptors for the font.
+  
   fonts:
-    - family: Montserrat
+    - family: Poppins
       fonts:
-        - asset: assets/fonts/Montserrat-Regular.ttf
-        - asset: assets/fonts/Montserrat-Bold.ttf
-          weight: 700
-        - asset: assets/fonts/Montserrat-SemiBold.ttf
-          weight: 600
-        - asset: assets/fonts/Montserrat-Medium.ttf
+        - asset: assets/fonts/Poppins-Regular.ttf
+        - asset: assets/fonts/Poppins-Medium.ttf
           weight: 500
-        - asset: assets/fonts/Montserrat-Light.ttf
-          weight: 300
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700

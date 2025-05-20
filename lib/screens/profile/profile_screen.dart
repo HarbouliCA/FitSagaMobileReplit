@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:fitsaga/models/user_model.dart';
+import 'package:fitsaga/models/credit_model.dart';
 import 'package:fitsaga/providers/auth_provider.dart';
-import 'package:fitsaga/providers/credit_provider.dart';
+import 'package:fitsaga/services/booking_service.dart';
 import 'package:fitsaga/theme/app_theme.dart';
 import 'package:fitsaga/widgets/common/loading_indicator.dart';
-import 'package:intl/intl.dart';
+import 'package:fitsaga/widgets/common/error_widget.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -16,45 +18,62 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isLoading = false;
-  String? _errorMessage;
+  String? _error;
+  UserCredit? _userCredit;
+  List<CreditAdjustment> _creditHistory = [];
+  
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _nameController;
+  late TextEditingController _phoneController;
+  late TextEditingController _bioController;
   
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     
-    // Load user data when screen is first opened
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshUserData();
-    });
+    // Initialize controllers
+    final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
+    _nameController = TextEditingController(text: user?.name ?? '');
+    _phoneController = TextEditingController(text: user?.phone ?? '');
+    _bioController = TextEditingController(text: user?.bio ?? '');
+    
+    // Load user data
+    _loadUserData();
   }
   
   @override
   void dispose() {
     _tabController.dispose();
+    _nameController.dispose();
+    _phoneController.dispose();
+    _bioController.dispose();
     super.dispose();
   }
   
-  Future<void> _refreshUserData() async {
+  Future<void> _loadUserData() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final creditProvider = Provider.of<CreditProvider>(context, listen: false);
+    if (!authProvider.isAuthenticated) return;
+    
+    final userId = authProvider.currentUser!.id;
+    final bookingService = Provider.of<BookingService>(context, listen: false);
     
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
+      _error = null;
     });
     
     try {
-      // Refresh user data
-      await authProvider.refreshUserData();
+      // In a real app, we would get the user's credits from Firestore
+      // For demo purposes, we're using a default value
+      _userCredit = UserCredit.defaultCredits();
       
-      // Load credit data if user is authenticated
-      if (authProvider.currentUser != null && !creditProvider.isInitialized) {
-        await creditProvider.loadUserCredits(authProvider.currentUser!.id);
-      }
+      // Load credit history
+      _creditHistory = await bookingService.getUserCreditHistory(userId: userId);
+      
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to load profile data: $e';
+        _error = 'Failed to load user data: $e';
       });
     } finally {
       setState(() {
@@ -62,19 +81,56 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       });
     }
   }
-
+  
+  Future<void> _updateProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+    
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isAuthenticated) return;
+    
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    
+    try {
+      // Update user profile
+      await authProvider.updateUserProfile(
+        name: _nameController.text,
+        phone: _phoneController.text,
+        bio: _bioController.text,
+      );
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile updated successfully'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to update profile: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+  
+  Future<void> _changePassword() async {
+    // Navigate to change password screen
+    // This would be implemented in a real app
+  }
+  
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    
-    if (authProvider.isLoading || _isLoading) {
-      return const Scaffold(
-        body: LoadingIndicator(message: 'Loading profile...'),
-      );
-    }
-    
     final user = authProvider.currentUser;
-    if (user == null) {
+    
+    if (!authProvider.isAuthenticated) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Profile'),
@@ -84,36 +140,23 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(
-                Icons.person_off,
-                size: 64,
-                color: AppTheme.textLightColor,
+                Icons.account_circle,
+                size: 100,
+                color: Colors.grey,
               ),
               const SizedBox(height: 16),
               const Text(
-                'Not Logged In',
-                style: TextStyle(
-                  fontSize: AppTheme.fontSizeLarge,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
                 'Please sign in to view your profile',
-                style: TextStyle(
-                  color: AppTheme.textSecondaryColor,
-                ),
+                style: TextStyle(fontSize: 18),
               ),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () {
-                  Navigator.pushReplacementNamed(context, '/login');
+                  // Navigate to login screen
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppTheme.paddingLarge,
-                    vertical: AppTheme.paddingMedium,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                 ),
                 child: const Text('Sign In'),
               ),
@@ -125,491 +168,325 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-            onPressed: _showLogoutConfirmation,
-          ),
-        ],
+        title: const Text('My Profile'),
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 'Info'),
+            Tab(text: 'Profile'),
             Tab(text: 'Credits'),
             Tab(text: 'Settings'),
           ],
         ),
       ),
-      body: RefreshIndicator(
-        onRefresh: _refreshUserData,
-        child: TabBarView(
-          controller: _tabController,
-          children: [
-            // Profile Info Tab
-            _buildProfileInfoTab(user),
-            
-            // Credits Tab
-            _buildCreditsTab(user),
-            
-            // Settings Tab
-            _buildSettingsTab(user),
-          ],
-        ),
-      ),
+      body: _isLoading 
+          ? const LoadingIndicator(message: 'Loading profile data...')
+          : _error != null 
+              ? CustomErrorWidget(
+                  message: _error!,
+                  onRetry: _loadUserData,
+                )
+              : TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildProfileTab(user),
+                    _buildCreditsTab(),
+                    _buildSettingsTab(),
+                  ],
+                ),
     );
   }
   
-  Widget _buildProfileInfoTab(user) {
-    final dateFormatter = DateFormat('MMMM d, yyyy');
-    final joinDate = dateFormatter.format(user.createdAt);
+  Widget _buildProfileTab(UserModel? user) {
+    if (user == null) return const Center(child: Text('User data not available'));
     
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppTheme.paddingMedium),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          if (_errorMessage != null)
-            _buildErrorMessage(),
+      padding: const EdgeInsets.all(16),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Profile header
+            Center(
+              child: Column(
+                children: [
+                  Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.grey.shade200,
+                      image: user.photoUrl != null 
+                          ? DecorationImage(
+                              image: NetworkImage(user.photoUrl!),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: user.photoUrl == null 
+                        ? Icon(
+                            Icons.account_circle,
+                            size: 120,
+                            color: Colors.grey.shade400,
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    user.name,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    user.email,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _getRoleColor(user).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: _getRoleColor(user)),
+                    ),
+                    child: Text(
+                      _getRoleName(user),
+                      style: TextStyle(
+                        color: _getRoleColor(user),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             
-          const SizedBox(height: AppTheme.spacingMedium),
-          
-          // Profile Avatar
-          Stack(
-            alignment: Alignment.bottomRight,
-            children: [
-              CircleAvatar(
-                radius: 60,
-                backgroundColor: AppTheme.primaryColor,
-                backgroundImage: user.photoUrl != null
-                    ? NetworkImage(user.photoUrl!)
-                    : null,
-                child: user.photoUrl == null
-                    ? Text(
-                        user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
-                        style: const TextStyle(
-                          fontSize: 48,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      )
-                    : null,
-              ),
-              InkWell(
-                onTap: _changeProfilePhoto,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                    color: AppTheme.accentColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.camera_alt,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: AppTheme.spacingMedium),
-          
-          // User name and edit button
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                user.name,
-                style: const TextStyle(
-                  fontSize: AppTheme.fontSizeTitle,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(
-                  Icons.edit,
-                  size: 18,
-                  color: AppTheme.primaryColor,
-                ),
-                onPressed: () => _editProfileField('name', user.name),
-              ),
-            ],
-          ),
-          
-          // User role badge
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTheme.paddingMedium,
-              vertical: AppTheme.paddingSmall,
-            ),
-            decoration: BoxDecoration(
-              color: _getRoleColor(user.role).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
-              border: Border.all(
-                color: _getRoleColor(user.role),
-                width: 1,
-              ),
-            ),
-            child: Text(
-              _getRoleText(user.role),
+            const SizedBox(height: 32),
+            
+            // Profile form
+            const Text(
+              'Personal Information',
               style: TextStyle(
-                color: _getRoleColor(user.role),
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
-            ),
-          ),
-          
-          const SizedBox(height: AppTheme.spacingLarge),
-          
-          // Profile information card
-          Card(
-            elevation: AppTheme.elevationSmall,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(AppTheme.paddingMedium),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Account Information',
-                    style: TextStyle(
-                      fontSize: AppTheme.fontSizeMedium,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: AppTheme.spacingMedium),
-                  
-                  // Email
-                  _buildInfoRow(
-                    label: 'Email',
-                    value: user.email,
-                    icon: Icons.email,
-                    canEdit: false,
-                  ),
-                  
-                  const Divider(),
-                  
-                  // Member since
-                  _buildInfoRow(
-                    label: 'Member Since',
-                    value: joinDate,
-                    icon: Icons.calendar_today,
-                    canEdit: false,
-                  ),
-                  
-                  const Divider(),
-                  
-                  // Phone number (placeholder - would normally be stored in user model)
-                  _buildInfoRow(
-                    label: 'Phone',
-                    value: 'Add Phone Number',
-                    icon: Icons.phone,
-                    canEdit: true,
-                    onEdit: () => _editProfileField('phone', ''),
-                    valueColor: AppTheme.textLightColor,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: AppTheme.spacingLarge),
-          
-          // Physical details card (placeholder)
-          Card(
-            elevation: AppTheme.elevationSmall,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(AppTheme.paddingMedium),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Fitness Information',
-                    style: TextStyle(
-                      fontSize: AppTheme.fontSizeMedium,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: AppTheme.spacingMedium),
-                  
-                  // Height
-                  _buildInfoRow(
-                    label: 'Height',
-                    value: 'Add Height',
-                    icon: Icons.height,
-                    canEdit: true,
-                    onEdit: () => _editProfileField('height', ''),
-                    valueColor: AppTheme.textLightColor,
-                  ),
-                  
-                  const Divider(),
-                  
-                  // Weight
-                  _buildInfoRow(
-                    label: 'Weight',
-                    value: 'Add Weight',
-                    icon: Icons.monitor_weight,
-                    canEdit: true,
-                    onEdit: () => _editProfileField('weight', ''),
-                    valueColor: AppTheme.textLightColor,
-                  ),
-                  
-                  const Divider(),
-                  
-                  // Fitness Goals
-                  _buildInfoRow(
-                    label: 'Fitness Goals',
-                    value: 'Add Fitness Goals',
-                    icon: Icons.fitness_center,
-                    canEdit: true,
-                    onEdit: () => _editProfileField('fitnessGoals', ''),
-                    valueColor: AppTheme.textLightColor,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: AppTheme.spacingLarge),
-          
-          // Emergency contact card (placeholder)
-          Card(
-            elevation: AppTheme.elevationSmall,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(AppTheme.paddingMedium),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Emergency Contact',
-                    style: TextStyle(
-                      fontSize: AppTheme.fontSizeMedium,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: AppTheme.spacingMedium),
-                  
-                  // Contact Name
-                  _buildInfoRow(
-                    label: 'Name',
-                    value: 'Add Contact',
-                    icon: Icons.person,
-                    canEdit: true,
-                    onEdit: () => _editProfileField('emergencyContactName', ''),
-                    valueColor: AppTheme.textLightColor,
-                  ),
-                  
-                  const Divider(),
-                  
-                  // Contact Phone
-                  _buildInfoRow(
-                    label: 'Phone',
-                    value: 'Add Phone',
-                    icon: Icons.phone,
-                    canEdit: true,
-                    onEdit: () => _editProfileField('emergencyContactPhone', ''),
-                    valueColor: AppTheme.textLightColor,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: AppTheme.spacingLarge),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildCreditsTab(user) {
-    final creditProvider = Provider.of<CreditProvider>(context);
-    
-    if (creditProvider.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-    
-    if (!creditProvider.isInitialized) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.credit_card_off,
-              size: 64,
-              color: AppTheme.textLightColor,
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Credits Not Loaded',
-              style: TextStyle(
-                fontSize: AppTheme.fontSizeLarge,
-                fontWeight: FontWeight.bold,
+            
+            // Name field
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.person),
               ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter your name';
+                }
+                return null;
+              },
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Failed to load your credit information',
-              style: TextStyle(
-                color: AppTheme.textSecondaryColor,
+            const SizedBox(height: 16),
+            
+            // Phone field
+            TextFormField(
+              controller: _phoneController,
+              decoration: const InputDecoration(
+                labelText: 'Phone',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.phone),
               ),
+              validator: (value) {
+                // Simple validation for demo purposes
+                if (value != null && value.isNotEmpty && !RegExp(r'^\+?[0-9]{10,15}$').hasMatch(value)) {
+                  return 'Please enter a valid phone number';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            
+            // Bio field
+            TextFormField(
+              controller: _bioController,
+              decoration: const InputDecoration(
+                labelText: 'Bio',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.info_outline),
+                alignLabelWithHint: true,
+              ),
+              maxLines: 3,
             ),
             const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _refreshUserData,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTheme.paddingLarge,
-                  vertical: AppTheme.paddingMedium,
+            
+            // Update button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _updateProfile,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
+                child: const Text('Update Profile'),
               ),
-              child: const Text('Retry'),
             ),
           ],
         ),
-      );
+      ),
+    );
+  }
+  
+  Widget _buildCreditsTab() {
+    if (_userCredit == null) {
+      return const Center(child: Text('Credit data not available'));
     }
     
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppTheme.paddingMedium),
+      padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Current balance card
+          // Credits summary card
           Card(
-            elevation: AppTheme.elevationSmall,
-            color: AppTheme.primaryColor,
+            elevation: 2,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(AppTheme.paddingMedium),
+              padding: const EdgeInsets.all(16),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
                     'Available Credits',
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: AppTheme.fontSizeMedium,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    creditProvider.creditBalance.toString(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 72,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/credits/purchase');
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppTheme.primaryColor,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppTheme.paddingLarge,
-                        vertical: AppTheme.paddingSmall,
-                      ),
-                    ),
-                    child: const Text('Buy More Credits'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: AppTheme.spacingLarge),
-          
-          // Credit Stats Card
-          Card(
-            elevation: AppTheme.elevationSmall,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(AppTheme.paddingMedium),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Credit Statistics',
-                    style: TextStyle(
-                      fontSize: AppTheme.fontSizeMedium,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: AppTheme.spacingMedium),
                   
+                  // Credits display
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(
-                        child: _buildStatItem(
-                          label: 'Total Purchased',
-                          value: creditProvider.totalCreditsPurchased.toString(),
-                          icon: Icons.shopping_basket,
-                          color: AppTheme.successColor,
-                        ),
+                      _buildCreditItem(
+                        title: 'Gym Credits',
+                        value: _userCredit!.isUnlimited 
+                            ? 'Unlimited' 
+                            : _userCredit!.gymCredits.toString(),
+                        color: AppTheme.primaryColor,
+                        icon: Icons.fitness_center,
                       ),
-                      Expanded(
-                        child: _buildStatItem(
-                          label: 'Total Used',
-                          value: creditProvider.totalCreditsUsed.toString(),
-                          icon: Icons.fitness_center,
-                          color: AppTheme.accentColor,
-                        ),
+                      _buildCreditItem(
+                        title: 'Interval Credits',
+                        value: _userCredit!.intervalCredits.toString(),
+                        color: AppTheme.accentColor,
+                        icon: Icons.loop,
                       ),
                     ],
                   ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Next refill info
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.refresh, color: AppTheme.primaryColor),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Next Credit Refill',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'May 31, 2025', // This would be calculated based on lastRefilled date
+                                style: TextStyle(
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Buy more credits button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        // Navigate to purchase credits screen
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('Purchase Credits'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
           
-          const SizedBox(height: AppTheme.spacingMedium),
+          const SizedBox(height: 24),
           
-          // Recent Transactions Section
-          const Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: AppTheme.paddingSmall,
-              vertical: AppTheme.paddingMedium,
-            ),
-            child: Text(
-              'Recent Transactions',
-              style: TextStyle(
-                fontSize: AppTheme.fontSizeMedium,
-                fontWeight: FontWeight.bold,
-              ),
+          // Credit history section
+          const Text(
+            'Credit History',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
             ),
           ),
+          const SizedBox(height: 16),
           
-          // Transaction list
-          if (creditProvider.creditHistory.isEmpty)
-            const Center(
+          if (_creditHistory.isEmpty)
+            Center(
               child: Padding(
-                padding: EdgeInsets.all(AppTheme.paddingLarge),
-                child: Text(
-                  'No transactions yet',
-                  style: TextStyle(
-                    color: AppTheme.textLightColor,
-                    fontStyle: FontStyle.italic,
-                  ),
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.history,
+                      size: 64,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No credit history yet',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             )
@@ -617,494 +494,42 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: creditProvider.creditHistory.length > 5
-                  ? 5 // Limit to 5 most recent transactions
-                  : creditProvider.creditHistory.length,
+              itemCount: _creditHistory.length,
               itemBuilder: (context, index) {
-                final transaction = creditProvider.creditHistory[index];
-                return _buildTransactionItem(transaction);
+                final adjustment = _creditHistory[index];
+                return _buildCreditHistoryItem(adjustment);
               },
             ),
-          
-          const SizedBox(height: AppTheme.spacingMedium),
-          
-          // View All Transactions Button
-          if (creditProvider.creditHistory.length > 5)
-            TextButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/credits/history');
-              },
-              child: const Text('View All Transactions'),
-            ),
         ],
       ),
     );
   }
   
-  Widget _buildSettingsTab(user) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppTheme.paddingMedium),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: AppTheme.paddingSmall,
-              vertical: AppTheme.paddingMedium,
-            ),
-            child: Text(
-              'Account Settings',
-              style: TextStyle(
-                fontSize: AppTheme.fontSizeMedium,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          
-          // Account settings card
-          Card(
-            elevation: AppTheme.elevationSmall,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
-            ),
-            child: Column(
-              children: [
-                // Change Password
-                ListTile(
-                  leading: const Icon(Icons.lock),
-                  title: const Text('Change Password'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _showChangePasswordDialog,
-                ),
-                
-                const Divider(height: 1),
-                
-                // Email Notifications
-                ListTile(
-                  leading: const Icon(Icons.email),
-                  title: const Text('Email Notifications'),
-                  trailing: Switch(
-                    value: true, // Placeholder - would be from user settings
-                    onChanged: (value) {
-                      // Update user notification settings
-                    },
-                    activeColor: AppTheme.primaryColor,
-                  ),
-                  onTap: () {
-                    // Toggle switch when tapping anywhere on the ListTile
-                  },
-                ),
-                
-                const Divider(height: 1),
-                
-                // Push Notifications
-                ListTile(
-                  leading: const Icon(Icons.notifications),
-                  title: const Text('Push Notifications'),
-                  trailing: Switch(
-                    value: true, // Placeholder - would be from user settings
-                    onChanged: (value) {
-                      // Update user notification settings
-                    },
-                    activeColor: AppTheme.primaryColor,
-                  ),
-                  onTap: () {
-                    // Toggle switch when tapping anywhere on the ListTile
-                  },
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: AppTheme.spacingLarge),
-          
-          const Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: AppTheme.paddingSmall,
-              vertical: AppTheme.paddingMedium,
-            ),
-            child: Text(
-              'App Settings',
-              style: TextStyle(
-                fontSize: AppTheme.fontSizeMedium,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          
-          // App settings card
-          Card(
-            elevation: AppTheme.elevationSmall,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
-            ),
-            child: Column(
-              children: [
-                // Theme
-                ListTile(
-                  leading: const Icon(Icons.brightness_6),
-                  title: const Text('Dark Theme'),
-                  trailing: Switch(
-                    value: false, // Placeholder - would be from app settings
-                    onChanged: (value) {
-                      // Update app theme
-                    },
-                    activeColor: AppTheme.primaryColor,
-                  ),
-                  onTap: () {
-                    // Toggle switch when tapping anywhere on the ListTile
-                  },
-                ),
-                
-                const Divider(height: 1),
-                
-                // Language
-                ListTile(
-                  leading: const Icon(Icons.language),
-                  title: const Text('Language'),
-                  trailing: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('English', style: TextStyle(color: AppTheme.textLightColor)),
-                      SizedBox(width: 8),
-                      Icon(Icons.chevron_right),
-                    ],
-                  ),
-                  onTap: _showLanguageSelectionDialog,
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: AppTheme.spacingLarge),
-          
-          const Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: AppTheme.paddingSmall,
-              vertical: AppTheme.paddingMedium,
-            ),
-            child: Text(
-              'Help & Support',
-              style: TextStyle(
-                fontSize: AppTheme.fontSizeMedium,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          
-          // Help and support card
-          Card(
-            elevation: AppTheme.elevationSmall,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
-            ),
-            child: Column(
-              children: [
-                // Help Center
-                ListTile(
-                  leading: const Icon(Icons.help),
-                  title: const Text('Help Center'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    // Navigate to help center
-                  },
-                ),
-                
-                const Divider(height: 1),
-                
-                // Contact Support
-                ListTile(
-                  leading: const Icon(Icons.support_agent),
-                  title: const Text('Contact Support'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    // Navigate to contact support
-                  },
-                ),
-                
-                const Divider(height: 1),
-                
-                // Terms of Service
-                ListTile(
-                  leading: const Icon(Icons.description),
-                  title: const Text('Terms of Service'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    // Navigate to terms of service
-                  },
-                ),
-                
-                const Divider(height: 1),
-                
-                // Privacy Policy
-                ListTile(
-                  leading: const Icon(Icons.privacy_tip),
-                  title: const Text('Privacy Policy'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    // Navigate to privacy policy
-                  },
-                ),
-                
-                const Divider(height: 1),
-                
-                // About
-                ListTile(
-                  leading: const Icon(Icons.info),
-                  title: const Text('About'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _showAboutDialog,
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: AppTheme.spacingLarge),
-          
-          // Danger Zone Card
-          Card(
-            elevation: AppTheme.elevationSmall,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.all(AppTheme.paddingMedium),
-                  child: Text(
-                    'Danger Zone',
-                    style: TextStyle(
-                      fontSize: AppTheme.fontSizeMedium,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.errorColor,
-                    ),
-                  ),
-                ),
-                ListTile(
-                  leading: const Icon(
-                    Icons.delete_forever,
-                    color: AppTheme.errorColor,
-                  ),
-                  title: const Text(
-                    'Delete Account',
-                    style: TextStyle(
-                      color: AppTheme.errorColor,
-                    ),
-                  ),
-                  onTap: _showDeleteAccountConfirmation,
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: AppTheme.spacingXLarge),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildErrorMessage() {
-    return Container(
-      padding: const EdgeInsets.all(AppTheme.paddingSmall),
-      margin: const EdgeInsets.only(bottom: AppTheme.spacingMedium),
-      decoration: BoxDecoration(
-        color: AppTheme.errorColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
-        border: Border.all(
-          color: AppTheme.errorColor,
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.error_outline,
-            color: AppTheme.errorColor,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              _errorMessage!,
-              style: const TextStyle(
-                color: AppTheme.errorColor,
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(
-              Icons.close,
-              color: AppTheme.errorColor,
-              size: 16,
-            ),
-            onPressed: () {
-              setState(() {
-                _errorMessage = null;
-              });
-            },
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildInfoRow({
-    required String label,
-    required String value,
-    required IconData icon,
-    required bool canEdit,
-    VoidCallback? onEdit,
-    Color? valueColor,
-  }) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          color: AppTheme.textLightColor,
-          size: 20,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppTheme.textLightColor,
-                  fontSize: AppTheme.fontSizeSmall,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: TextStyle(
-                  color: valueColor,
-                  fontSize: AppTheme.fontSizeRegular,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (canEdit)
-          IconButton(
-            icon: const Icon(
-              Icons.edit,
-              size: 18,
-              color: AppTheme.primaryColor,
-            ),
-            onPressed: onEdit,
-          ),
-      ],
-    );
-  }
-  
-  Widget _buildStatItem({
-    required String label,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(AppTheme.paddingSmall),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 24,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: AppTheme.fontSizeLarge,
-          ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppTheme.textSecondaryColor,
-            fontSize: AppTheme.fontSizeSmall,
-          ),
-        ),
-      ],
-    );
-  }
-  
-  Widget _buildTransactionItem(creditTransaction) {
-    final dateFormatter = DateFormat('MMM d, yyyy');
-    final timeFormatter = DateFormat('h:mm a');
-    
-    // Get appropriate icon and colors based on transaction type
-    IconData icon;
-    Color iconColor;
-    Color backgroundColor;
-    String typeText;
-    String amountText;
-    
-    if (creditTransaction.isCredit) {
-      switch (creditTransaction.type) {
-        case CreditTransactionType.initial:
-          icon = Icons.card_giftcard;
-          iconColor = AppTheme.successColor;
-          backgroundColor = AppTheme.successLightColor;
-          typeText = 'Welcome Credits';
-          amountText = '+${creditTransaction.amount}';
-          break;
-        case CreditTransactionType.purchase:
-          icon = Icons.shopping_basket;
-          iconColor = AppTheme.successColor;
-          backgroundColor = AppTheme.successLightColor;
-          typeText = 'Purchased';
-          amountText = '+${creditTransaction.amount}';
-          break;
-        case CreditTransactionType.refund:
-          icon = Icons.replay;
-          iconColor = AppTheme.successColor;
-          backgroundColor = AppTheme.successLightColor;
-          typeText = 'Refund';
-          amountText = '+${creditTransaction.amount}';
-          break;
-        default:
-          icon = Icons.credit_card;
-          iconColor = AppTheme.successColor;
-          backgroundColor = AppTheme.successLightColor;
-          typeText = 'Added';
-          amountText = '+${creditTransaction.amount}';
-      }
-    } else {
-      icon = Icons.fitness_center;
-      iconColor = AppTheme.errorColor;
-      backgroundColor = AppTheme.errorLightColor;
-      typeText = 'Booking';
-      amountText = '-${creditTransaction.amount}';
-    }
+  Widget _buildCreditHistoryItem(CreditAdjustment adjustment) {
+    final bool isPositive = adjustment.totalCreditChange > 0;
     
     return Card(
-      elevation: AppTheme.elevationXSmall,
-      margin: const EdgeInsets.only(bottom: AppTheme.spacingSmall),
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(AppTheme.paddingSmall),
+        padding: const EdgeInsets.all(12),
         child: Row(
           children: [
             Container(
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: backgroundColor,
-                borderRadius: BorderRadius.circular(AppTheme.borderRadiusSmall),
+                shape: BoxShape.circle,
+                color: isPositive 
+                    ? AppTheme.successColor.withOpacity(0.1) 
+                    : AppTheme.errorColor.withOpacity(0.1),
               ),
               child: Center(
                 child: Icon(
-                  icon,
-                  color: iconColor,
+                  isPositive ? Icons.add : Icons.remove,
+                  color: isPositive ? AppTheme.successColor : AppTheme.errorColor,
                 ),
               ),
             ),
@@ -1114,662 +539,264 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    creditTransaction.description,
+                    adjustment.reason,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    '${dateFormatter.format(creditTransaction.createdAt)} at ${timeFormatter.format(creditTransaction.createdAt)}',
-                    style: const TextStyle(
-                      color: AppTheme.textLightColor,
-                      fontSize: AppTheme.fontSizeSmall,
+                    _formatDate(adjustment.adjustedAt),
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 12,
                     ),
                   ),
                 ],
               ),
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            Text(
+              '${isPositive ? '+' : ''}${adjustment.totalCreditChange}',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isPositive ? AppTheme.successColor : AppTheme.errorColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildSettingsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Account settings
+          const Text(
+            'Account Settings',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          // Change password
+          ListTile(
+            leading: const Icon(Icons.lock_outline),
+            title: const Text('Change Password'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: _changePassword,
+          ),
+          const Divider(),
+          
+          // Notification settings
+          ListTile(
+            leading: const Icon(Icons.notifications_outlined),
+            title: const Text('Notification Settings'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {
+              // Navigate to notification settings
+            },
+          ),
+          const Divider(),
+          
+          // Privacy settings
+          ListTile(
+            leading: const Icon(Icons.privacy_tip_outlined),
+            title: const Text('Privacy Settings'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {
+              // Navigate to privacy settings
+            },
+          ),
+          const Divider(),
+          
+          const SizedBox(height: 32),
+          
+          // App settings
+          const Text(
+            'App Settings',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          // Language
+          ListTile(
+            leading: const Icon(Icons.language),
+            title: const Text('Language'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  amountText,
+                  'English', // This would be the actual selected language
                   style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: creditTransaction.isCredit
-                        ? AppTheme.successColor
-                        : AppTheme.errorColor,
+                    color: Colors.grey.shade600,
                   ),
                 ),
-                Text(
-                  typeText,
-                  style: const TextStyle(
-                    color: AppTheme.textLightColor,
-                    fontSize: AppTheme.fontSizeSmall,
-                  ),
-                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.arrow_forward_ios, size: 16),
               ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  void _changeProfilePhoto() {
-    // In a real app, this would open image picker and upload to storage
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Change Profile Photo'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(Icons.photo_camera),
-              title: Text('Take Photo'),
-            ),
-            ListTile(
-              leading: Icon(Icons.photo_library),
-              title: Text('Choose from Library'),
-            ),
-            ListTile(
-              leading: Icon(Icons.delete),
-              title: Text('Remove Current Photo'),
-              textColor: AppTheme.errorColor,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
+            onTap: () {
+              // Navigate to language selection
             },
-            child: const Text('Cancel'),
           ),
-        ],
-      ),
-    );
-  }
-  
-  void _editProfileField(String field, String currentValue) {
-    final controller = TextEditingController(text: currentValue);
-    
-    // Generate appropriate title and hint based on field
-    String title;
-    String hint;
-    
-    switch (field) {
-      case 'name':
-        title = 'Edit Name';
-        hint = 'Enter your full name';
-        break;
-      case 'phone':
-        title = 'Edit Phone Number';
-        hint = 'Enter your phone number';
-        break;
-      case 'height':
-        title = 'Edit Height';
-        hint = 'Enter your height (cm)';
-        break;
-      case 'weight':
-        title = 'Edit Weight';
-        hint = 'Enter your weight (kg)';
-        break;
-      case 'fitnessGoals':
-        title = 'Edit Fitness Goals';
-        hint = 'Describe your fitness goals';
-        break;
-      case 'emergencyContactName':
-        title = 'Edit Emergency Contact Name';
-        hint = 'Enter contact name';
-        break;
-      case 'emergencyContactPhone':
-        title = 'Edit Emergency Contact Phone';
-        hint = 'Enter contact phone number';
-        break;
-      default:
-        title = 'Edit Field';
-        hint = 'Enter new value';
-    }
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: hint,
-            border: const OutlineInputBorder(),
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final newValue = controller.text.trim();
-              if (newValue.isEmpty) {
-                return;
-              }
-              
-              Navigator.of(context).pop();
-              
-              if (field == 'name') {
-                setState(() {
-                  _isLoading = true;
-                });
-                
-                try {
-                  final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                  final success = await authProvider.updateProfile(name: newValue);
-                  
-                  if (!success && mounted) {
-                    setState(() {
-                      _errorMessage = authProvider.error ?? 'Failed to update name.';
-                    });
-                  }
-                } catch (e) {
-                  setState(() {
-                    _errorMessage = 'An error occurred: $e';
-                  });
-                } finally {
-                  setState(() {
-                    _isLoading = false;
-                  });
-                }
-              } else {
-                // For other fields, we would update them in the user model
-                // This is a placeholder since we don't have those fields in our model yet
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Updated $field to $newValue'),
-                    backgroundColor: AppTheme.successColor,
+          const Divider(),
+          
+          // Theme
+          ListTile(
+            leading: const Icon(Icons.palette_outlined),
+            title: const Text('Theme'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Light', // This would be the actual selected theme
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
                   ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.arrow_forward_ios, size: 16),
+              ],
             ),
-            child: const Text('Save'),
+            onTap: () {
+              // Navigate to theme selection
+            },
+          ),
+          const Divider(),
+          
+          const SizedBox(height: 32),
+          
+          // Danger zone
+          const Text(
+            'Danger Zone',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.errorColor,
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          // Delete account
+          ListTile(
+            leading: const Icon(Icons.delete_forever, color: AppTheme.errorColor),
+            title: const Text(
+              'Delete Account',
+              style: TextStyle(
+                color: AppTheme.errorColor,
+              ),
+            ),
+            onTap: () {
+              // Show delete account confirmation dialog
+            },
+          ),
+          const Divider(color: AppTheme.errorColor),
+          
+          const SizedBox(height: 32),
+          
+          // Logout button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                // Logout user
+                Provider.of<AuthProvider>(context, listen: false).signOut();
+              },
+              icon: const Icon(Icons.logout),
+              label: const Text('Logout'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
           ),
         ],
       ),
-    ).then((_) {
-      controller.dispose();
-    });
+    );
   }
   
-  void _showChangePasswordDialog() {
-    final currentPasswordController = TextEditingController();
-    final newPasswordController = TextEditingController();
-    final confirmPasswordController = TextEditingController();
-    bool obscureCurrentPassword = true;
-    bool obscureNewPassword = true;
-    bool obscureConfirmPassword = true;
-    
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Change Password'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
+  Widget _buildCreditItem({
+    required String title,
+    required String value,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.4,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              // Current Password
-              TextField(
-                controller: currentPasswordController,
-                obscureText: obscureCurrentPassword,
-                decoration: InputDecoration(
-                  labelText: 'Current Password',
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      obscureCurrentPassword
-                          ? Icons.visibility
-                          : Icons.visibility_off,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        obscureCurrentPassword = !obscureCurrentPassword;
-                      });
-                    },
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // New Password
-              TextField(
-                controller: newPasswordController,
-                obscureText: obscureNewPassword,
-                decoration: InputDecoration(
-                  labelText: 'New Password',
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      obscureNewPassword
-                          ? Icons.visibility
-                          : Icons.visibility_off,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        obscureNewPassword = !obscureNewPassword;
-                      });
-                    },
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Confirm New Password
-              TextField(
-                controller: confirmPasswordController,
-                obscureText: obscureConfirmPassword,
-                decoration: InputDecoration(
-                  labelText: 'Confirm New Password',
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      obscureConfirmPassword
-                          ? Icons.visibility
-                          : Icons.visibility_off,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        obscureConfirmPassword = !obscureConfirmPassword;
-                      });
-                    },
-                  ),
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: color,
             ),
-            ElevatedButton(
-              onPressed: () {
-                // Validate passwords
-                final currentPassword = currentPasswordController.text;
-                final newPassword = newPasswordController.text;
-                final confirmPassword = confirmPasswordController.text;
-                
-                if (currentPassword.isEmpty ||
-                    newPassword.isEmpty ||
-                    confirmPassword.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please fill in all fields'),
-                      backgroundColor: AppTheme.errorColor,
-                    ),
-                  );
-                  return;
-                }
-                
-                if (newPassword != confirmPassword) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('New passwords do not match'),
-                      backgroundColor: AppTheme.errorColor,
-                    ),
-                  );
-                  return;
-                }
-                
-                if (newPassword.length < 6) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Password must be at least 6 characters'),
-                      backgroundColor: AppTheme.errorColor,
-                    ),
-                  );
-                  return;
-                }
-                
-                // In a real app, we would call an API to change the password
-                Navigator.of(context).pop();
-                
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Password changed successfully'),
-                    backgroundColor: AppTheme.successColor,
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-              ),
-              child: const Text('Change Password'),
-            ),
-          ],
-        ),
-      ),
-    ).then((_) {
-      currentPasswordController.dispose();
-      newPasswordController.dispose();
-      confirmPasswordController.dispose();
-    });
-  }
-  
-  void _showLanguageSelectionDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Language'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Language options
-            ListTile(
-              title: const Text('English'),
-              trailing: const Icon(Icons.check, color: AppTheme.primaryColor),
-              onTap: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            ListTile(
-              title: const Text('Spanish'),
-              onTap: () {
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Changed language to Spanish'),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              title: const Text('French'),
-              onTap: () {
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Changed language to French'),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              title: const Text('German'),
-              onTap: () {
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Changed language to German'),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              title: const Text('Chinese'),
-              onTap: () {
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Changed language to Chinese'),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: const Text('Cancel'),
           ),
         ],
       ),
     );
   }
   
-  void _showAboutDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('About FitSAGA'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(
-              width: 80,
-              height: 80,
-              child: CircleAvatar(
-                backgroundColor: AppTheme.primaryColor,
-                child: Icon(
-                  Icons.fitness_center,
-                  size: 40,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'FitSAGA',
-              style: TextStyle(
-                fontSize: AppTheme.fontSizeLarge,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const Text(
-              'Version 1.0.0',
-              style: TextStyle(
-                color: AppTheme.textSecondaryColor,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'FitSAGA is a gym management application that helps users book sessions, view tutorials, and track their fitness journey.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '© 2023 FitSAGA. All rights reserved.',
-              style: TextStyle(
-                fontSize: AppTheme.fontSizeSmall,
-                color: AppTheme.textLightColor,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  void _showLogoutConfirmation() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to log out?'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              
-              setState(() {
-                _isLoading = true;
-              });
-              
-              try {
-                final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                final success = await authProvider.signOut();
-                
-                if (success && mounted) {
-                  Navigator.pushReplacementNamed(context, '/login');
-                } else if (mounted) {
-                  setState(() {
-                    _errorMessage = authProvider.error ?? 'Failed to sign out.';
-                    _isLoading = false;
-                  });
-                }
-              } catch (e) {
-                setState(() {
-                  _errorMessage = 'An error occurred: $e';
-                  _isLoading = false;
-                });
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.errorColor,
-            ),
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  void _showDeleteAccountConfirmation() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Account'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Warning: This action cannot be undone.',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.errorColor,
-              ),
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Deleting your account will permanently remove all your data, including:',
-            ),
-            SizedBox(height: 8),
-            Text('• Personal information'),
-            Text('• Booking history'),
-            Text('• Credit balance and history'),
-            Text('• Any created content'),
-            SizedBox(height: 16),
-            Text(
-              'Are you absolutely sure you want to delete your account?',
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // In a real app, we would call an API to delete the account
-              Navigator.of(context).pop();
-              
-              // Show confirmation
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => AlertDialog(
-                  title: const Text('Confirm Delete'),
-                  content: const Text(
-                    'Please type "DELETE" to confirm account deletion:',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                      child: const Text('Cancel'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        // Final confirmation - in a real app, we would delete here
-                        Navigator.of(context).pop();
-                        
-                        // Show success message and log out
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Account deletion requested. You will be logged out.'),
-                            duration: Duration(seconds: 5),
-                          ),
-                        );
-                        
-                        // Force a delay before redirecting to login
-                        Future.delayed(const Duration(seconds: 2), () {
-                          Navigator.pushReplacementNamed(context, '/login');
-                        });
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.errorColor,
-                      ),
-                      child: const Text('Delete Account'),
-                    ),
-                  ],
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.errorColor,
-            ),
-            child: const Text('Delete Account'),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Color _getRoleColor(role) {
-    switch (role) {
-      case UserRole.admin:
-        return AppTheme.errorColor;
-      case UserRole.instructor:
-        return AppTheme.accentColor;
-      case UserRole.client:
-      default:
-        return AppTheme.primaryColor;
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date).inDays;
+    
+    if (difference == 0) {
+      return 'Today';
+    } else if (difference == 1) {
+      return 'Yesterday';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
     }
   }
   
-  String _getRoleText(role) {
-    switch (role) {
-      case UserRole.admin:
-        return 'Administrator';
-      case UserRole.instructor:
-        return 'Instructor';
-      case UserRole.client:
-      default:
-        return 'Client';
+  Color _getRoleColor(UserModel user) {
+    if (user.isAdmin) {
+      return Colors.red;
+    } else if (user.isInstructor) {
+      return Colors.blue;
+    } else {
+      return AppTheme.primaryColor;
+    }
+  }
+  
+  String _getRoleName(UserModel user) {
+    if (user.isAdmin) {
+      return 'Admin';
+    } else if (user.isInstructor) {
+      return 'Instructor';
+    } else {
+      return 'Client';
     }
   }
 }

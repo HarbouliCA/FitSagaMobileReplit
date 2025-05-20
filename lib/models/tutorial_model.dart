@@ -1,330 +1,328 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum TutorialDifficulty {
-  beginner,
-  intermediate,
-  advanced,
-  expert,
+/// A class representing a tutorial day in the fitness app.
+class TutorialDay {
+  final String id;
+  final String title;
+  final String subtitle;
+  final String description;
+  final int dayNumber;
+  final String difficulty;
+  final int estimatedMinutes;
+  final String imageUrl;
+  final List<TutorialExercise> exercises;
+  final List<String> tags;
+
+  TutorialDay({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.description,
+    required this.dayNumber,
+    required this.difficulty,
+    required this.estimatedMinutes,
+    required this.imageUrl,
+    required this.exercises,
+    required this.tags,
+  });
+
+  // Create from Firestore document
+  factory TutorialDay.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    
+    // Parse exercises list
+    List<TutorialExercise> exercises = [];
+    if (data['exercises'] != null) {
+      exercises = (data['exercises'] as List)
+          .map((e) => TutorialExercise.fromMap(e as Map<String, dynamic>))
+          .toList();
+    }
+    
+    // Parse tags list
+    List<String> tags = [];
+    if (data['tags'] != null) {
+      tags = List<String>.from(data['tags']);
+    }
+
+    return TutorialDay(
+      id: doc.id,
+      title: data['title'] ?? 'Unnamed Tutorial',
+      subtitle: data['subtitle'] ?? '',
+      description: data['description'] ?? '',
+      dayNumber: data['dayNumber'] ?? 0,
+      difficulty: data['difficulty'] ?? 'beginner',
+      estimatedMinutes: data['estimatedMinutes'] ?? 30,
+      imageUrl: data['imageUrl'] ?? '',
+      exercises: exercises,
+      tags: tags,
+    );
+  }
+
+  // Convert to Firestore document
+  Map<String, dynamic> toFirestore() {
+    return {
+      'title': title,
+      'subtitle': subtitle,
+      'description': description,
+      'dayNumber': dayNumber,
+      'difficulty': difficulty,
+      'estimatedMinutes': estimatedMinutes,
+      'imageUrl': imageUrl,
+      'exercises': exercises.map((e) => e.toMap()).toList(),
+      'tags': tags,
+    };
+  }
+
+  // Create a copy with updated fields
+  TutorialDay copyWith({
+    String? id,
+    String? title,
+    String? subtitle,
+    String? description,
+    int? dayNumber,
+    String? difficulty,
+    int? estimatedMinutes,
+    String? imageUrl,
+    List<TutorialExercise>? exercises,
+    List<String>? tags,
+  }) {
+    return TutorialDay(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      subtitle: subtitle ?? this.subtitle,
+      description: description ?? this.description,
+      dayNumber: dayNumber ?? this.dayNumber,
+      difficulty: difficulty ?? this.difficulty,
+      estimatedMinutes: estimatedMinutes ?? this.estimatedMinutes,
+      imageUrl: imageUrl ?? this.imageUrl,
+      exercises: exercises ?? this.exercises,
+      tags: tags ?? this.tags,
+    );
+  }
 }
 
-enum TutorialCategory {
-  cardio,
-  strength,
-  flexibility,
-  balance,
-  nutrition,
-  recovery,
-  technique,
-  program,
-}
-
-class TutorialModel {
+/// A class representing an exercise within a tutorial.
+class TutorialExercise {
   final String id;
   final String title;
   final String description;
-  final String content;
-  final String authorId;
-  final String authorName;
-  final List<TutorialCategory> categories;
-  final TutorialDifficulty difficulty;
-  final int durationMinutes;
-  final List<String> tags;
+  final int orderIndex;
+  final String videoUrl;
+  final int durationSeconds;
+  final int sets;
+  final int? reps;
+  final String? weight;
+  final String difficulty;
   final String? thumbnailUrl;
-  final String? videoUrl;
-  final bool isPremium;
-  final bool isPublished;
-  final DateTime createdAt;
-  final DateTime? updatedAt;
-  final int viewCount;
-  final double averageRating;
-  final int ratingCount;
-  
-  // Video specific parameters
-  final Map<String, dynamic>? videoMetadata;
-  final List<VideoBookmark>? bookmarks;
-  
-  TutorialModel({
+  final List<String> muscleGroups;
+  final bool isRequired;
+
+  TutorialExercise({
     required this.id,
     required this.title,
     required this.description,
-    required this.content,
-    required this.authorId,
-    required this.authorName,
-    required this.categories,
+    required this.orderIndex,
+    required this.videoUrl,
+    required this.durationSeconds,
+    required this.sets,
+    this.reps,
+    this.weight,
     required this.difficulty,
-    required this.durationMinutes,
-    required this.tags,
     this.thumbnailUrl,
-    this.videoUrl,
-    required this.isPremium,
-    required this.isPublished,
-    required this.createdAt,
-    this.updatedAt,
-    required this.viewCount,
-    required this.averageRating,
-    required this.ratingCount,
-    this.videoMetadata,
-    this.bookmarks,
+    required this.muscleGroups,
+    this.isRequired = true,
   });
-  
-  factory TutorialModel.fromJson(Map<String, dynamic> json) {
-    return TutorialModel(
-      id: json['id'],
-      title: json['title'],
-      description: json['description'],
-      content: json['content'],
-      authorId: json['authorId'],
-      authorName: json['authorName'],
-      categories: (json['categories'] as List<dynamic>)
-          .map((c) => TutorialCategory.values[c])
-          .toList(),
-      difficulty: TutorialDifficulty.values[json['difficulty']],
-      durationMinutes: json['durationMinutes'],
-      tags: List<String>.from(json['tags']),
-      thumbnailUrl: json['thumbnailUrl'],
-      videoUrl: json['videoUrl'],
-      isPremium: json['isPremium'],
-      isPublished: json['isPublished'],
-      createdAt: (json['createdAt'] as Timestamp).toDate(),
-      updatedAt: json['updatedAt'] != null 
-          ? (json['updatedAt'] as Timestamp).toDate() 
-          : null,
-      viewCount: json['viewCount'] ?? 0,
-      averageRating: (json['averageRating'] ?? 0.0).toDouble(),
-      ratingCount: json['ratingCount'] ?? 0,
-      videoMetadata: json['videoMetadata'],
-      bookmarks: json['bookmarks'] != null 
-          ? (json['bookmarks'] as List<dynamic>)
-              .map((b) => VideoBookmark.fromJson(b))
-              .toList() 
-          : null,
+
+  // Create from Map
+  factory TutorialExercise.fromMap(Map<String, dynamic> map) {
+    List<String> muscleGroups = [];
+    if (map['muscleGroups'] != null) {
+      muscleGroups = List<String>.from(map['muscleGroups']);
+    }
+
+    return TutorialExercise(
+      id: map['id'] ?? '',
+      title: map['title'] ?? 'Unnamed Exercise',
+      description: map['description'] ?? '',
+      orderIndex: map['orderIndex'] ?? 0,
+      videoUrl: map['videoUrl'] ?? '',
+      durationSeconds: map['durationSeconds'] ?? 60,
+      sets: map['sets'] ?? 3,
+      reps: map['reps'],
+      weight: map['weight'],
+      difficulty: map['difficulty'] ?? 'beginner',
+      thumbnailUrl: map['thumbnailUrl'],
+      muscleGroups: muscleGroups,
+      isRequired: map['isRequired'] ?? true,
     );
   }
-  
-  Map<String, dynamic> toJson() {
+
+  // Convert to Map
+  Map<String, dynamic> toMap() {
     return {
       'id': id,
       'title': title,
       'description': description,
-      'content': content,
-      'authorId': authorId,
-      'authorName': authorName,
-      'categories': categories.map((c) => c.index).toList(),
-      'difficulty': difficulty.index,
-      'durationMinutes': durationMinutes,
-      'tags': tags,
-      'thumbnailUrl': thumbnailUrl,
+      'orderIndex': orderIndex,
       'videoUrl': videoUrl,
-      'isPremium': isPremium,
-      'isPublished': isPublished,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
-      'viewCount': viewCount,
-      'averageRating': averageRating,
-      'ratingCount': ratingCount,
-      'videoMetadata': videoMetadata,
-      'bookmarks': bookmarks?.map((b) => b.toJson()).toList(),
+      'durationSeconds': durationSeconds,
+      'sets': sets,
+      'reps': reps,
+      'weight': weight,
+      'difficulty': difficulty,
+      'thumbnailUrl': thumbnailUrl,
+      'muscleGroups': muscleGroups,
+      'isRequired': isRequired,
     };
   }
-  
-  // Helper getters for display purposes
-  String get difficultyString {
-    switch (difficulty) {
-      case TutorialDifficulty.beginner:
-        return 'Beginner';
-      case TutorialDifficulty.intermediate:
-        return 'Intermediate';
-      case TutorialDifficulty.advanced:
-        return 'Advanced';
-      case TutorialDifficulty.expert:
-        return 'Expert';
-    }
-  }
-  
-  String get categoryString {
-    if (categories.isEmpty) return 'Uncategorized';
-    
-    final categoryNames = categories.map((c) {
-      switch (c) {
-        case TutorialCategory.cardio:
-          return 'Cardio';
-        case TutorialCategory.strength:
-          return 'Strength';
-        case TutorialCategory.flexibility:
-          return 'Flexibility';
-        case TutorialCategory.balance:
-          return 'Balance';
-        case TutorialCategory.nutrition:
-          return 'Nutrition';
-        case TutorialCategory.recovery:
-          return 'Recovery';
-        case TutorialCategory.technique:
-          return 'Technique';
-        case TutorialCategory.program:
-          return 'Program';
-      }
-    }).toList();
-    
-    return categoryNames.join(', ');
-  }
-  
+
   // Create a copy with updated fields
-  TutorialModel copyWith({
+  TutorialExercise copyWith({
     String? id,
     String? title,
     String? description,
-    String? content,
-    String? authorId,
-    String? authorName,
-    List<TutorialCategory>? categories,
-    TutorialDifficulty? difficulty,
-    int? durationMinutes,
-    List<String>? tags,
-    String? thumbnailUrl,
+    int? orderIndex,
     String? videoUrl,
-    bool? isPremium,
-    bool? isPublished,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    int? viewCount,
-    double? averageRating,
-    int? ratingCount,
-    Map<String, dynamic>? videoMetadata,
-    List<VideoBookmark>? bookmarks,
+    int? durationSeconds,
+    int? sets,
+    int? reps,
+    String? weight,
+    String? difficulty,
+    String? thumbnailUrl,
+    List<String>? muscleGroups,
+    bool? isRequired,
   }) {
-    return TutorialModel(
+    return TutorialExercise(
       id: id ?? this.id,
       title: title ?? this.title,
       description: description ?? this.description,
-      content: content ?? this.content,
-      authorId: authorId ?? this.authorId,
-      authorName: authorName ?? this.authorName,
-      categories: categories ?? this.categories,
-      difficulty: difficulty ?? this.difficulty,
-      durationMinutes: durationMinutes ?? this.durationMinutes,
-      tags: tags ?? this.tags,
-      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      orderIndex: orderIndex ?? this.orderIndex,
       videoUrl: videoUrl ?? this.videoUrl,
-      isPremium: isPremium ?? this.isPremium,
-      isPublished: isPublished ?? this.isPublished,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      viewCount: viewCount ?? this.viewCount,
-      averageRating: averageRating ?? this.averageRating,
-      ratingCount: ratingCount ?? this.ratingCount,
-      videoMetadata: videoMetadata ?? this.videoMetadata,
-      bookmarks: bookmarks ?? this.bookmarks,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      sets: sets ?? this.sets,
+      reps: reps ?? this.reps,
+      weight: weight ?? this.weight,
+      difficulty: difficulty ?? this.difficulty,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      muscleGroups: muscleGroups ?? this.muscleGroups,
+      isRequired: isRequired ?? this.isRequired,
     );
   }
 }
 
-class VideoBookmark {
+/// A class representing user progress for a tutorial day.
+class TutorialProgress {
   final String id;
-  final String title;
-  final String description;
-  final int timestamp; // in seconds
-  
-  VideoBookmark({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.timestamp,
-  });
-  
-  factory VideoBookmark.fromJson(Map<String, dynamic> json) {
-    return VideoBookmark(
-      id: json['id'],
-      title: json['title'],
-      description: json['description'],
-      timestamp: json['timestamp'],
-    );
-  }
-  
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'description': description,
-      'timestamp': timestamp,
-    };
-  }
-  
-  String get formattedTime {
-    final minutes = timestamp ~/ 60;
-    final seconds = timestamp % 60;
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
-  }
-}
-
-class TutorialProgressModel {
   final String userId;
-  final String tutorialId;
-  final double progress; // 0.0 to 1.0
+  final String tutorialDayId;
+  final double progressPercentage;
+  final List<String> completedExerciseIds;
+  final DateTime lastUpdated;
   final bool isCompleted;
-  final int? userRating; // 1-5 stars
-  final int lastWatchedPosition; // in seconds
-  final DateTime lastAccessedAt;
-  final List<String>? completedSections; // IDs of completed sections
-  
-  TutorialProgressModel({
+
+  TutorialProgress({
+    required this.id,
     required this.userId,
-    required this.tutorialId,
-    required this.progress,
+    required this.tutorialDayId,
+    required this.progressPercentage,
+    required this.completedExerciseIds,
+    required this.lastUpdated,
     required this.isCompleted,
-    this.userRating,
-    required this.lastWatchedPosition,
-    required this.lastAccessedAt,
-    this.completedSections,
   });
-  
-  factory TutorialProgressModel.fromJson(Map<String, dynamic> json) {
-    return TutorialProgressModel(
-      userId: json['userId'],
-      tutorialId: json['tutorialId'],
-      progress: json['progress'].toDouble(),
-      isCompleted: json['isCompleted'],
-      userRating: json['userRating'],
-      lastWatchedPosition: json['lastWatchedPosition'] ?? 0,
-      lastAccessedAt: (json['lastAccessedAt'] as Timestamp).toDate(),
-      completedSections: json['completedSections'] != null 
-          ? List<String>.from(json['completedSections']) 
-          : null,
+
+  // Create from Firestore document
+  factory TutorialProgress.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    
+    List<String> completedExerciseIds = [];
+    if (data['completedExerciseIds'] != null) {
+      completedExerciseIds = List<String>.from(data['completedExerciseIds']);
+    }
+
+    return TutorialProgress(
+      id: doc.id,
+      userId: data['userId'] ?? '',
+      tutorialDayId: data['tutorialDayId'] ?? '',
+      progressPercentage: (data['progressPercentage'] ?? 0.0).toDouble(),
+      completedExerciseIds: completedExerciseIds,
+      lastUpdated: (data['lastUpdated'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      isCompleted: data['isCompleted'] ?? false,
     );
   }
-  
-  Map<String, dynamic> toJson() {
+
+  // Convert to Firestore document
+  Map<String, dynamic> toFirestore() {
     return {
       'userId': userId,
-      'tutorialId': tutorialId,
-      'progress': progress,
+      'tutorialDayId': tutorialDayId,
+      'progressPercentage': progressPercentage,
+      'completedExerciseIds': completedExerciseIds,
+      'lastUpdated': Timestamp.fromDate(lastUpdated),
       'isCompleted': isCompleted,
-      'userRating': userRating,
-      'lastWatchedPosition': lastWatchedPosition,
-      'lastAccessedAt': lastAccessedAt,
-      'completedSections': completedSections,
     };
   }
-  
+
   // Create a copy with updated fields
-  TutorialProgressModel copyWith({
+  TutorialProgress copyWith({
+    String? id,
     String? userId,
-    String? tutorialId,
-    double? progress,
+    String? tutorialDayId,
+    double? progressPercentage,
+    List<String>? completedExerciseIds,
+    DateTime? lastUpdated,
     bool? isCompleted,
-    int? userRating,
-    int? lastWatchedPosition,
-    DateTime? lastAccessedAt,
-    List<String>? completedSections,
   }) {
-    return TutorialProgressModel(
+    return TutorialProgress(
+      id: id ?? this.id,
       userId: userId ?? this.userId,
-      tutorialId: tutorialId ?? this.tutorialId,
-      progress: progress ?? this.progress,
+      tutorialDayId: tutorialDayId ?? this.tutorialDayId,
+      progressPercentage: progressPercentage ?? this.progressPercentage,
+      completedExerciseIds: completedExerciseIds ?? this.completedExerciseIds,
+      lastUpdated: lastUpdated ?? this.lastUpdated,
       isCompleted: isCompleted ?? this.isCompleted,
-      userRating: userRating ?? this.userRating,
-      lastWatchedPosition: lastWatchedPosition ?? this.lastWatchedPosition,
-      lastAccessedAt: lastAccessedAt ?? this.lastAccessedAt,
-      completedSections: completedSections ?? this.completedSections,
+    );
+  }
+
+  // Update progress based on completed exercises
+  static TutorialProgress updateProgress({
+    required TutorialProgress currentProgress,
+    required List<TutorialExercise> allExercises,
+    required List<String> completedExerciseIds,
+  }) {
+    // Calculate the number of required exercises
+    final requiredExercises = allExercises.where((e) => e.isRequired).toList();
+    final int totalRequired = requiredExercises.length;
+    
+    // If there are no required exercises, we can't calculate progress
+    if (totalRequired == 0) {
+      return currentProgress.copyWith(
+        progressPercentage: completedExerciseIds.isNotEmpty ? 1.0 : 0.0,
+        completedExerciseIds: completedExerciseIds,
+        lastUpdated: DateTime.now(),
+        isCompleted: completedExerciseIds.length == allExercises.length,
+      );
+    }
+    
+    // Count completed required exercises
+    int completedRequired = 0;
+    for (final exerciseId in completedExerciseIds) {
+      final isRequired = requiredExercises.any((e) => e.id == exerciseId);
+      if (isRequired) {
+        completedRequired++;
+      }
+    }
+    
+    // Calculate progress percentage
+    final double progressPercentage = completedRequired / totalRequired;
+    
+    // Determine if all required exercises are completed
+    final bool isCompleted = completedRequired == totalRequired;
+    
+    return currentProgress.copyWith(
+      progressPercentage: progressPercentage,
+      completedExerciseIds: completedExerciseIds,
+      lastUpdated: DateTime.now(),
+      isCompleted: isCompleted,
     );
   }
 }

@@ -1,258 +1,257 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:equatable/equatable.dart';
+import 'package:intl/intl.dart';
 
-enum SessionStatus {
-  upcoming,
-  ongoing,
-  completed,
-  cancelled
-}
-
-class SessionModel extends Equatable {
+/// Represents a fitness session that users can book
+class SessionModel {
   final String id;
   final String title;
   final String description;
-  final String instructorId;
-  final String instructorName;
+  final DateTime date;
   final DateTime startTime;
-  final int durationMinutes;
-  final int maxParticipants;
-  final List<String> participantIds;
-  final int creditCost;
+  final DateTime endTime;
+  final String instructorId;
+  final String? instructorName;
+  final int capacity;
+  final int bookedCount;
+  final int creditsRequired;
+  final String sessionType;
+  final String? imageUrl;
   final bool isRecurring;
-  final String? recurringRule; // RRULE format (e.g., "FREQ=WEEKLY;BYDAY=MO,WE,FR")
-  final String? parentRecurringSessionId;
-  final String? location;
-  final SessionStatus status;
-  final DateTime createdAt;
-  final DateTime? updatedAt;
+  final String? recurringPattern;
+  final List<String>? tags;
 
-  const SessionModel({
+  SessionModel({
     required this.id,
     required this.title,
     required this.description,
-    required this.instructorId,
-    required this.instructorName,
+    required this.date,
     required this.startTime,
-    required this.durationMinutes,
-    required this.maxParticipants,
-    required this.participantIds,
-    required this.creditCost,
+    required this.endTime,
+    required this.instructorId,
+    this.instructorName,
+    required this.capacity,
+    required this.bookedCount,
+    required this.creditsRequired,
+    required this.sessionType,
+    this.imageUrl,
     this.isRecurring = false,
-    this.recurringRule,
-    this.parentRecurringSessionId,
-    this.location,
-    required this.status,
-    required this.createdAt,
-    this.updatedAt,
+    this.recurringPattern,
+    this.tags,
   });
 
-  // Get end time
-  DateTime get endTime => startTime.add(Duration(minutes: durationMinutes));
-  
-  // Check if session is full
-  bool get isFull => participantIds.length >= maxParticipants;
-  
-  // Get remaining spots
-  int get remainingSpots => maxParticipants - participantIds.length;
-  
-  // Check if session has conflict with another session
-  bool hasConflict(SessionModel other) {
-    if (id == other.id) return false; // Same session
+  // Create a session from Firebase document snapshot
+  factory SessionModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
     
-    // Only check for conflicts with upcoming and ongoing sessions
-    if (other.status == SessionStatus.completed || other.status == SessionStatus.cancelled) {
-      return false;
+    // Parse dates from Firestore Timestamps
+    final date = (data['date'] as Timestamp?)?.toDate() ?? DateTime.now();
+    final startTime = (data['startTime'] as Timestamp?)?.toDate() ?? DateTime.now();
+    final endTime = (data['endTime'] as Timestamp?)?.toDate() ?? DateTime.now().add(const Duration(hours: 1));
+    
+    // Parse tags if they exist
+    List<String>? tags;
+    if (data['tags'] != null) {
+      tags = List<String>.from(data['tags']);
     }
-    
-    // Check if this is a recurring instance and the other session is its parent
-    if (parentRecurringSessionId != null && other.id == parentRecurringSessionId) {
-      return false;
-    }
-    
-    // Check if the other session is a recurring instance of this parent session
-    if (isRecurring && other.parentRecurringSessionId == id) {
-      return false;
-    }
-    
-    // Check if instructor is the same (instructors can't be in two places at once)
-    if (instructorId == other.instructorId) {
-      // Check time overlap
-      if (startTime.isBefore(other.endTime) && 
-          endTime.isAfter(other.startTime)) {
-        return true;
-      }
-    }
-    
-    // If this is for the same client, check for client double-booking
-    // This would need to compare the participant lists
-    bool hasParticipantOverlap = participantIds.any((id) => other.participantIds.contains(id));
-    if (hasParticipantOverlap) {
-      if (startTime.isBefore(other.endTime) && 
-          endTime.isAfter(other.startTime)) {
-        return true;
-      }
-    }
-    
-    return false;
-  }
-  
-  // Check if user is enrolled
-  bool isUserEnrolled(String userId) {
-    return participantIds.contains(userId);
-  }
-  
-  // Check if user can book (has spots and is not already booked)
-  bool canUserBook(String userId) {
-    return !isFull && !isUserEnrolled(userId) && status == SessionStatus.upcoming;
-  }
-  
-  // Check if user can cancel
-  bool canUserCancel(String userId) {
-    return isUserEnrolled(userId) && status == SessionStatus.upcoming;
+
+    return SessionModel(
+      id: doc.id,
+      title: data['title'] ?? 'Unnamed Session',
+      description: data['description'] ?? '',
+      date: date,
+      startTime: startTime,
+      endTime: endTime,
+      instructorId: data['instructorId'] ?? '',
+      instructorName: data['instructorName'],
+      capacity: data['capacity'] ?? 10,
+      bookedCount: data['bookedCount'] ?? 0,
+      creditsRequired: data['creditsRequired'] ?? 1,
+      sessionType: data['sessionType'] ?? 'general',
+      imageUrl: data['imageUrl'],
+      isRecurring: data['isRecurring'] ?? false,
+      recurringPattern: data['recurringPattern'],
+      tags: tags,
+    );
   }
 
-  // Create a copy with modified fields
+  // Convert session to a map for Firebase
+  Map<String, dynamic> toFirestore() {
+    return {
+      'title': title,
+      'description': description,
+      'date': Timestamp.fromDate(date),
+      'startTime': Timestamp.fromDate(startTime),
+      'endTime': Timestamp.fromDate(endTime),
+      'instructorId': instructorId,
+      'instructorName': instructorName,
+      'capacity': capacity,
+      'bookedCount': bookedCount,
+      'creditsRequired': creditsRequired,
+      'sessionType': sessionType,
+      'imageUrl': imageUrl,
+      'isRecurring': isRecurring,
+      'recurringPattern': recurringPattern,
+      'tags': tags,
+    };
+  }
+
+  // Create copy of session with updated fields
   SessionModel copyWith({
     String? id,
     String? title,
     String? description,
+    DateTime? date,
+    DateTime? startTime,
+    DateTime? endTime,
     String? instructorId,
     String? instructorName,
-    DateTime? startTime,
-    int? durationMinutes,
-    int? maxParticipants,
-    List<String>? participantIds,
-    int? creditCost,
+    int? capacity,
+    int? bookedCount,
+    int? creditsRequired,
+    String? sessionType,
+    String? imageUrl,
     bool? isRecurring,
-    String? recurringRule,
-    String? parentRecurringSessionId,
-    String? location,
-    SessionStatus? status,
-    DateTime? createdAt,
-    DateTime? updatedAt,
+    String? recurringPattern,
+    List<String>? tags,
   }) {
     return SessionModel(
       id: id ?? this.id,
       title: title ?? this.title,
       description: description ?? this.description,
+      date: date ?? this.date,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
       instructorId: instructorId ?? this.instructorId,
       instructorName: instructorName ?? this.instructorName,
-      startTime: startTime ?? this.startTime,
-      durationMinutes: durationMinutes ?? this.durationMinutes,
-      maxParticipants: maxParticipants ?? this.maxParticipants,
-      participantIds: participantIds ?? this.participantIds,
-      creditCost: creditCost ?? this.creditCost,
+      capacity: capacity ?? this.capacity,
+      bookedCount: bookedCount ?? this.bookedCount,
+      creditsRequired: creditsRequired ?? this.creditsRequired,
+      sessionType: sessionType ?? this.sessionType,
+      imageUrl: imageUrl ?? this.imageUrl,
       isRecurring: isRecurring ?? this.isRecurring,
-      recurringRule: recurringRule ?? this.recurringRule,
-      parentRecurringSessionId: parentRecurringSessionId ?? this.parentRecurringSessionId,
-      location: location ?? this.location,
-      status: status ?? this.status,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
+      recurringPattern: recurringPattern ?? this.recurringPattern,
+      tags: tags ?? this.tags,
     );
   }
 
-  // Factory method to create a SessionModel from Firestore document
-  factory SessionModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+  // Check if session has available slots
+  bool get hasAvailableSlots => bookedCount < capacity;
+
+  // Get the number of available slots
+  int get availableSlots => capacity - bookedCount;
+
+  // Get formatted date string
+  String get formattedDate => DateFormat('EEEE, MMMM d, yyyy').format(date);
+
+  // Get formatted time range string
+  String get formattedTimeRange {
+    final startFormat = DateFormat('h:mm a');
+    final endFormat = DateFormat('h:mm a');
+    return '${startFormat.format(startTime)} - ${endFormat.format(endTime)}';
+  }
+
+  // Get duration in minutes
+  int get durationMinutes {
+    return endTime.difference(startTime).inMinutes;
+  }
+
+  // Check if session is in the past
+  bool get isPast => date.isBefore(DateTime.now());
+
+  // Check if session is upcoming (today or in the future)
+  bool get isUpcoming {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final sessionDay = DateTime(date.year, date.month, date.day);
+    return sessionDay.isAtSameMomentAs(today) || sessionDay.isAfter(today);
+  }
+
+  // Generate sample sessions for demo/testing
+  static List<SessionModel> getSampleSessions() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     
-    return SessionModel(
-      id: doc.id,
-      title: data['title'] ?? '',
-      description: data['description'] ?? '',
-      instructorId: data['instructorId'] ?? '',
-      instructorName: data['instructorName'] ?? '',
-      startTime: (data['startTime'] as Timestamp).toDate(),
-      durationMinutes: data['durationMinutes'] ?? 60,
-      maxParticipants: data['maxParticipants'] ?? 10,
-      participantIds: List<String>.from(data['participantIds'] ?? []),
-      creditCost: data['creditCost'] ?? 1,
-      isRecurring: data['isRecurring'] ?? false,
-      recurringRule: data['recurringRule'],
-      parentRecurringSessionId: data['parentRecurringSessionId'],
-      location: data['location'],
-      status: _statusFromString(data['status'] ?? 'upcoming'),
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      updatedAt: data['updatedAt'] != null 
-          ? (data['updatedAt'] as Timestamp).toDate() 
-          : null,
-    );
-  }
-
-  // Convert to Firestore document data
-  Map<String, dynamic> toFirestore() {
-    return {
-      'title': title,
-      'description': description,
-      'instructorId': instructorId,
-      'instructorName': instructorName,
-      'startTime': Timestamp.fromDate(startTime),
-      'durationMinutes': durationMinutes,
-      'maxParticipants': maxParticipants,
-      'participantIds': participantIds,
-      'creditCost': creditCost,
-      'isRecurring': isRecurring,
-      'recurringRule': recurringRule,
-      'parentRecurringSessionId': parentRecurringSessionId,
-      'location': location,
-      'status': _statusToString(status),
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
-    };
-  }
-
-  // Helper methods for status conversion
-  static SessionStatus _statusFromString(String status) {
-    switch (status.toLowerCase()) {
-      case 'ongoing':
-        return SessionStatus.ongoing;
-      case 'completed':
-        return SessionStatus.completed;
-      case 'cancelled':
-        return SessionStatus.cancelled;
-      case 'upcoming':
-      default:
-        return SessionStatus.upcoming;
-    }
-  }
-
-  static String _statusToString(SessionStatus status) {
-    switch (status) {
-      case SessionStatus.ongoing:
-        return 'ongoing';
-      case SessionStatus.completed:
-        return 'completed';
-      case SessionStatus.cancelled:
-        return 'cancelled';
-      case SessionStatus.upcoming:
-        return 'upcoming';
-    }
-  }
-
-  @override
-  List<Object?> get props => [
-    id,
-    title,
-    description,
-    instructorId,
-    instructorName,
-    startTime,
-    durationMinutes,
-    maxParticipants,
-    participantIds,
-    creditCost,
-    isRecurring,
-    recurringRule,
-    parentRecurringSessionId,
-    location,
-    status,
-    createdAt,
-    updatedAt,
-  ];
-
-  @override
-  String toString() {
-    return 'SessionModel(id: $id, title: $title, instructor: $instructorName, startTime: $startTime)';
+    return [
+      SessionModel(
+        id: 'session1',
+        title: 'Morning Yoga',
+        description: 'Start your day with a refreshing yoga session to improve flexibility and mental clarity.',
+        date: today,
+        startTime: DateTime(today.year, today.month, today.day, 7, 0),
+        endTime: DateTime(today.year, today.month, today.day, 8, 0),
+        instructorId: 'instructor1',
+        instructorName: 'Sarah Johnson',
+        capacity: 15,
+        bookedCount: 10,
+        creditsRequired: 1,
+        sessionType: 'yoga',
+        imageUrl: 'https://images.unsplash.com/photo-1575052814086-f385e2e2ad1b',
+        tags: ['beginner', 'yoga', 'morning'],
+      ),
+      SessionModel(
+        id: 'session2',
+        title: 'HIIT Training',
+        description: 'High-intensity interval training to maximize calorie burn and improve cardiovascular health.',
+        date: today.add(const Duration(days: 1)),
+        startTime: DateTime(today.year, today.month, today.day + 1, 18, 0),
+        endTime: DateTime(today.year, today.month, today.day + 1, 19, 0),
+        instructorId: 'instructor2',
+        instructorName: 'Mike Torres',
+        capacity: 12,
+        bookedCount: 8,
+        creditsRequired: 2,
+        sessionType: 'hiit',
+        imageUrl: 'https://images.unsplash.com/photo-1434682881908-b43d0467b798',
+        tags: ['intermediate', 'hiit', 'evening'],
+      ),
+      SessionModel(
+        id: 'session3',
+        title: 'Strength Training',
+        description: 'Build muscle and improve overall strength with this focused training session.',
+        date: today.add(const Duration(days: 2)),
+        startTime: DateTime(today.year, today.month, today.day + 2, 10, 0),
+        endTime: DateTime(today.year, today.month, today.day + 2, 11, 0),
+        instructorId: 'instructor2',
+        instructorName: 'Mike Torres',
+        capacity: 10,
+        bookedCount: 10, // Full
+        creditsRequired: 1,
+        sessionType: 'strength',
+        imageUrl: 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5',
+        tags: ['intermediate', 'strength', 'morning'],
+      ),
+      SessionModel(
+        id: 'session4',
+        title: 'Pilates',
+        description: 'Focus on core strength and posture improvement with controlled movements.',
+        date: today.add(const Duration(days: 2)),
+        startTime: DateTime(today.year, today.month, today.day + 2, 17, 0),
+        endTime: DateTime(today.year, today.month, today.day + 2, 18, 0),
+        instructorId: 'instructor1',
+        instructorName: 'Sarah Johnson',
+        capacity: 12,
+        bookedCount: 6,
+        creditsRequired: 1,
+        sessionType: 'pilates',
+        imageUrl: 'https://images.unsplash.com/photo-1518611012118-696072aa579a',
+        tags: ['beginner', 'pilates', 'evening'],
+      ),
+      SessionModel(
+        id: 'session5',
+        title: 'Spin Class',
+        description: 'High-energy cycling workout to build endurance and burn calories.',
+        date: today.add(const Duration(days: 3)),
+        startTime: DateTime(today.year, today.month, today.day + 3, 12, 30),
+        endTime: DateTime(today.year, today.month, today.day + 3, 13, 30),
+        instructorId: 'instructor3',
+        instructorName: 'Emma Williams',
+        capacity: 20,
+        bookedCount: 15,
+        creditsRequired: 2,
+        sessionType: 'cardio',
+        imageUrl: 'https://images.unsplash.com/photo-1534787238916-9ba6764efd4f',
+        tags: ['intermediate', 'cardio', 'afternoon'],
+      ),
+    ];
   }
 }

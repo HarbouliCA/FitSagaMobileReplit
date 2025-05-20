@@ -1,464 +1,322 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitsaga/models/user_model.dart';
-import 'package:fitsaga/services/firebase_service.dart';
 
-/// Provider for handling authentication and user state
-class AuthProvider with ChangeNotifier {
-  final FirebaseService _firebaseService;
+class AuthProvider extends ChangeNotifier {
+  final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  
   UserModel? _currentUser;
   bool _isLoading = false;
-  bool _isInitialized = false;
   String? _error;
-
-  AuthProvider(this._firebaseService);
-
+  
   // Getters
   UserModel? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
-  bool get isInitialized => _isInitialized;
-  bool get isAuthenticated => _currentUser != null;
   String? get error => _error;
-
-  /// Initialize the provider and listen to auth state changes
-  Future<void> initialize() async {
-    _isLoading = true;
-    notifyListeners();
-
-    try {
-      // Listen to authentication state changes
-      _firebaseService.auth.authStateChanges().listen((User? firebaseUser) async {
-        if (firebaseUser == null) {
-          // User is signed out
-          _currentUser = null;
-          _isInitialized = true;
-          _isLoading = false;
-          notifyListeners();
-        } else {
-          // User is signed in, fetch additional data from Firestore
-          try {
-            await _fetchUserData(firebaseUser.uid);
-          } catch (e) {
-            _error = 'Failed to fetch user data: $e';
-            _isLoading = false;
-            notifyListeners();
-          }
-        }
-      });
-    } catch (e) {
-      _error = 'Failed to initialize auth: $e';
-      _isLoading = false;
-      _isInitialized = true;
-      notifyListeners();
-    }
+  bool get isAuthenticated => _currentUser != null;
+  
+  // Constructor - initialize by listening to auth state changes
+  AuthProvider() {
+    _firebaseAuth.authStateChanges().listen(_onAuthStateChanged);
   }
-
-  /// Fetch current user data from Firestore
-  Future<void> _fetchUserData(String userId) async {
-    try {
-      final doc = await _firebaseService.firestore
-          .collection('users')
-          .doc(userId)
-          .get();
-
-      if (doc.exists) {
-        _currentUser = UserModel.fromFirestore(doc);
-      } else {
-        // User exists in Auth but not in Firestore
-        _error = 'User profile not found';
-        _currentUser = null;
-      }
-
-      _isInitialized = true;
-      _isLoading = false;
+  
+  // Handle auth state changes
+  Future<void> _onAuthStateChanged(User? firebaseUser) async {
+    if (firebaseUser == null) {
+      _currentUser = null;
       notifyListeners();
-    } catch (e) {
-      _error = 'Failed to fetch user data: $e';
-      _isLoading = false;
-      notifyListeners();
-      rethrow;
+      return;
     }
-  }
-
-  /// Refresh the current user data
-  Future<void> refreshUser() async {
-    if (_currentUser == null) return;
-
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
+    
     try {
-      await _fetchUserData(_currentUser!.id);
-    } catch (e) {
-      _error = 'Failed to refresh user: $e';
-      _isLoading = false;
+      _isLoading = true;
       notifyListeners();
-    }
-  }
-
-  /// Sign in with email and password
-  Future<bool> signInWithEmailAndPassword(String email, String password) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      // Attempt to sign in
-      await _firebaseService.signInWithEmailAndPassword(email, password);
       
-      // User data will be fetched by the auth state listener
-      return true;
-    } on FirebaseAuthException catch (e) {
-      switch (e.code) {
-        case 'user-not-found':
-          _error = 'No user found with this email';
-          break;
-        case 'wrong-password':
-          _error = 'Wrong password';
-          break;
-        case 'user-disabled':
-          _error = 'This account has been disabled';
-          break;
-        case 'too-many-requests':
-          _error = 'Too many attempts. Try again later';
-          break;
-        default:
-          _error = 'Failed to sign in: ${e.message}';
+      // Get user document from Firestore
+      final userDoc = await _firestore.collection('users').doc(firebaseUser.uid).get();
+      
+      if (userDoc.exists) {
+        _currentUser = UserModel.fromFirestore(userDoc);
+      } else {
+        // Create new user document if it doesn't exist
+        final newUser = UserModel(
+          id: firebaseUser.uid,
+          email: firebaseUser.email ?? '',
+          name: firebaseUser.displayName ?? 'User',
+          createdAt: DateTime.now(),
+        );
+        
+        await _firestore.collection('users').doc(firebaseUser.uid).set(newUser.toFirestore());
+        _currentUser = newUser;
       }
-      _isLoading = false;
-      notifyListeners();
-      return false;
+      
+      _error = null;
     } catch (e) {
-      _error = 'Failed to sign in: $e';
+      _error = 'Failed to load user data: $e';
+      _currentUser = null;
+    } finally {
       _isLoading = false;
       notifyListeners();
-      return false;
     }
   }
-
-  /// Register a new user with email and password
-  Future<bool> registerWithEmailAndPassword(
-    String email,
-    String password,
-    String name,
-  ) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
+  
+  // Sign in with email and password
+  Future<bool> signInWithEmailAndPassword(String email, String password) async {
     try {
-      // Create the user in Firebase Auth
-      final userCredential = await _firebaseService.createUserWithEmailAndPassword(
-        email,
-        password,
-      );
-
-      // Create the user profile in Firestore
-      final user = UserModel(
-        id: userCredential.user!.uid,
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+      
+      await _firebaseAuth.signInWithEmailAndPassword(
         email: email,
-        name: name,
-        role: UserRole.client, // Default role for new users
-        credits: 0, // New users start with 0 credits
-        createdAt: DateTime.now(),
+        password: password,
       );
-
-      await _firebaseService.firestore
-          .collection('users')
-          .doc(user.id)
-          .set(user.toFirestore());
-
-      // User data will be fetched by the auth state listener
-      return true;
-    } on FirebaseAuthException catch (e) {
-      switch (e.code) {
-        case 'email-already-in-use':
-          _error = 'This email is already registered';
-          break;
-        case 'invalid-email':
-          _error = 'Invalid email address';
-          break;
-        case 'weak-password':
-          _error = 'Password is too weak';
-          break;
-        case 'operation-not-allowed':
-          _error = 'Email/password accounts are not enabled';
-          break;
-        default:
-          _error = 'Failed to register: ${e.message}';
+      
+      // Update last login time
+      if (_currentUser != null) {
+        await _firestore.collection('users').doc(_currentUser!.id).update({
+          'lastLogin': FieldValue.serverTimestamp(),
+        });
       }
-      _isLoading = false;
-      notifyListeners();
-      return false;
+      
+      return true;
     } catch (e) {
-      _error = 'Failed to register: $e';
+      _error = _handleAuthError(e);
+      return false;
+    } finally {
       _isLoading = false;
       notifyListeners();
-      return false;
     }
   }
-
-  /// Update user profile
-  Future<bool> updateProfile({
+  
+  // Register with email and password
+  Future<bool> registerWithEmailAndPassword(String email, String password, String name) async {
+    try {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+      
+      final userCredential = await _firebaseAuth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      
+      // Update display name
+      await userCredential.user?.updateDisplayName(name);
+      
+      // User document will be created in _onAuthStateChanged
+      
+      return true;
+    } catch (e) {
+      _error = _handleAuthError(e);
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+  
+  // Sign out
+  Future<void> signOut() async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+      
+      await _firebaseAuth.signOut();
+      _currentUser = null;
+      _error = null;
+    } catch (e) {
+      _error = 'Failed to sign out: $e';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+  
+  // Update user profile
+  Future<bool> updateUserProfile({
     String? name,
-    String? phoneNumber,
+    String? phone,
+    String? bio,
     String? photoUrl,
   }) async {
-    if (_currentUser == null) {
-      _error = 'You must be logged in to update your profile';
-      notifyListeners();
-      return false;
-    }
-
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
+    if (_currentUser == null) return false;
+    
     try {
-      // Update user data in Firestore
-      final updatedData = {
-        if (name != null) 'name': name,
-        if (phoneNumber != null) 'phoneNumber': phoneNumber,
-        if (photoUrl != null) 'photoUrl': photoUrl,
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
-
-      await _firebaseService.firestore
-          .collection('users')
-          .doc(_currentUser!.id)
-          .update(updatedData);
-
-      // Refresh user data
-      await refreshUser();
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+      
+      final updates = <String, dynamic>{};
+      if (name != null) updates['name'] = name;
+      if (phone != null) updates['phone'] = phone;
+      if (bio != null) updates['bio'] = bio;
+      if (photoUrl != null) updates['photoUrl'] = photoUrl;
+      
+      if (updates.isNotEmpty) {
+        await _firestore.collection('users').doc(_currentUser!.id).update(updates);
+        
+        // Update current user model
+        _currentUser = _currentUser!.copyWith(
+          name: name,
+          phone: phone,
+          bio: bio,
+          photoUrl: photoUrl,
+        );
+      }
+      
       return true;
     } catch (e) {
       _error = 'Failed to update profile: $e';
+      return false;
+    } finally {
       _isLoading = false;
       notifyListeners();
-      return false;
     }
   }
-
-  /// Update user credits
-  Future<bool> updateCredits(int amount, {required String reason}) async {
-    if (_currentUser == null) {
-      _error = 'You must be logged in to update credits';
-      notifyListeners();
-      return false;
-    }
-
-    if (_currentUser!.credits + amount < 0) {
-      _error = 'Insufficient credits';
-      notifyListeners();
-      return false;
-    }
-
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      // Get a reference to the user document
-      final userRef = _firebaseService.firestore
-          .collection('users')
-          .doc(_currentUser!.id);
-
-      // Start a transaction for data consistency
-      await _firebaseService.firestore.runTransaction((transaction) async {
-        // Get the latest user data
-        final userDoc = await transaction.get(userRef);
-        final currentCredits = userDoc.data()?['credits'] ?? 0;
-        
-        // Update credits atomically
-        transaction.update(userRef, {
-          'credits': currentCredits + amount,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-
-        // Log the credit transaction
-        final creditLogRef = _firebaseService.firestore.collection('creditLogs').doc();
-        transaction.set(creditLogRef, {
-          'userId': _currentUser!.id,
-          'amount': amount,
-          'reason': reason,
-          'previousBalance': currentCredits,
-          'newBalance': currentCredits + amount,
-          'timestamp': FieldValue.serverTimestamp(),
-        });
-      });
-
-      // Refresh user data
-      await refreshUser();
-      return true;
-    } catch (e) {
-      _error = 'Failed to update credits: $e';
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    }
-  }
-
-  /// Sign out
-  Future<bool> signOut() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      await _firebaseService.signOut();
-      // Auth state listener will handle clearing the user
-      return true;
-    } catch (e) {
-      _error = 'Failed to sign out: $e';
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    }
-  }
-
-  /// Reset password for a user
+  
+  // Reset password
   Future<bool> resetPassword(String email) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
     try {
-      await _firebaseService.auth.sendPasswordResetEmail(email: email);
-      _isLoading = false;
+      _isLoading = true;
+      _error = null;
       notifyListeners();
+      
+      await _firebaseAuth.sendPasswordResetEmail(email: email);
       return true;
-    } on FirebaseAuthException catch (e) {
-      switch (e.code) {
-        case 'invalid-email':
-          _error = 'Invalid email address';
-          break;
-        case 'user-not-found':
-          _error = 'No user found with this email';
-          break;
-        default:
-          _error = 'Failed to send reset email: ${e.message}';
-      }
-      _isLoading = false;
-      notifyListeners();
-      return false;
     } catch (e) {
-      _error = 'Failed to send reset email: $e';
+      _error = _handleAuthError(e);
+      return false;
+    } finally {
       _isLoading = false;
       notifyListeners();
-      return false;
     }
   }
-
-  /// Change user password
-  Future<bool> changePassword(String currentPassword, String newPassword) async {
-    if (_currentUser == null || _firebaseService.currentUser == null) {
+  
+  // Update password for logged in user
+  Future<bool> updatePassword(String currentPassword, String newPassword) async {
+    if (_currentUser == null || _firebaseAuth.currentUser == null || _currentUser!.email.isEmpty) {
       _error = 'You must be logged in to change your password';
       notifyListeners();
       return false;
     }
-
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
+    
     try {
-      // Re-authenticate the user first
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+      
+      // Re-authenticate user before changing password
       final credential = EmailAuthProvider.credential(
-        email: _firebaseService.currentUser!.email!,
+        email: _currentUser!.email,
         password: currentPassword,
       );
-
-      await _firebaseService.currentUser!.reauthenticateWithCredential(credential);
       
-      // Change the password
-      await _firebaseService.currentUser!.updatePassword(newPassword);
+      await _firebaseAuth.currentUser!.reauthenticateWithCredential(credential);
+      await _firebaseAuth.currentUser!.updatePassword(newPassword);
       
-      _isLoading = false;
-      notifyListeners();
       return true;
-    } on FirebaseAuthException catch (e) {
-      switch (e.code) {
-        case 'wrong-password':
-          _error = 'Current password is incorrect';
-          break;
-        case 'weak-password':
-          _error = 'New password is too weak';
-          break;
-        case 'requires-recent-login':
-          _error = 'Please sign in again before changing your password';
-          break;
-        default:
-          _error = 'Failed to change password: ${e.message}';
-      }
-      _isLoading = false;
-      notifyListeners();
-      return false;
     } catch (e) {
-      _error = 'Failed to change password: $e';
+      _error = _handleAuthError(e);
+      return false;
+    } finally {
       _isLoading = false;
       notifyListeners();
-      return false;
     }
   }
-
-  /// Delete user account
-  Future<bool> deleteAccount(String password) async {
-    if (_currentUser == null || _firebaseService.currentUser == null) {
-      _error = 'You must be logged in to delete your account';
-      notifyListeners();
-      return false;
+  
+  // Get user by ID (for admin or instructor use)
+  Future<UserModel?> getUserById(String userId) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      
+      if (userDoc.exists) {
+        return UserModel.fromFirestore(userDoc);
+      }
+      
+      return null;
+    } catch (e) {
+      _error = 'Failed to get user: $e';
+      return null;
     }
+  }
+  
+  // Get all users (for admin use only)
+  Future<List<UserModel>> getAllUsers({int limit = 20}) async {
+    if (_currentUser == null || !_currentUser!.isAdmin) {
+      _error = 'Only admins can access all users';
+      notifyListeners();
+      return [];
+    }
+    
+    try {
+      final querySnapshot = await _firestore
+          .collection('users')
+          .orderBy('name')
+          .limit(limit)
+          .get();
+      
+      return querySnapshot.docs
+          .map((doc) => UserModel.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      _error = 'Failed to get users: $e';
+      notifyListeners();
+      return [];
+    }
+  }
+  
+  // Handle Firebase Auth errors
+  String _handleAuthError(dynamic error) {
+    if (error is FirebaseAuthException) {
+      switch (error.code) {
+        case 'user-not-found':
+          return 'No user found with this email address';
+        case 'wrong-password':
+          return 'Incorrect password';
+        case 'email-already-in-use':
+          return 'This email address is already in use';
+        case 'weak-password':
+          return 'The password is too weak';
+        case 'invalid-email':
+          return 'The email address is invalid';
+        case 'user-disabled':
+          return 'This user account has been disabled';
+        case 'too-many-requests':
+          return 'Too many unsuccessful login attempts. Please try again later';
+        case 'operation-not-allowed':
+          return 'This operation is not allowed';
+        case 'requires-recent-login':
+          return 'This operation requires recent authentication. Please log in again';
+        default:
+          return 'Authentication error: ${error.message}';
+      }
+    }
+    return 'An unexpected error occurred: $error';
+  }
 
-    _isLoading = true;
+  // Demo mode methods - these are used for testing without Firebase
+  void setDemoUser({bool isAdmin = false, bool isInstructor = false}) {
+    _currentUser = UserModel(
+      id: 'demo-user-id',
+      email: 'demo@example.com',
+      name: isAdmin ? 'Admin User' : (isInstructor ? 'Instructor User' : 'Client User'),
+      phone: '+1234567890',
+      bio: 'This is a demo user account for testing purposes.',
+      photoUrl: null,
+      isAdmin: isAdmin,
+      isInstructor: isInstructor,
+      createdAt: DateTime.now().subtract(const Duration(days: 30)),
+      lastLogin: DateTime.now(),
+    );
     _error = null;
     notifyListeners();
-
-    try {
-      // Re-authenticate the user first
-      final credential = EmailAuthProvider.credential(
-        email: _firebaseService.currentUser!.email!,
-        password: password,
-      );
-
-      await _firebaseService.currentUser!.reauthenticateWithCredential(credential);
-      
-      // Delete user data from Firestore first
-      await _firebaseService.firestore
-          .collection('users')
-          .doc(_currentUser!.id)
-          .delete();
-      
-      // Delete the user account from Auth
-      await _firebaseService.currentUser!.delete();
-      
-      // Auth state listener will handle clearing the user
-      return true;
-    } on FirebaseAuthException catch (e) {
-      switch (e.code) {
-        case 'wrong-password':
-          _error = 'Password is incorrect';
-          break;
-        case 'requires-recent-login':
-          _error = 'Please sign in again before deleting your account';
-          break;
-        default:
-          _error = 'Failed to delete account: ${e.message}';
-      }
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    } catch (e) {
-      _error = 'Failed to delete account: $e';
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    }
   }
 
-  /// Clear error message
-  void clearError() {
+  void clearDemoUser() {
+    _currentUser = null;
     _error = null;
     notifyListeners();
   }

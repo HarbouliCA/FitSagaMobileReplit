@@ -1,204 +1,189 @@
 import 'package:flutter/material.dart';
 import 'package:fitsaga/theme/app_theme.dart';
 
-/// A reusable error widget with retry functionality
 class CustomErrorWidget extends StatelessWidget {
   final String message;
   final VoidCallback? onRetry;
-  final bool showIcon;
-  final Widget? icon;
-  final bool useScaffold;
+  final bool fullScreen;
+  final IconData icon;
+  final String? actionText;
 
   const CustomErrorWidget({
     Key? key,
     required this.message,
     this.onRetry,
-    this.showIcon = true,
-    this.icon,
-    this.useScaffold = false,
+    this.fullScreen = false,
+    this.icon = Icons.error_outline,
+    this.actionText,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final errorContent = Padding(
-      padding: const EdgeInsets.all(AppTheme.paddingMedium),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          if (showIcon)
-            icon ??
-                const Icon(
-                  Icons.error_outline,
-                  size: 72,
-                  color: AppTheme.errorColor,
-                ),
-          const SizedBox(height: AppTheme.spacingMedium),
-          Text(
+    final errorWidget = Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          icon,
+          size: fullScreen ? 64 : 48,
+          color: AppTheme.errorColor,
+        ),
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: AppTheme.fontSizeMedium,
-              color: AppTheme.textPrimaryColor,
+            style: TextStyle(
+              fontSize: fullScreen ? 18 : 16,
+              color: Colors.grey.shade800,
             ),
           ),
-          if (onRetry != null) ...[
-            const SizedBox(height: AppTheme.spacingLarge),
-            ElevatedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTheme.paddingLarge,
-                  vertical: AppTheme.paddingMedium,
-                ),
-              ),
+        ),
+        if (onRetry != null) ...[
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh),
+            label: Text(actionText ?? 'Try Again'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
-          ],
+          ),
         ],
-      ),
+      ],
     );
 
-    if (useScaffold) {
+    if (fullScreen) {
       return Scaffold(
-        body: Center(child: errorContent),
+        body: Center(
+          child: errorWidget,
+        ),
       );
     }
 
-    return Center(child: errorContent);
+    return Center(
+      child: errorWidget,
+    );
   }
 }
 
-/// A smaller inline error message for form fields or small UI sections
-class InlineErrorWidget extends StatelessWidget {
+class NoDataWidget extends StatelessWidget {
   final String message;
-  final VoidCallback? onRetry;
+  final IconData icon;
+  final VoidCallback? onAction;
+  final String? actionText;
 
-  const InlineErrorWidget({
+  const NoDataWidget({
     Key? key,
     required this.message,
-    this.onRetry,
+    this.icon = Icons.sentiment_dissatisfied,
+    this.onAction,
+    this.actionText,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppTheme.paddingMedium),
-      decoration: BoxDecoration(
-        color: AppTheme.errorColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
-        border: Border.all(color: AppTheme.errorColor.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.error_outline,
-            color: AppTheme.errorColor,
-            size: 20,
-          ),
-          const SizedBox(width: AppTheme.spacingMedium),
-          Expanded(
-            child: Text(
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 64,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 16),
+            Text(
               message,
-              style: const TextStyle(
-                color: AppTheme.errorColor,
-                fontSize: AppTheme.fontSizeSmall,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey.shade700,
               ),
             ),
-          ),
-          if (onRetry != null)
-            IconButton(
-              icon: const Icon(
-                Icons.refresh,
-                color: AppTheme.errorColor,
-                size: 18,
+            if (onAction != null && actionText != null) ...[
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: onAction,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                child: Text(actionText!),
               ),
-              onPressed: onRetry,
-              tooltip: 'Retry',
-            ),
-        ],
+            ],
+          ],
+        ),
       ),
     );
   }
 }
 
-/// A full-page error state with illustration for critical errors
-class FullPageErrorWidget extends StatelessWidget {
-  final String title;
-  final String message;
-  final String? actionLabel;
-  final VoidCallback? onAction;
-  final Widget? illustration;
+class NetworkErrorWidget extends StatelessWidget {
+  final VoidCallback? onRetry;
+  final bool fullScreen;
 
-  const FullPageErrorWidget({
+  const NetworkErrorWidget({
     Key? key,
-    required this.title,
-    required this.message,
-    this.actionLabel,
-    this.onAction,
-    this.illustration,
+    this.onRetry,
+    this.fullScreen = false,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppTheme.paddingLarge),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              if (illustration != null) ...[
-                illustration!,
-                const SizedBox(height: AppTheme.spacingXLarge),
-              ] else ...[
-                const Icon(
-                  Icons.error_outline,
-                  size: 100,
-                  color: AppTheme.errorColor,
-                ),
-                const SizedBox(height: AppTheme.spacingLarge),
-              ],
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: AppTheme.fontSizeXLarge,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimaryColor,
-                ),
-              ),
-              const SizedBox(height: AppTheme.spacingMedium),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: AppTheme.fontSizeMedium,
-                  color: AppTheme.textSecondaryColor,
-                ),
-              ),
-              const SizedBox(height: AppTheme.spacingXLarge),
-              if (onAction != null)
-                SizedBox(
-                  width: 200,
-                  child: ElevatedButton(
-                    onPressed: onAction,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppTheme.paddingMedium,
-                      ),
-                    ),
-                    child: Text(actionLabel ?? 'Try Again'),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
+    return CustomErrorWidget(
+      message: 'Unable to connect to the network. Please check your internet connection and try again.',
+      onRetry: onRetry,
+      fullScreen: fullScreen,
+      icon: Icons.wifi_off,
+      actionText: 'Retry Connection',
+    );
+  }
+}
+
+class PermissionErrorWidget extends StatelessWidget {
+  final VoidCallback? onAction;
+  final bool fullScreen;
+
+  const PermissionErrorWidget({
+    Key? key,
+    this.onAction,
+    this.fullScreen = false,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomErrorWidget(
+      message: 'You do not have permission to access this content. Please login or contact an administrator.',
+      onRetry: onAction,
+      fullScreen: fullScreen,
+      icon: Icons.no_accounts,
+      actionText: 'Login',
+    );
+  }
+}
+
+class MaintenanceErrorWidget extends StatelessWidget {
+  final VoidCallback? onRetry;
+  final bool fullScreen;
+
+  const MaintenanceErrorWidget({
+    Key? key,
+    this.onRetry,
+    this.fullScreen = false,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomErrorWidget(
+      message: 'The service is temporarily unavailable due to maintenance. Please try again later.',
+      onRetry: onRetry,
+      fullScreen: fullScreen,
+      icon: Icons.engineering,
+      actionText: 'Check Status',
     );
   }
 }

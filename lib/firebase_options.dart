@@ -1,25 +1,19 @@
-// File generated based on the Firebase configuration
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
-import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
-/// Default Firebase configuration options for the FitSAGA app
+/// Default [FirebaseOptions] for use with your Firebase apps.
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
       return web;
     }
-    // For mobile platforms
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macOS - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for windows - '
@@ -37,33 +31,45 @@ class DefaultFirebaseOptions {
     }
   }
 
-  /// Firebase configuration options for the Android platform
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCvfH-loyKanakWeQhHCIBfeAIVF-aFW5o',
-    appId: '1:360667066098:android:971b0615ac5882d267aa6b',
-    messagingSenderId: '360667066098',
-    projectId: 'saga-fitness',
-    storageBucket: 'saga-fitness.firebasestorage.app',
-  );
-
-  /// Firebase configuration options for the iOS platform
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCvfH-loyKanakWeQhHCIBfeAIVF-aFW5o', // Using the same API key as Android
-    appId: '1:360667066098:ios:xxxxxxxxxxxxxxx', // Placeholder - need actual iOS appId
-    messagingSenderId: '360667066098',
-    projectId: 'saga-fitness',
-    storageBucket: 'saga-fitness.firebasestorage.app',
-    // iosClientId: 'iOS client ID from google-services.json',
-    // iosBundleId: 'com.fitsaga.fitsaga_flutter',
-  );
-
-  /// Firebase configuration options for the Web platform
+  // Configuration for web platform - for demo purposes
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyCvfH-loyKanakWeQhHCIBfeAIVF-aFW5o', // Using the same API key
-    appId: '1:360667066098:web:xxxxxxxxxxxxxxx', // Placeholder - need actual Web appId
-    messagingSenderId: '360667066098',
-    projectId: 'saga-fitness',
-    storageBucket: 'saga-fitness.firebasestorage.app',
-    // authDomain: 'saga-fitness.firebaseapp.com',
+    apiKey: 'AIzaSyDemoKeyForWebPlatform12345',
+    appId: '1:1234567890:web:demo1234567890',
+    messagingSenderId: '1234567890',
+    projectId: 'fitsaga-demo',
+    authDomain: 'fitsaga-demo.firebaseapp.com',
+    storageBucket: 'fitsaga-demo.appspot.com',
+    measurementId: 'G-DEMO12345',
+  );
+
+  // Configuration for Android platform - for demo purposes
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyDemoKeyForAndroidPlatform12345',
+    appId: '1:1234567890:android:demo1234567890',
+    messagingSenderId: '1234567890',
+    projectId: 'fitsaga-demo',
+    storageBucket: 'fitsaga-demo.appspot.com',
+  );
+
+  // Configuration for iOS platform - for demo purposes
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyDemoKeyForIOSPlatform12345',
+    appId: '1:1234567890:ios:demo1234567890',
+    messagingSenderId: '1234567890',
+    projectId: 'fitsaga-demo',
+    storageBucket: 'fitsaga-demo.appspot.com',
+    iosClientId: 'demo.apps.googleusercontent.com',
+    iosBundleId: 'com.example.fitsaga',
+  );
+
+  // Configuration for macOS platform - for demo purposes
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyDemoKeyForMacOSPlatform12345',
+    appId: '1:1234567890:ios:demo1234567890',
+    messagingSenderId: '1234567890',
+    projectId: 'fitsaga-demo',
+    storageBucket: 'fitsaga-demo.appspot.com',
+    iosClientId: 'demo.apps.googleusercontent.com',
+    iosBundleId: 'com.example.fitsaga',
   );
 }

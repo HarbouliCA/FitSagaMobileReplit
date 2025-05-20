@@ -1,970 +1,712 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:fitsaga/models/tutorial_model.dart';
-import 'package:fitsaga/providers/tutorial_provider.dart';
-import 'package:fitsaga/providers/auth_provider.dart';
 import 'package:fitsaga/theme/app_theme.dart';
 import 'package:fitsaga/widgets/common/loading_indicator.dart';
 import 'package:fitsaga/widgets/common/error_widget.dart';
-import 'package:fitsaga/screens/tutorials/tutorial_details_screen.dart';
-import 'package:fitsaga/screens/tutorials/tutorial_create_edit_screen.dart';
 
 class TutorialListScreen extends StatefulWidget {
   const TutorialListScreen({Key? key}) : super(key: key);
 
   @override
-  State<TutorialListScreen> createState() => _TutorialListScreenState();
+  _TutorialListScreenState createState() => _TutorialListScreenState();
 }
 
-class _TutorialListScreenState extends State<TutorialListScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  final TextEditingController _searchController = TextEditingController();
-  bool _isSearching = false;
+class _TutorialListScreenState extends State<TutorialListScreen> {
+  bool _isLoading = false;
+  String? _error;
+  List<Map<String, dynamic>> _tutorialDays = [];
   
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    
-    // Load tutorials when screen is opened
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadTutorials();
+    _loadTutorialData();
+  }
+  
+  Future<void> _loadTutorialData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
     });
     
-    // Add listener to text field
-    _searchController.addListener(_onSearchChanged);
+    try {
+      // Simulate loading data from Firebase
+      await Future.delayed(const Duration(seconds: 1));
+      
+      // Sample tutorial data (in a real app, this would come from Firebase)
+      _tutorialDays = [
+        {
+          'id': 'day1',
+          'title': 'Day 1: Getting Started',
+          'subtitle': 'Introduction to FitSAGA',
+          'description': 'Learn the basics of the gym and get familiar with the equipment.',
+          'exercises': 5,
+          'difficulty': 'Beginner',
+          'duration': '30 mins',
+          'imageUrl': 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48',
+          'progress': 1.0, // Completed
+        },
+        {
+          'id': 'day2',
+          'title': 'Day 2: Upper Body Focus',
+          'subtitle': 'Chest, Arms, and Shoulders',
+          'description': 'Build strength in your upper body with these targeted exercises.',
+          'exercises': 7,
+          'difficulty': 'Beginner',
+          'duration': '45 mins',
+          'imageUrl': 'https://images.unsplash.com/photo-1532384748853-8f54a8f476e2',
+          'progress': 0.7, // In progress
+        },
+        {
+          'id': 'day3',
+          'title': 'Day 3: Lower Body Power',
+          'subtitle': 'Legs, Glutes, and Core',
+          'description': 'Focus on your lower body to build a strong foundation.',
+          'exercises': 6,
+          'difficulty': 'Intermediate',
+          'duration': '40 mins',
+          'imageUrl': 'https://images.unsplash.com/photo-1574680178050-55c6a6a96e0a',
+          'progress': 0.3, // Just started
+        },
+        {
+          'id': 'day4',
+          'title': 'Day 4: Cardio Blast',
+          'subtitle': 'Heart-Pumping Exercises',
+          'description': 'Improve your cardiovascular health with this high-energy session.',
+          'exercises': 8,
+          'difficulty': 'Intermediate',
+          'duration': '50 mins',
+          'imageUrl': 'https://images.unsplash.com/photo-1538805060514-97d9cc17730c',
+          'progress': 0.0, // Not started
+        },
+        {
+          'id': 'day5',
+          'title': 'Day 5: Full Body Circuit',
+          'subtitle': 'Total Body Workout',
+          'description': 'Challenge every muscle group with this comprehensive circuit.',
+          'exercises': 10,
+          'difficulty': 'Advanced',
+          'duration': '60 mins',
+          'imageUrl': 'https://images.unsplash.com/photo-1517963879433-6ad2b056d712',
+          'progress': 0.0, // Not started
+        },
+      ];
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to load tutorial data: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
   
   @override
-  void dispose() {
-    _tabController.dispose();
-    _searchController.removeListener(_onSearchChanged);
-    _searchController.dispose();
-    super.dispose();
-  }
-  
-  // Load tutorials and user progress
-  Future<void> _loadTutorials() async {
-    final tutorialProvider = Provider.of<TutorialProvider>(context, listen: false);
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
-    if (!tutorialProvider.isInitialized) {
-      await tutorialProvider.loadTutorials();
-    }
-    
-    // Load user progress if authenticated
-    if (authProvider.isAuthenticated && authProvider.currentUser != null) {
-      await tutorialProvider.loadUserProgress(authProvider.currentUser!.id);
-    }
-  }
-  
-  void _onSearchChanged() {
-    final tutorialProvider = Provider.of<TutorialProvider>(context, listen: false);
-    tutorialProvider.setFilters(query: _searchController.text);
-  }
-  
-  void _clearSearch() {
-    _searchController.clear();
-    setState(() {
-      _isSearching = false;
-    });
-    final tutorialProvider = Provider.of<TutorialProvider>(context, listen: false);
-    tutorialProvider.clearFilters();
-  }
-  
-  void _openFilterDialog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Tutorials'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: () {
+              // Show filter options
+              _showFilterDialog();
+            },
+            tooltip: 'Filter',
+          ),
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              // Show search bar
+              _showSearchBar();
+            },
+            tooltip: 'Search',
+          ),
+        ],
       ),
-      builder: (context) => _buildFilterSheet(),
+      body: _isLoading
+          ? const LoadingIndicator(message: 'Loading tutorials...')
+          : _error != null
+              ? CustomErrorWidget(
+                  message: _error!,
+                  onRetry: _loadTutorialData,
+                )
+              : _buildTutorialList(),
     );
   }
   
-  Widget _buildFilterSheet() {
-    final tutorialProvider = Provider.of<TutorialProvider>(context);
+  Widget _buildTutorialList() {
+    if (_tutorialDays.isEmpty) {
+      return const NoDataWidget(
+        message: 'No tutorials available',
+        icon: Icons.video_library,
+      );
+    }
     
-    return StatefulBuilder(
-      builder: (context, setState) {
-        TutorialDifficulty? selectedDifficulty = tutorialProvider.difficultyFilter;
-        TutorialCategory? selectedCategory = tutorialProvider.categoryFilter;
-        bool premiumOnly = tutorialProvider.onlyPremium;
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
+      children: [
+        // Header with description
+        const Text(
+          'Fitness Tutorials',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Follow our structured tutorial program to learn proper form and technique for all exercises.',
+          style: TextStyle(
+            color: AppTheme.textSecondaryColor,
+          ),
+        ),
+        const SizedBox(height: 24),
         
-        return DraggableScrollableSheet(
-          initialChildSize: 0.6,
-          minChildSize: 0.4,
-          maxChildSize: 0.9,
-          expand: false,
-          builder: (_, controller) {
-            return Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        // Tutorial day cards
+        for (final day in _tutorialDays) ...[
+          _buildTutorialDayCard(day),
+          const SizedBox(height: 16),
+        ],
+      ],
+    );
+  }
+  
+  Widget _buildTutorialDayCard(Map<String, dynamic> day) {
+    final progress = day['progress'] as double;
+    final isCompleted = progress >= 1.0;
+    final isStarted = progress > 0.0;
+    
+    return InkWell(
+      onTap: () {
+        // Navigate to tutorial detail screen
+        _navigateToTutorialDay(day);
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Card(
+          elevation: 0,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Image with overlay
+              Stack(
                 children: [
-                  const Center(
-                    child: Text(
-                      'Filter Tutorials',
-                      style: TextStyle(
+                  // Tutorial image
+                  AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: Image.network(
+                      day['imageUrl'] as String,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey.shade300,
+                          child: const Center(
+                            child: Icon(
+                              Icons.image_not_supported,
+                              size: 48,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  
+                  // Difficulty badge
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _getDifficultyColor(day['difficulty'] as String),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        day['difficulty'] as String,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  // Status indicator
+                  if (isCompleted || isStarted)
+                    Positioned(
+                      top: 16,
+                      left: 16,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isCompleted ? AppTheme.successColor : AppTheme.primaryColor,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          isCompleted ? 'Completed' : 'In Progress',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              
+              // Content
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title
+                    Text(
+                      day['title'] as String,
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Difficulty filter
-                  const Text(
-                    'Difficulty Level',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                    const SizedBox(height: 4),
+                    
+                    // Subtitle
+                    Text(
+                      day['subtitle'] as String,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textSecondaryColor,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      FilterChip(
-                        label: const Text('All'),
-                        selected: selectedDifficulty == null,
-                        onSelected: (_) {
-                          setState(() {
-                            selectedDifficulty = null;
-                          });
-                        },
+                    const SizedBox(height: 12),
+                    
+                    // Description
+                    Text(
+                      day['description'] as String,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
                       ),
-                      ...TutorialDifficulty.values.map((difficulty) {
-                        String label;
-                        switch (difficulty) {
-                          case TutorialDifficulty.beginner:
-                            label = 'Beginner';
-                            break;
-                          case TutorialDifficulty.intermediate:
-                            label = 'Intermediate';
-                            break;
-                          case TutorialDifficulty.advanced:
-                            label = 'Advanced';
-                            break;
-                          case TutorialDifficulty.expert:
-                            label = 'Expert';
-                            break;
-                        }
-                        
-                        return FilterChip(
-                          label: Text(label),
-                          selected: selectedDifficulty == difficulty,
-                          onSelected: (_) {
-                            setState(() {
-                              selectedDifficulty = difficulty;
-                            });
-                          },
-                        );
-                      }),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Category filter
-                  const Text(
-                    'Category',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      FilterChip(
-                        label: const Text('All'),
-                        selected: selectedCategory == null,
-                        onSelected: (_) {
-                          setState(() {
-                            selectedCategory = null;
-                          });
-                        },
-                      ),
-                      ...TutorialCategory.values.map((category) {
-                        String label;
-                        IconData icon;
-                        
-                        switch (category) {
-                          case TutorialCategory.cardio:
-                            label = 'Cardio';
-                            icon = Icons.directions_run;
-                            break;
-                          case TutorialCategory.strength:
-                            label = 'Strength';
-                            icon = Icons.fitness_center;
-                            break;
-                          case TutorialCategory.flexibility:
-                            label = 'Flexibility';
-                            icon = Icons.accessibility;
-                            break;
-                          case TutorialCategory.balance:
-                            label = 'Balance';
-                            icon = Icons.balance;
-                            break;
-                          case TutorialCategory.nutrition:
-                            label = 'Nutrition';
-                            icon = Icons.restaurant;
-                            break;
-                          case TutorialCategory.recovery:
-                            label = 'Recovery';
-                            icon = Icons.hotel;
-                            break;
-                          case TutorialCategory.technique:
-                            label = 'Technique';
-                            icon = Icons.sports_gymnastics;
-                            break;
-                          case TutorialCategory.program:
-                            label = 'Programs';
-                            icon = Icons.calendar_today;
-                            break;
-                        }
-                        
-                        return FilterChip(
-                          avatar: Icon(icon, size: 16),
-                          label: Text(label),
-                          selected: selectedCategory == category,
-                          onSelected: (_) {
-                            setState(() {
-                              selectedCategory = category;
-                            });
-                          },
-                        );
-                      }),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Premium toggle
-                  SwitchListTile(
-                    title: const Text('Premium Content Only'),
-                    value: premiumOnly,
-                    onChanged: (value) {
-                      setState(() {
-                        premiumOnly = value;
-                      });
-                    },
-                    activeColor: AppTheme.primaryColor,
-                  ),
-                  
-                  const Spacer(),
-                  
-                  // Filter actions
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      OutlinedButton(
-                        onPressed: () {
-                          tutorialProvider.clearFilters();
-                          Navigator.pop(context);
-                        },
-                        child: const Text('Reset All'),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          tutorialProvider.setFilters(
-                            difficulty: selectedDifficulty,
-                            category: selectedCategory,
-                            premium: premiumOnly,
-                          );
-                          Navigator.pop(context);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
+                    const SizedBox(height: 16),
+                    
+                    // Info row
+                    Row(
+                      children: [
+                        _buildInfoChip(
+                          icon: Icons.fitness_center,
+                          label: '${day['exercises']} exercises',
                         ),
-                        child: const Text('Apply Filters'),
+                        const SizedBox(width: 16),
+                        _buildInfoChip(
+                          icon: Icons.timer,
+                          label: day['duration'] as String,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Progress bar
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Progress',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                            Text(
+                              '${(progress * 100).toInt()}%',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: _getProgressColor(progress),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        LinearProgressIndicator(
+                          value: progress,
+                          backgroundColor: Colors.grey.shade200,
+                          valueColor: AlwaysStoppedAnimation<Color>(_getProgressColor(progress)),
+                          borderRadius: BorderRadius.circular(4),
+                          minHeight: 8,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Action buttons
+              Padding(
+                padding: const EdgeInsets.only(left: 8, right: 8, bottom: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () {
+                        // View tutorial details
+                        _navigateToTutorialDay(day);
+                      },
+                      icon: const Icon(Icons.visibility),
+                      label: const Text('View Details'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        // Continue or start tutorial
+                        _navigateToTutorialDay(day, startExercise: true);
+                      },
+                      icon: Icon(isStarted ? Icons.play_arrow : Icons.start),
+                      label: Text(isStarted ? 'Continue' : 'Start'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isCompleted ? Colors.grey : AppTheme.primaryColor,
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildInfoChip({required IconData icon, required String label}) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: AppTheme.textSecondaryColor,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            color: AppTheme.textSecondaryColor,
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Color _getDifficultyColor(String difficulty) {
+    switch (difficulty.toLowerCase()) {
+      case 'beginner':
+        return Colors.green;
+      case 'intermediate':
+        return Colors.orange;
+      case 'advanced':
+        return Colors.red;
+      default:
+        return AppTheme.primaryColor;
+    }
+  }
+  
+  Color _getProgressColor(double progress) {
+    if (progress >= 1.0) {
+      return AppTheme.successColor;
+    } else if (progress >= 0.5) {
+      return Colors.orange;
+    } else if (progress > 0.0) {
+      return AppTheme.primaryColor;
+    } else {
+      return Colors.grey;
+    }
+  }
+  
+  void _navigateToTutorialDay(Map<String, dynamic> day, {bool startExercise = false}) {
+    // In a real app, this would navigate to the tutorial detail screen
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(startExercise 
+            ? 'Starting ${day['title']}' 
+            : 'Viewing details for ${day['title']}'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+  
+  void _showFilterDialog() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Filter Tutorials',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Difficulty filter
+              const Text(
+                'Difficulty',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _buildFilterChip('Beginner', Colors.green),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Intermediate', Colors.orange),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Advanced', Colors.red),
+                ],
+              ),
+              const SizedBox(height: 16),
+              
+              // Progress filter
+              const Text(
+                'Progress',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _buildFilterChip('Not Started', Colors.grey),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('In Progress', AppTheme.primaryColor),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Completed', AppTheme.successColor),
+                ],
+              ),
+              const SizedBox(height: 24),
+              
+              // Apply/Clear buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Clear All'),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      // Apply filters
+                    },
+                    child: const Text('Apply'),
                   ),
                 ],
               ),
-            );
-          },
+            ],
+          ),
         );
       },
     );
   }
   
+  Widget _buildFilterChip(String label, Color color) {
+    return FilterChip(
+      label: Text(label),
+      onSelected: (selected) {
+        // Apply filter
+      },
+      backgroundColor: Colors.grey.shade200,
+      selectedColor: color.withOpacity(0.2),
+      checkmarkColor: color,
+      labelStyle: TextStyle(
+        color: Colors.grey.shade800,
+      ),
+      side: BorderSide(
+        color: Colors.grey.shade300,
+      ),
+    );
+  }
+  
+  void _showSearchBar() {
+    showSearch(
+      context: context,
+      delegate: TutorialSearchDelegate(_tutorialDays),
+    );
+  }
+}
+
+class TutorialSearchDelegate extends SearchDelegate<String> {
+  final List<Map<String, dynamic>> tutorials;
+  
+  TutorialSearchDelegate(this.tutorials);
+  
   @override
-  Widget build(BuildContext context) {
-    final tutorialProvider = Provider.of<TutorialProvider>(context);
-    final authProvider = Provider.of<AuthProvider>(context);
-    
-    return Scaffold(
-      appBar: AppBar(
-        title: _isSearching
-            ? TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Search tutorials...',
-                  hintStyle: const TextStyle(color: Colors.white70),
-                  border: InputBorder.none,
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.clear, color: Colors.white),
-                    onPressed: _clearSearch,
-                  ),
-                ),
-                style: const TextStyle(color: Colors.white),
-                autofocus: true,
-              )
-            : const Text('Tutorials'),
-        actions: [
-          // Search icon
-          IconButton(
-            icon: Icon(_isSearching ? Icons.search_off : Icons.search),
-            tooltip: _isSearching ? 'Cancel search' : 'Search',
-            onPressed: () {
-              setState(() {
-                _isSearching = !_isSearching;
-                if (!_isSearching) {
-                  _clearSearch();
-                }
-              });
-            },
-          ),
-          
-          // Filter icon
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            tooltip: 'Filter',
-            onPressed: _openFilterDialog,
-          ),
-          
-          // Refresh icon
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
-            onPressed: _loadTutorials,
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'For You'),
-            Tab(text: 'Popular'),
-            Tab(text: 'My Tutorials'),
-          ],
-        ),
+  List<Widget> buildActions(BuildContext context) {
+    return [
+      IconButton(
+        icon: const Icon(Icons.clear),
+        onPressed: () {
+          query = '';
+        },
       ),
-      body: tutorialProvider.isLoading
-          ? const LoadingIndicator(message: 'Loading tutorials...')
-          : tutorialProvider.error != null
-              ? CustomErrorWidget(
-                  message: tutorialProvider.error!,
-                  onRetry: _loadTutorials,
-                )
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    // For You tab - recommended tutorials
-                    _isSearching || tutorialProvider.hasActiveFilters
-                        ? _buildTutorialGrid(tutorialProvider.filteredTutorials)
-                        : _buildRecommendedScreen(),
-                    
-                    // Popular tab - highest rated tutorials
-                    _isSearching || tutorialProvider.hasActiveFilters
-                        ? _buildTutorialGrid(tutorialProvider.filteredTutorials)
-                        : _buildTutorialGrid(tutorialProvider.popularTutorials),
-                    
-                    // My Tutorials tab - user's in-progress and completed tutorials
-                    _isSearching || tutorialProvider.hasActiveFilters
-                        ? _buildTutorialGrid(tutorialProvider.filteredTutorials)
-                        : _buildMyTutorialsScreen(),
-                  ],
-                ),
-      floatingActionButton: authProvider.isAuthenticated && 
-                            (authProvider.currentUser!.isAdmin || 
-                             authProvider.currentUser!.isInstructor)
-          ? FloatingActionButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const TutorialCreateEditScreen(),
-                  ),
-                ).then((value) {
-                  if (value == true) {
-                    _loadTutorials();
-                  }
-                });
-              },
-              backgroundColor: AppTheme.primaryColor,
-              child: const Icon(Icons.add),
-            )
-          : null,
+    ];
+  }
+  
+  @override
+  Widget buildLeading(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.arrow_back),
+      onPressed: () {
+        close(context, '');
+      },
     );
   }
   
-  Widget _buildRecommendedScreen() {
-    final tutorialProvider = Provider.of<TutorialProvider>(context);
-    final authProvider = Provider.of<AuthProvider>(context);
-    
-    if (!authProvider.isAuthenticated) {
-      return _buildTutorialGrid(tutorialProvider.popularTutorials);
-    }
-    
-    final recommendedTutorials = tutorialProvider.getRecommendedTutorials();
-    
-    if (recommendedTutorials.isEmpty) {
-      // Show popular tutorials instead
-      return _buildTutorialGrid(tutorialProvider.popularTutorials);
-    }
-    
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppTheme.paddingMedium),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Recommended section
-          const Text(
-            'Recommended For You',
-            style: TextStyle(
-              fontSize: AppTheme.fontSizeLarge,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: AppTheme.spacingMedium),
-          _buildTutorialList(recommendedTutorials.take(3).toList()),
-          
-          const SizedBox(height: AppTheme.spacingLarge),
-          
-          // In progress section
-          const Text(
-            'Continue Learning',
-            style: TextStyle(
-              fontSize: AppTheme.fontSizeLarge,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: AppTheme.spacingMedium),
-          _buildProgressTutorialList(tutorialProvider.getInProgressTutorials()),
-          
-          const SizedBox(height: AppTheme.spacingLarge),
-          
-          // Categories section
-          const Text(
-            'Browse By Category',
-            style: TextStyle(
-              fontSize: AppTheme.fontSizeLarge,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: AppTheme.spacingMedium),
-          _buildCategoriesGrid(),
-        ],
-      ),
-    );
+  @override
+  Widget buildResults(BuildContext context) {
+    return buildSuggestions(context);
   }
   
-  Widget _buildMyTutorialsScreen() {
-    final tutorialProvider = Provider.of<TutorialProvider>(context);
-    final authProvider = Provider.of<AuthProvider>(context);
-    
-    if (!authProvider.isAuthenticated) {
-      return const Center(
-        child: Text('Please log in to view your tutorials'),
-      );
-    }
-    
-    final inProgressTutorials = tutorialProvider.getInProgressTutorials();
-    final completedTutorials = tutorialProvider.getCompletedTutorials();
-    
-    if (inProgressTutorials.isEmpty && completedTutorials.isEmpty) {
-      return const Center(
-        child: Text('You haven\'t started any tutorials yet'),
-      );
-    }
-    
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppTheme.paddingMedium),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // In progress section
-          if (inProgressTutorials.isNotEmpty) ...[
+  @override
+  Widget buildSuggestions(BuildContext context) {
+    if (query.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search,
+              size: 64,
+              color: Colors.grey.shade300,
+            ),
+            const SizedBox(height: 16),
             const Text(
-              'In Progress',
+              'Search for tutorials',
               style: TextStyle(
-                fontSize: AppTheme.fontSizeLarge,
-                fontWeight: FontWeight.bold,
+                color: AppTheme.textSecondaryColor,
               ),
             ),
-            const SizedBox(height: AppTheme.spacingMedium),
-            _buildProgressTutorialList(inProgressTutorials),
-            const SizedBox(height: AppTheme.spacingLarge),
           ],
-          
-          // Completed section
-          if (completedTutorials.isNotEmpty) ...[
-            const Text(
-              'Completed',
-              style: TextStyle(
-                fontSize: AppTheme.fontSizeLarge,
-                fontWeight: FontWeight.bold,
+        ),
+      );
+    }
+    
+    final results = tutorials.where((tutorial) {
+      final title = tutorial['title'] as String;
+      final subtitle = tutorial['subtitle'] as String;
+      final description = tutorial['description'] as String;
+      
+      return title.toLowerCase().contains(query.toLowerCase()) ||
+             subtitle.toLowerCase().contains(query.toLowerCase()) ||
+             description.toLowerCase().contains(query.toLowerCase());
+    }).toList();
+    
+    if (results.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search_off,
+              size: 64,
+              color: Colors.grey.shade300,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No results found for "$query"',
+              style: const TextStyle(
+                color: AppTheme.textSecondaryColor,
               ),
             ),
-            const SizedBox(height: AppTheme.spacingMedium),
-            _buildTutorialGrid(completedTutorials),
           ],
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildTutorialGrid(List<TutorialModel> tutorials) {
-    if (tutorials.isEmpty) {
-      return const Center(
-        child: Text('No tutorials found'),
-      );
-    }
-    
-    return GridView.builder(
-      padding: const EdgeInsets.all(AppTheme.paddingMedium),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.75,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-      ),
-      itemCount: tutorials.length,
-      itemBuilder: (context, index) => _buildTutorialCard(tutorials[index]),
-    );
-  }
-  
-  Widget _buildTutorialList(List<TutorialModel> tutorials) {
-    if (tutorials.isEmpty) {
-      return const SizedBox(
-        height: 200,
-        child: Center(
-          child: Text('No tutorials found'),
-        ),
-      );
-    }
-    
-    return SizedBox(
-      height: 220,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: tutorials.length,
-        itemBuilder: (context, index) => SizedBox(
-          width: 160,
-          child: _buildTutorialCard(tutorials[index]),
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildProgressTutorialList(List<TutorialModel> tutorials) {
-    final tutorialProvider = Provider.of<TutorialProvider>(context);
-    
-    if (tutorials.isEmpty) {
-      return const SizedBox(
-        height: 120,
-        child: Center(
-          child: Text('No tutorials in progress'),
         ),
       );
     }
     
     return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: tutorials.length,
+      padding: const EdgeInsets.all(16),
+      itemCount: results.length,
       itemBuilder: (context, index) {
-        final tutorial = tutorials[index];
-        final progress = tutorialProvider.getProgressForTutorial(tutorial.id);
+        final tutorial = results[index];
         
-        return InkWell(
-          onTap: () => _openTutorialDetails(tutorial),
-          child: Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      // Thumbnail
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(8),
-                          image: tutorial.thumbnailUrl != null
-                              ? DecorationImage(
-                                  image: NetworkImage(tutorial.thumbnailUrl!),
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
-                        ),
-                        child: tutorial.thumbnailUrl == null
-                            ? const Icon(Icons.video_library, color: Colors.grey)
-                            : null,
-                      ),
-                      const SizedBox(width: 12),
-                      // Title and info
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              tutorial.title,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              tutorial.categoryString,
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+          leading: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              tutorial['imageUrl'] as String,
+              width: 60,
+              height: 60,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  width: 60,
+                  height: 60,
+                  color: Colors.grey.shade300,
+                  child: const Icon(
+                    Icons.image_not_supported,
+                    color: Colors.grey,
                   ),
-                  // Progress bar
-                  if (progress != null) ...[
-                    const SizedBox(height: 12),
-                    LinearProgressIndicator(
-                      value: progress.progress,
-                      backgroundColor: Colors.grey.shade200,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        AppTheme.primaryColor,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${(progress.progress * 100).toInt()}% complete',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+                );
+              },
             ),
           ),
+          title: Text(
+            tutorial['title'] as String,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          subtitle: Text(
+            tutorial['subtitle'] as String,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          onTap: () {
+            // Navigate to tutorial detail
+            close(context, tutorial['id'] as String);
+          },
         );
       },
-    );
-  }
-  
-  Widget _buildTutorialCard(TutorialModel tutorial) {
-    final tutorialProvider = Provider.of<TutorialProvider>(context);
-    final progress = tutorialProvider.getProgressForTutorial(tutorial.id);
-    
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      elevation: AppTheme.elevationSmall,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
-      ),
-      child: InkWell(
-        onTap: () => _openTutorialDetails(tutorial),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Thumbnail
-            Stack(
-              children: [
-                AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: tutorial.thumbnailUrl != null
-                      ? Image.network(
-                          tutorial.thumbnailUrl!,
-                          fit: BoxFit.cover,
-                        )
-                      : Container(
-                          color: Colors.grey.shade200,
-                          child: const Center(
-                            child: Icon(
-                              Icons.video_library,
-                              size: 40,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ),
-                ),
-                
-                // Premium badge
-                if (tutorial.isPremium)
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.accentColor,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'PREMIUM',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ),
-                  ),
-                
-                // Progress overlay
-                if (progress != null && progress.progress > 0)
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: LinearProgressIndicator(
-                      value: progress.progress,
-                      backgroundColor: Colors.grey.withOpacity(0.5),
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        AppTheme.primaryColor,
-                      ),
-                      minHeight: 5,
-                    ),
-                  ),
-              ],
-            ),
-            
-            // Content
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title
-                  Text(
-                    tutorial.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  
-                  // Difficulty
-                  Row(
-                    children: [
-                      _buildDifficultyIndicator(tutorial.difficulty),
-                      const SizedBox(width: 4),
-                      Text(
-                        tutorial.difficultyString,
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 8),
-                  
-                  // Rating and duration
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.star,
-                        size: 14,
-                        color: AppTheme.accentColor,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        tutorial.averageRating.toStringAsFixed(1),
-                        style: TextStyle(
-                          color: Colors.grey.shade700,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Icon(
-                        Icons.timer,
-                        size: 14,
-                        color: Colors.grey.shade600,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${tutorial.durationMinutes} min',
-                        style: TextStyle(
-                          color: Colors.grey.shade700,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildDifficultyIndicator(TutorialDifficulty difficulty) {
-    Color color;
-    int dots;
-    
-    switch (difficulty) {
-      case TutorialDifficulty.beginner:
-        color = Colors.green;
-        dots = 1;
-        break;
-      case TutorialDifficulty.intermediate:
-        color = Colors.blue;
-        dots = 2;
-        break;
-      case TutorialDifficulty.advanced:
-        color = Colors.orange;
-        dots = 3;
-        break;
-      case TutorialDifficulty.expert:
-        color = Colors.red;
-        dots = 4;
-        break;
-    }
-    
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(4, (index) {
-        return Container(
-          width: 4,
-          height: 4,
-          margin: const EdgeInsets.only(right: 2),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: index < dots ? color : Colors.grey.shade300,
-          ),
-        );
-      }),
-    );
-  }
-  
-  Widget _buildCategoriesGrid() {
-    return GridView.count(
-      crossAxisCount: 2,
-      crossAxisSpacing: 16,
-      mainAxisSpacing: 16,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      children: TutorialCategory.values.map((category) {
-        String label;
-        IconData icon;
-        Color color;
-        
-        switch (category) {
-          case TutorialCategory.cardio:
-            label = 'Cardio';
-            icon = Icons.directions_run;
-            color = Colors.red;
-            break;
-          case TutorialCategory.strength:
-            label = 'Strength';
-            icon = Icons.fitness_center;
-            color = Colors.blue;
-            break;
-          case TutorialCategory.flexibility:
-            label = 'Flexibility';
-            icon = Icons.accessibility;
-            color = Colors.purple;
-            break;
-          case TutorialCategory.balance:
-            label = 'Balance';
-            icon = Icons.balance;
-            color = Colors.green;
-            break;
-          case TutorialCategory.nutrition:
-            label = 'Nutrition';
-            icon = Icons.restaurant;
-            color = Colors.orange;
-            break;
-          case TutorialCategory.recovery:
-            label = 'Recovery';
-            icon = Icons.hotel;
-            color = Colors.teal;
-            break;
-          case TutorialCategory.technique:
-            label = 'Technique';
-            icon = Icons.sports_gymnastics;
-            color = Colors.indigo;
-            break;
-          case TutorialCategory.program:
-            label = 'Programs';
-            icon = Icons.calendar_today;
-            color = Colors.brown;
-            break;
-        }
-        
-        return InkWell(
-          onTap: () {
-            // Apply category filter
-            final tutorialProvider = Provider.of<TutorialProvider>(context, listen: false);
-            tutorialProvider.setFilters(category: category);
-            // Switch to the Popular tab which displays filtered results
-            _tabController.animateTo(1);
-          },
-          child: Card(
-            color: color.withOpacity(0.1),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
-              side: BorderSide(
-                color: color.withOpacity(0.3),
-              ),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  size: 40,
-                  color: color,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-  
-  void _openTutorialDetails(TutorialModel tutorial) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => TutorialDetailsScreen(
-          tutorialId: tutorial.id,
-        ),
-      ),
     );
   }
 }
