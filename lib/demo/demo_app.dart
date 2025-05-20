@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fitsaga/demo/session_detail_demo.dart';
+import 'package:fitsaga/demo/calendar_view_demo.dart'; 
 import 'package:fitsaga/theme/app_theme.dart';
 
 class DemoApp extends StatelessWidget {
@@ -18,9 +19,28 @@ class DemoApp extends StatelessWidget {
   }
 }
 
-class DemoHomeScreen extends StatelessWidget {
+class DemoHomeScreen extends StatefulWidget {
   const DemoHomeScreen({Key? key}) : super(key: key);
 
+  @override
+  State<DemoHomeScreen> createState() => _DemoHomeScreenState();
+}
+
+class _DemoHomeScreenState extends State<DemoHomeScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this, initialIndex: 0);
+  }
+  
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -28,14 +48,31 @@ class DemoHomeScreen extends StatelessWidget {
         title: const Text('FitSAGA Sessions'),
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.white,
+          tabs: const [
+            Tab(icon: Icon(Icons.calendar_today), text: 'Calendar'),
+            Tab(icon: Icon(Icons.list), text: 'All Sessions'),
+          ],
+        ),
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: demoSessions.length,
-        itemBuilder: (context, index) {
-          final session = demoSessions[index];
-          return SessionCard(session: session);
-        },
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          // Calendar view tab
+          CalendarViewDemo(sessions: demoSessions),
+          
+          // List view tab
+          ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: demoSessions.length,
+            itemBuilder: (context, index) {
+              final session = demoSessions[index];
+              return SessionCard(session: session);
+            },
+          ),
+        ],
       ),
     );
   }
