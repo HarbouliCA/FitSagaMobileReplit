@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fitsaga/models/auth_model.dart';
 import 'package:fitsaga/theme/app_theme.dart';
 import 'package:fitsaga/demo/calendar_view_demo.dart';
+import 'package:fitsaga/demo/session_detail_demo.dart';
 import 'package:fitsaga/screens/auth/login_screen.dart';
 import 'package:fitsaga/screens/profile/profile_screen.dart';
 import 'package:fitsaga/screens/tutorials/tutorials_screen.dart';
