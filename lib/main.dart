@@ -1,25 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-// Temporarily commenting out Firebase for web compatibility
-// import 'package:firebase_core/firebase_core.dart';
-import 'package:fitsaga/providers/auth_provider.dart';
-import 'package:fitsaga/navigation/app_router.dart';
-import 'package:fitsaga/theme/app_theme.dart';
+import 'package:fitsaga/demo/demo_app.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize Firebase - temporarily disabled for web compatibility
-  // try {
-  //   await Firebase.initializeApp();
-  // } catch (e) {
-  //   print('Failed to initialize Firebase: $e');
-  //   // Continue without Firebase for local testing
-  // }
-  
-  runApp(const MyApp());
+  runApp(const DemoApp());
 }
 
+// This class is temporarily not used while we demonstrate the UI enhancements
+// We'll re-enable it once Firebase integration is fixed
+/* 
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
@@ -41,3 +30,4 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+*/

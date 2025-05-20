@@ -22,7 +22,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "flutter run -d web-server --web-hostname=0.0.0.0 --web-port=5000"
+args = "flutter run -d web-server --web-renderer html --web-hostname=0.0.0.0 --web-port=5000"
 waitForPort = 5000
 
 [deployment]
