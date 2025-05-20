@@ -1,0 +1,558 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:fitsaga/providers/session_provider.dart';
+import 'package:fitsaga/providers/credit_provider.dart';
+import 'package:fitsaga/models/session_model.dart';
+import 'package:fitsaga/theme/app_theme.dart';
+import 'package:fitsaga/widgets/common/custom_app_bar.dart';
+import 'package:fitsaga/widgets/common/loading_indicator.dart';
+import 'package:fitsaga/widgets/common/error_widget.dart';
+import 'package:fitsaga/utils/date_formatter.dart';
+import 'package:fitsaga/config/constants.dart';
+
+class SessionDetailsScreen extends StatefulWidget {
+  const SessionDetailsScreen({Key? key}) : super(key: key);
+
+  @override
+  State<SessionDetailsScreen> createState() => _SessionDetailsScreenState();
+}
+
+class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
+  bool _isLoading = false;
+  String? _error;
+  bool _hasBookedSession = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkBookingStatus();
+    });
+  }
+
+  Future<void> _checkBookingStatus() async {
+    final sessionProvider = Provider.of<SessionProvider>(context, listen: false);
+    final session = sessionProvider.selectedSession;
+    
+    if (session == null) {
+      return;
+    }
+    
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      final hasBooked = await sessionProvider.hasUserBookedSession(session.id);
+      
+      if (mounted) {
+        setState(() {
+          _hasBookedSession = hasBooked;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _bookSession() async {
+    final sessionProvider = Provider.of<SessionProvider>(context, listen: false);
+    final creditProvider = Provider.of<CreditProvider>(context, listen: false);
+    final session = sessionProvider.selectedSession;
+    
+    if (session == null) {
+      return;
+    }
+    
+    // Check if user has sufficient credits
+    if (!creditProvider.hasSufficientCredits(session.requiredCredits)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(AppConstants.errorInsufficientCredits),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+      return;
+    }
+    
+    // Navigate to booking confirmation screen
+    Navigator.pushNamed(context, '/sessions/booking-confirmation');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sessionProvider = Provider.of<SessionProvider>(context);
+    final session = sessionProvider.selectedSession;
+    
+    if (session == null) {
+      return Scaffold(
+        appBar: const CustomAppBar(
+          title: 'Session Details',
+        ),
+        body: const Center(
+          child: Text('No session selected'),
+        ),
+      );
+    }
+    
+    return Scaffold(
+      appBar: CustomAppBar(
+        title: 'Session Details',
+        showCredits: true,
+      ),
+      body: _isLoading
+          ? const LoadingIndicator(message: 'Loading session details...')
+          : _error != null
+              ? ErrorDisplayWidget(
+                  message: _error!,
+                  onRetry: _checkBookingStatus,
+                )
+              : SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Session header with image
+                      _buildSessionHeader(session),
+                      
+                      // Session details
+                      Padding(
+                        padding: const EdgeInsets.all(AppTheme.paddingLarge),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Session title
+                            Text(
+                              session.title ?? session.activityName,
+                              style: const TextStyle(
+                                fontSize: AppTheme.fontSizeHeading,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            
+                            const SizedBox(height: AppTheme.spacingRegular),
+                            
+                            // Session stats
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                _buildStatItem(
+                                  Icons.access_time,
+                                  DateFormatter.formatDuration(session.sessionDuration.inMinutes),
+                                  'Duration',
+                                ),
+                                _buildStatItem(
+                                  Icons.group,
+                                  '${session.enrolledCount}/${session.capacity}',
+                                  'Capacity',
+                                ),
+                                _buildStatItem(
+                                  Icons.stars,
+                                  '${session.requiredCredits}',
+                                  'Credits',
+                                ),
+                              ],
+                            ),
+                            
+                            const Divider(height: 40),
+                            
+                            // Session info
+                            _buildInfoSection('Date & Time', Icons.calendar_today, [
+                              '${DateFormatter.formatDayOfWeek(session.startTime)}, ${DateFormatter.formatDate(session.startTime)}',
+                              '${DateFormatter.formatTime(session.startTime)} - ${DateFormatter.formatTime(session.endTime)}',
+                            ]),
+                            
+                            const SizedBox(height: AppTheme.spacingLarge),
+                            
+                            _buildInfoSection('Instructor', Icons.person, [
+                              session.instructorName,
+                            ]),
+                            
+                            const SizedBox(height: AppTheme.spacingLarge),
+                            
+                            if (session.description != null && session.description!.isNotEmpty)
+                              _buildInfoSection('Description', Icons.info_outline, [
+                                session.description!,
+                              ]),
+                            
+                            if (session.notes != null && session.notes!.isNotEmpty) ...[
+                              const SizedBox(height: AppTheme.spacingLarge),
+                              _buildInfoSection('Notes', Icons.note, [
+                                session.notes!,
+                              ]),
+                            ],
+                            
+                            const SizedBox(height: AppTheme.spacingExtraLarge),
+                            
+                            // Status and action
+                            _buildStatusAndActionSection(session),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+    );
+  }
+
+  Widget _buildSessionHeader(SessionModel session) {
+    String imageUrl;
+    
+    // Select image based on activity type
+    switch (session.activityType) {
+      case 'ENTREMIENTO_PERSONAL':
+        imageUrl = 'https://pixabay.com/get/g136e646a179dd4e5c301b64867f4782dca7a327b78ff88bfc9b2496aee65669611d9bcf89e5954214116f4d063014212c01538c0d33f6b6f665738b72ad854e9_1280.jpg';
+        break;
+      case 'KICK_BOXING':
+        imageUrl = 'https://pixabay.com/get/g4abe5a8d3016d9ee8bec7b299ddcaa666afe3ce392b571f0166b6ab98a5efa992eae8312553519fd826391472f01f3cef85b18c8b05261de893cdd8e7c841a80_1280.jpg';
+        break;
+      case 'SALE_FITNESS':
+        imageUrl = 'https://pixabay.com/get/g8547efd6ac79f40edeb6e40561336e44f9b3c88c0e6f66fca26a9ca522d93759e240efdaf74247f7f2340ee05c4ae76113d03406d1d5d769cf3222f5e15de5db_1280.jpg';
+        break;
+      case 'CLASES_DERIGIDAS':
+        imageUrl = 'https://pixabay.com/get/g68da04c1f0777b0aa6746c782ae203d2ee2f9b5e4d3be8e5c7edce611c0ef6ce2377f3c7046f6d389f052aad33220fd9d5cb8466fa9d91ab29befe0bd9d9850d_1280.jpg';
+        break;
+      default:
+        imageUrl = 'https://pixabay.com/get/gf1c7c837549d0fc61662b7ac9df62390074a2e3af4b5772c8af39900da899f451e381ba8c429c31fc67529a16643ce7909f24a4955315fabe44cf381dc63e54d_1280.jpg';
+    }
+
+    return Stack(
+      children: [
+        // Session image
+        Container(
+          height: 200,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade300,
+          ),
+          child: Image.network(
+            imageUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Center(
+                child: Icon(
+                  Icons.fitness_center,
+                  size: 64,
+                  color: Colors.grey.shade400,
+                ),
+              );
+            },
+          ),
+        ),
+        
+        // Gradient overlay for better text visibility
+        Container(
+          height: 200,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withOpacity(0.1),
+                Colors.black.withOpacity(0.5),
+              ],
+            ),
+          ),
+        ),
+        
+        // Activity type badge
+        Positioned(
+          top: 16,
+          left: 16,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 6,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
+            ),
+            child: Text(
+              session.activityType.replaceAll('_', ' '),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: AppTheme.fontSizeSmall,
+              ),
+            ),
+          ),
+        ),
+        
+        // Session time at bottom
+        Positioned(
+          bottom: 16,
+          left: 16,
+          right: 16,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Date and time
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_today,
+                        color: Colors.white,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        DateFormatter.formatDate(session.startTime),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.access_time,
+                        color: Colors.white,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        DateFormatter.formatSessionTimeRange(
+                          session.startTime, 
+                          session.endTime,
+                        ),
+                        style: const TextStyle(
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              
+              // Status indicator
+              if (_hasBookedSession)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor,
+                    borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
+                  ),
+                  child: const Text(
+                    'BOOKED',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: AppTheme.fontSizeSmall,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatItem(IconData icon, String value, String label) {
+    return Column(
+      children: [
+        Icon(
+          icon,
+          color: AppTheme.primaryColor,
+          size: 28,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: AppTheme.fontSizeMedium,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppTheme.textLightColor,
+            fontSize: AppTheme.fontSizeSmall,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoSection(String title, IconData icon, List<String> items) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              icon,
+              color: AppTheme.primaryColor,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: AppTheme.fontSizeMedium,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...items.map((item) => Padding(
+          padding: const EdgeInsets.only(
+            left: 26,
+            bottom: 4,
+          ),
+          child: Text(item),
+        )),
+      ],
+    );
+  }
+
+  Widget _buildStatusAndActionSection(SessionModel session) {
+    final creditProvider = Provider.of<CreditProvider>(context);
+    final hasSufficientCredits = creditProvider.hasSufficientCredits(session.requiredCredits);
+    
+    // Determine status color and message
+    Color statusColor;
+    String statusMessage;
+    
+    if (_hasBookedSession) {
+      statusColor = AppTheme.successColor;
+      statusMessage = 'You have already booked this session';
+    } else if (session.status == 'cancelled') {
+      statusColor = AppTheme.errorColor;
+      statusMessage = 'This session has been cancelled';
+    } else if (session.isFull) {
+      statusColor = AppTheme.warningColor;
+      statusMessage = 'This session is fully booked';
+    } else if (!session.isActive) {
+      statusColor = AppTheme.textLightColor;
+      statusMessage = 'This session is no longer available';
+    } else if (!hasSufficientCredits) {
+      statusColor = AppTheme.creditEmptyColor;
+      statusMessage = 'You don\'t have enough credits to book this session';
+    } else {
+      statusColor = AppTheme.successColor;
+      statusMessage = 'This session is available for booking';
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Status message
+        Row(
+          children: [
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: statusColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                statusMessage,
+                style: TextStyle(
+                  color: statusColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        
+        const SizedBox(height: AppTheme.spacingLarge),
+        
+        // Credit preview
+        if (!_hasBookedSession && session.isActive && !session.isFull) ...[
+          Container(
+            padding: const EdgeInsets.all(AppTheme.paddingRegular),
+            decoration: BoxDecoration(
+              color: hasSufficientCredits 
+                  ? AppTheme.successColor.withOpacity(0.1) 
+                  : AppTheme.errorColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.stars,
+                  color: hasSufficientCredits 
+                      ? AppTheme.successColor 
+                      : AppTheme.errorColor,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        hasSufficientCredits
+                            ? 'You have enough credits'
+                            : 'Not enough credits',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: hasSufficientCredits 
+                              ? AppTheme.successColor 
+                              : AppTheme.errorColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Available: ${creditProvider.displayCredits} | Required: ${session.requiredCredits}',
+                        style: const TextStyle(
+                          color: AppTheme.textColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: AppTheme.spacingLarge),
+        ],
+        
+        // Action button
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton(
+            onPressed: (!_hasBookedSession && session.isActive && !session.isFull && hasSufficientCredits) 
+                ? _bookSession 
+                : null,
+            child: Text(
+              _hasBookedSession 
+                  ? 'ALREADY BOOKED' 
+                  : 'BOOK SESSION',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

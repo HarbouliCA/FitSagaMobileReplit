@@ -1,0 +1,9 @@
+modules = ["flutter", "flutter/3.19.3"]
+
+[nix]
+channel = "stable-24_05"
+
+[workflows]
+
+[deployment]
+run = ["sh", "-c", "flutter pub get && flutter run -d web-server --web-port 5000 --web-hostname 0.0.0.0"]
