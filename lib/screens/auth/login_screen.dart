@@ -19,14 +19,14 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
-
+  
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
-
+  
   Future<void> _login() async {
     // Hide keyboard
     FocusScope.of(context).unfocus();
@@ -39,7 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
       
       try {
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        await authProvider.signIn(
+        await authProvider.login(
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );
@@ -59,6 +59,44 @@ class _LoginScreenState extends State<LoginScreen> {
             _isLoading = false;
           });
         }
+      }
+    }
+  }
+
+  Future<void> _resetPassword() async {
+    if (_emailController.text.isEmpty) {
+      setState(() {
+        _errorMessage = 'Please enter your email address to reset password';
+      });
+      return;
+    }
+    
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      await authProvider.resetPassword(_emailController.text.trim());
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Password reset email sent. Check your inbox.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -100,7 +138,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     
                     // Subtitle
                     const Text(
-                      'Login to access your account',
+                      'Login to continue your fitness journey',
                       style: TextStyle(
                         fontSize: 16,
                         color: Colors.grey,
@@ -188,9 +226,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () {
-                          // Navigate to forgot password screen
-                        },
+                        onPressed: _isLoading ? null : _resetPassword,
                         child: const Text('Forgot Password?'),
                       ),
                     ),
@@ -218,18 +254,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                       ),
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Demo login buttons
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildDemoLoginButton('Demo User', false, false),
-                        _buildDemoLoginButton('Demo Instructor', true, false),
-                        _buildDemoLoginButton('Demo Admin', false, true),
-                      ],
                     ),
                     
                     const SizedBox(height: 32),
@@ -261,33 +285,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildDemoLoginButton(String label, bool isInstructor, bool isAdmin) {
-    return OutlinedButton(
-      onPressed: _isLoading
-          ? null
-          : () {
-              final authProvider = Provider.of<AuthProvider>(context, listen: false);
-              authProvider.setDemoUser(
-                isInstructor: isInstructor,
-                isAdmin: isAdmin,
-              );
-            },
-      style: OutlinedButton.styleFrom(
-        side: const BorderSide(color: AppTheme.primaryColor),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 12,
-          color: AppTheme.primaryColor,
         ),
       ),
     );

@@ -1,6 +1,67 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// A class representing a tutorial day in the fitness app.
+/// Class representing a complete tutorial program
+class Tutorial {
+  final String id;
+  final String title;
+  final String description;
+  final String imageUrl;
+  final List<String> categories;
+  final String difficulty;
+  final bool isFeatured;
+  final bool isPopular;
+  final int totalDurationMinutes;
+  final int daysCount;
+  final double? userProgress; // null if not started, 0.0-1.0 if in progress
+
+  Tutorial({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.imageUrl,
+    required this.categories,
+    required this.difficulty,
+    required this.isFeatured,
+    required this.isPopular,
+    required this.totalDurationMinutes,
+    required this.daysCount,
+    this.userProgress,
+  });
+
+  factory Tutorial.fromJson(Map<String, dynamic> json) {
+    return Tutorial(
+      id: json['id'] ?? '',
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+      imageUrl: json['imageUrl'] ?? '',
+      categories: List<String>.from(json['categories'] ?? []),
+      difficulty: json['difficulty'] ?? 'Beginner',
+      isFeatured: json['isFeatured'] ?? false,
+      isPopular: json['isPopular'] ?? false,
+      totalDurationMinutes: json['totalDurationMinutes'] ?? 0,
+      daysCount: json['daysCount'] ?? 1,
+      userProgress: json['userProgress'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'imageUrl': imageUrl,
+      'categories': categories,
+      'difficulty': difficulty,
+      'isFeatured': isFeatured,
+      'isPopular': isPopular,
+      'totalDurationMinutes': totalDurationMinutes,
+      'daysCount': daysCount,
+      'userProgress': userProgress,
+    };
+  }
+}
+
+/// Class representing a day within a tutorial program
 class TutorialDay {
   final String id;
   final String title;
@@ -10,7 +71,9 @@ class TutorialDay {
   final String difficulty;
   final int estimatedMinutes;
   final String imageUrl;
-  final List<TutorialExercise> exercises;
+  final bool isCompleted;
+  final bool isActive;
+  final List<Exercise> exercises;
   final List<String> tags;
 
   TutorialDay({
@@ -22,45 +85,35 @@ class TutorialDay {
     required this.difficulty,
     required this.estimatedMinutes,
     required this.imageUrl,
+    this.isCompleted = false,
+    this.isActive = false,
     required this.exercises,
     required this.tags,
   });
 
-  // Create from Firestore document
-  factory TutorialDay.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    
-    // Parse exercises list
-    List<TutorialExercise> exercises = [];
-    if (data['exercises'] != null) {
-      exercises = (data['exercises'] as List)
-          .map((e) => TutorialExercise.fromMap(e as Map<String, dynamic>))
-          .toList();
-    }
-    
-    // Parse tags list
-    List<String> tags = [];
-    if (data['tags'] != null) {
-      tags = List<String>.from(data['tags']);
-    }
-
+  factory TutorialDay.fromJson(Map<String, dynamic> json) {
     return TutorialDay(
-      id: doc.id,
-      title: data['title'] ?? 'Unnamed Tutorial',
-      subtitle: data['subtitle'] ?? '',
-      description: data['description'] ?? '',
-      dayNumber: data['dayNumber'] ?? 0,
-      difficulty: data['difficulty'] ?? 'beginner',
-      estimatedMinutes: data['estimatedMinutes'] ?? 30,
-      imageUrl: data['imageUrl'] ?? '',
-      exercises: exercises,
-      tags: tags,
+      id: json['id'] ?? '',
+      title: json['title'] ?? '',
+      subtitle: json['subtitle'] ?? '',
+      description: json['description'] ?? '',
+      dayNumber: json['dayNumber'] ?? 1,
+      difficulty: json['difficulty'] ?? 'Beginner',
+      estimatedMinutes: json['estimatedMinutes'] ?? 0,
+      imageUrl: json['imageUrl'] ?? '',
+      isCompleted: json['isCompleted'] ?? false,
+      isActive: json['isActive'] ?? false,
+      exercises: (json['exercises'] as List?)
+              ?.map((e) => Exercise.fromJson(e))
+              .toList() ??
+          [],
+      tags: List<String>.from(json['tags'] ?? []),
     );
   }
 
-  // Convert to Firestore document
-  Map<String, dynamic> toFirestore() {
+  Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'title': title,
       'subtitle': subtitle,
       'description': description,
@@ -68,261 +121,129 @@ class TutorialDay {
       'difficulty': difficulty,
       'estimatedMinutes': estimatedMinutes,
       'imageUrl': imageUrl,
-      'exercises': exercises.map((e) => e.toMap()).toList(),
+      'isCompleted': isCompleted,
+      'isActive': isActive,
+      'exercises': exercises.map((e) => e.toJson()).toList(),
       'tags': tags,
     };
   }
-
-  // Create a copy with updated fields
-  TutorialDay copyWith({
-    String? id,
-    String? title,
-    String? subtitle,
-    String? description,
-    int? dayNumber,
-    String? difficulty,
-    int? estimatedMinutes,
-    String? imageUrl,
-    List<TutorialExercise>? exercises,
-    List<String>? tags,
-  }) {
-    return TutorialDay(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      subtitle: subtitle ?? this.subtitle,
-      description: description ?? this.description,
-      dayNumber: dayNumber ?? this.dayNumber,
-      difficulty: difficulty ?? this.difficulty,
-      estimatedMinutes: estimatedMinutes ?? this.estimatedMinutes,
-      imageUrl: imageUrl ?? this.imageUrl,
-      exercises: exercises ?? this.exercises,
-      tags: tags ?? this.tags,
-    );
-  }
 }
 
-/// A class representing an exercise within a tutorial.
-class TutorialExercise {
+/// Class representing an exercise within a tutorial day
+class Exercise {
   final String id;
-  final String title;
+  final String name;
   final String description;
-  final int orderIndex;
+  final String imageUrl;
   final String videoUrl;
-  final int durationSeconds;
   final int sets;
-  final int? reps;
-  final String? weight;
-  final String difficulty;
-  final String? thumbnailUrl;
-  final List<String> muscleGroups;
-  final bool isRequired;
+  final int? reps; // Either reps or duration is used, not both
+  final int? duration; // Duration in seconds
+  final int restSeconds;
+  final List<String> targetMuscles;
+  final Map<String, dynamic>? modifiers; // For exercise variations
 
-  TutorialExercise({
+  Exercise({
     required this.id,
-    required this.title,
+    required this.name,
     required this.description,
-    required this.orderIndex,
+    required this.imageUrl,
     required this.videoUrl,
-    required this.durationSeconds,
     required this.sets,
     this.reps,
-    this.weight,
-    required this.difficulty,
-    this.thumbnailUrl,
-    required this.muscleGroups,
-    this.isRequired = true,
+    this.duration,
+    required this.restSeconds,
+    required this.targetMuscles,
+    this.modifiers,
   });
 
-  // Create from Map
-  factory TutorialExercise.fromMap(Map<String, dynamic> map) {
-    List<String> muscleGroups = [];
-    if (map['muscleGroups'] != null) {
-      muscleGroups = List<String>.from(map['muscleGroups']);
-    }
-
-    return TutorialExercise(
-      id: map['id'] ?? '',
-      title: map['title'] ?? 'Unnamed Exercise',
-      description: map['description'] ?? '',
-      orderIndex: map['orderIndex'] ?? 0,
-      videoUrl: map['videoUrl'] ?? '',
-      durationSeconds: map['durationSeconds'] ?? 60,
-      sets: map['sets'] ?? 3,
-      reps: map['reps'],
-      weight: map['weight'],
-      difficulty: map['difficulty'] ?? 'beginner',
-      thumbnailUrl: map['thumbnailUrl'],
-      muscleGroups: muscleGroups,
-      isRequired: map['isRequired'] ?? true,
+  factory Exercise.fromJson(Map<String, dynamic> json) {
+    return Exercise(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      description: json['description'] ?? '',
+      imageUrl: json['imageUrl'] ?? '',
+      videoUrl: json['videoUrl'] ?? '',
+      sets: json['sets'] ?? 1,
+      reps: json['reps'],
+      duration: json['duration'],
+      restSeconds: json['restSeconds'] ?? 30,
+      targetMuscles: List<String>.from(json['targetMuscles'] ?? []),
+      modifiers: json['modifiers'],
     );
   }
 
-  // Convert to Map
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'title': title,
+      'name': name,
       'description': description,
-      'orderIndex': orderIndex,
+      'imageUrl': imageUrl,
       'videoUrl': videoUrl,
-      'durationSeconds': durationSeconds,
       'sets': sets,
       'reps': reps,
-      'weight': weight,
-      'difficulty': difficulty,
-      'thumbnailUrl': thumbnailUrl,
-      'muscleGroups': muscleGroups,
-      'isRequired': isRequired,
+      'duration': duration,
+      'restSeconds': restSeconds,
+      'targetMuscles': targetMuscles,
+      'modifiers': modifiers,
     };
   }
 
-  // Create a copy with updated fields
-  TutorialExercise copyWith({
-    String? id,
-    String? title,
-    String? description,
-    int? orderIndex,
-    String? videoUrl,
-    int? durationSeconds,
-    int? sets,
-    int? reps,
-    String? weight,
-    String? difficulty,
-    String? thumbnailUrl,
-    List<String>? muscleGroups,
-    bool? isRequired,
-  }) {
-    return TutorialExercise(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      description: description ?? this.description,
-      orderIndex: orderIndex ?? this.orderIndex,
-      videoUrl: videoUrl ?? this.videoUrl,
-      durationSeconds: durationSeconds ?? this.durationSeconds,
-      sets: sets ?? this.sets,
-      reps: reps ?? this.reps,
-      weight: weight ?? this.weight,
-      difficulty: difficulty ?? this.difficulty,
-      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
-      muscleGroups: muscleGroups ?? this.muscleGroups,
-      isRequired: isRequired ?? this.isRequired,
-    );
-  }
+  bool get isTimeBased => duration != null;
 }
 
-/// A class representing user progress for a tutorial day.
+/// Class representing a user's progress for a specific tutorial
 class TutorialProgress {
-  final String id;
   final String userId;
-  final String tutorialDayId;
-  final double progressPercentage;
-  final List<String> completedExerciseIds;
-  final DateTime lastUpdated;
-  final bool isCompleted;
+  final String tutorialId;
+  final Map<String, bool> completedDays;
+  final int lastCompletedDay;
+  final DateTime startedAt;
+  final DateTime? completedAt;
+  final DateTime lastUpdatedAt;
 
   TutorialProgress({
-    required this.id,
     required this.userId,
-    required this.tutorialDayId,
-    required this.progressPercentage,
-    required this.completedExerciseIds,
-    required this.lastUpdated,
-    required this.isCompleted,
+    required this.tutorialId,
+    required this.completedDays,
+    required this.lastCompletedDay,
+    required this.startedAt,
+    this.completedAt,
+    required this.lastUpdatedAt,
   });
 
-  // Create from Firestore document
-  factory TutorialProgress.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    
-    List<String> completedExerciseIds = [];
-    if (data['completedExerciseIds'] != null) {
-      completedExerciseIds = List<String>.from(data['completedExerciseIds']);
-    }
-
+  factory TutorialProgress.fromJson(Map<String, dynamic> json) {
     return TutorialProgress(
-      id: doc.id,
-      userId: data['userId'] ?? '',
-      tutorialDayId: data['tutorialDayId'] ?? '',
-      progressPercentage: (data['progressPercentage'] ?? 0.0).toDouble(),
-      completedExerciseIds: completedExerciseIds,
-      lastUpdated: (data['lastUpdated'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      isCompleted: data['isCompleted'] ?? false,
+      userId: json['userId'] ?? '',
+      tutorialId: json['tutorialId'] ?? '',
+      completedDays: Map<String, bool>.from(json['completedDays'] ?? {}),
+      lastCompletedDay: json['lastCompletedDay'] ?? 0,
+      startedAt: (json['startedAt'] as Timestamp).toDate(),
+      completedAt: json['completedAt'] != null
+          ? (json['completedAt'] as Timestamp).toDate()
+          : null,
+      lastUpdatedAt: (json['lastUpdatedAt'] as Timestamp).toDate(),
     );
   }
 
-  // Convert to Firestore document
-  Map<String, dynamic> toFirestore() {
+  Map<String, dynamic> toJson() {
     return {
       'userId': userId,
-      'tutorialDayId': tutorialDayId,
-      'progressPercentage': progressPercentage,
-      'completedExerciseIds': completedExerciseIds,
-      'lastUpdated': Timestamp.fromDate(lastUpdated),
-      'isCompleted': isCompleted,
+      'tutorialId': tutorialId,
+      'completedDays': completedDays,
+      'lastCompletedDay': lastCompletedDay,
+      'startedAt': Timestamp.fromDate(startedAt),
+      'completedAt': completedAt != null ? Timestamp.fromDate(completedAt!) : null,
+      'lastUpdatedAt': Timestamp.fromDate(lastUpdatedAt),
     };
   }
 
-  // Create a copy with updated fields
-  TutorialProgress copyWith({
-    String? id,
-    String? userId,
-    String? tutorialDayId,
-    double? progressPercentage,
-    List<String>? completedExerciseIds,
-    DateTime? lastUpdated,
-    bool? isCompleted,
-  }) {
-    return TutorialProgress(
-      id: id ?? this.id,
-      userId: userId ?? this.userId,
-      tutorialDayId: tutorialDayId ?? this.tutorialDayId,
-      progressPercentage: progressPercentage ?? this.progressPercentage,
-      completedExerciseIds: completedExerciseIds ?? this.completedExerciseIds,
-      lastUpdated: lastUpdated ?? this.lastUpdated,
-      isCompleted: isCompleted ?? this.isCompleted,
-    );
+  double getProgressPercentage(int totalDays) {
+    if (totalDays <= 0) return 0.0;
+    return lastCompletedDay / totalDays;
   }
 
-  // Update progress based on completed exercises
-  static TutorialProgress updateProgress({
-    required TutorialProgress currentProgress,
-    required List<TutorialExercise> allExercises,
-    required List<String> completedExerciseIds,
-  }) {
-    // Calculate the number of required exercises
-    final requiredExercises = allExercises.where((e) => e.isRequired).toList();
-    final int totalRequired = requiredExercises.length;
-    
-    // If there are no required exercises, we can't calculate progress
-    if (totalRequired == 0) {
-      return currentProgress.copyWith(
-        progressPercentage: completedExerciseIds.isNotEmpty ? 1.0 : 0.0,
-        completedExerciseIds: completedExerciseIds,
-        lastUpdated: DateTime.now(),
-        isCompleted: completedExerciseIds.length == allExercises.length,
-      );
-    }
-    
-    // Count completed required exercises
-    int completedRequired = 0;
-    for (final exerciseId in completedExerciseIds) {
-      final isRequired = requiredExercises.any((e) => e.id == exerciseId);
-      if (isRequired) {
-        completedRequired++;
-      }
-    }
-    
-    // Calculate progress percentage
-    final double progressPercentage = completedRequired / totalRequired;
-    
-    // Determine if all required exercises are completed
-    final bool isCompleted = completedRequired == totalRequired;
-    
-    return currentProgress.copyWith(
-      progressPercentage: progressPercentage,
-      completedExerciseIds: completedExerciseIds,
-      lastUpdated: DateTime.now(),
-      isCompleted: isCompleted,
-    );
+  bool isCompleted(int totalDays) {
+    return lastCompletedDay >= totalDays;
   }
 }

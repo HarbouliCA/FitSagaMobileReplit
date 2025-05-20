@@ -1,564 +1,488 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fitsaga/models/user_model.dart';
-import 'package:fitsaga/models/credit_model.dart';
 import 'package:fitsaga/providers/auth_provider.dart';
-import 'package:fitsaga/services/booking_service.dart';
 import 'package:fitsaga/theme/app_theme.dart';
 import 'package:fitsaga/widgets/common/loading_indicator.dart';
-import 'package:fitsaga/widgets/common/error_widget.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  _ProfileScreenState createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  bool _isLoading = false;
-  String? _error;
-  UserCredit? _userCredit;
-  List<CreditAdjustment> _creditHistory = [];
-  
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _isEditing = false;
+  bool _isSaving = false;
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nameController;
-  late TextEditingController _phoneController;
-  late TextEditingController _bioController;
+  
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    
-    // Initialize controllers
-    final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
-    _nameController = TextEditingController(text: user?.name ?? '');
-    _phoneController = TextEditingController(text: user?.phone ?? '');
-    _bioController = TextEditingController(text: user?.bio ?? '');
-    
-    // Load user data
-    _loadUserData();
+    _initializeFields();
   }
   
   @override
   void dispose() {
-    _tabController.dispose();
     _nameController.dispose();
+    _emailController.dispose();
     _phoneController.dispose();
-    _bioController.dispose();
     super.dispose();
   }
   
-  Future<void> _loadUserData() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isAuthenticated) return;
-    
-    final userId = authProvider.currentUser!.id;
-    final bookingService = Provider.of<BookingService>(context, listen: false);
-    
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-    
-    try {
-      // In a real app, we would get the user's credits from Firestore
-      // For demo purposes, we're using a default value
-      _userCredit = UserCredit.defaultCredits();
-      
-      // Load credit history
-      _creditHistory = await bookingService.getUserCreditHistory(userId: userId);
-      
-    } catch (e) {
-      setState(() {
-        _error = 'Failed to load user data: $e';
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+  void _initializeFields() {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (user != null) {
+      _nameController.text = user.displayName;
+      _emailController.text = user.email;
+      _phoneController.text = user.phoneNumber;
     }
   }
   
-  Future<void> _updateProfile() async {
+  Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
     
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isAuthenticated) return;
-    
     setState(() {
-      _isLoading = true;
-      _error = null;
+      _isSaving = true;
     });
     
     try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      
       // Update user profile
-      await authProvider.updateUserProfile(
-        name: _nameController.text,
-        phone: _phoneController.text,
-        bio: _bioController.text,
+      await authProvider.updateProfile(
+        name: _nameController.text.trim(),
+        phoneNumber: _phoneController.text.trim(),
       );
       
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated successfully'),
-            backgroundColor: AppTheme.successColor,
-          ),
-        );
-      }
-    } catch (e) {
       setState(() {
-        _error = 'Failed to update profile: $e';
+        _isEditing = false;
       });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-  
-  Future<void> _changePassword() async {
-    // Navigate to change password screen
-    // This would be implemented in a real app
-  }
-  
-  @override
-  Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
-    final user = authProvider.currentUser;
-    
-    if (!authProvider.isAuthenticated) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Profile'),
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.account_circle,
-                size: 100,
-                color: Colors.grey,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Please sign in to view your profile',
-                style: TextStyle(fontSize: 18),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () {
-                  // Navigate to login screen
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                ),
-                child: const Text('Sign In'),
-              ),
-            ],
-          ),
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profile updated successfully'),
+          backgroundColor: Colors.green,
         ),
       );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error updating profile: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isSaving = false;
+      });
     }
-    
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Profile'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Profile'),
-            Tab(text: 'Credits'),
-            Tab(text: 'Settings'),
-          ],
-        ),
-      ),
-      body: _isLoading 
-          ? const LoadingIndicator(message: 'Loading profile data...')
-          : _error != null 
-              ? CustomErrorWidget(
-                  message: _error!,
-                  onRetry: _loadUserData,
-                )
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildProfileTab(user),
-                    _buildCreditsTab(),
-                    _buildSettingsTab(),
-                  ],
-                ),
-    );
-  }
-  
-  Widget _buildProfileTab(UserModel? user) {
-    if (user == null) return const Center(child: Text('User data not available'));
-    
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Profile header
-            Center(
-              child: Column(
-                children: [
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.grey.shade200,
-                      image: user.photoUrl != null 
-                          ? DecorationImage(
-                              image: NetworkImage(user.photoUrl!),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
-                    ),
-                    child: user.photoUrl == null 
-                        ? Icon(
-                            Icons.account_circle,
-                            size: 120,
-                            color: Colors.grey.shade400,
-                          )
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    user.name,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    user.email,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey.shade700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _getRoleColor(user).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: _getRoleColor(user)),
-                    ),
-                    child: Text(
-                      _getRoleName(user),
-                      style: TextStyle(
-                        color: _getRoleColor(user),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 32),
-            
-            // Profile form
-            const Text(
-              'Personal Information',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            // Name field
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.person),
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter your name';
-                }
-                return null;
+        title: const Text('Profile'),
+        actions: [
+          if (!_isEditing)
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () {
+                setState(() {
+                  _isEditing = true;
+                });
+              },
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.cancel),
+              onPressed: () {
+                setState(() {
+                  _isEditing = false;
+                  _initializeFields(); // Reset fields
+                });
               },
             ),
-            const SizedBox(height: 16),
-            
-            // Phone field
-            TextFormField(
-              controller: _phoneController,
-              decoration: const InputDecoration(
-                labelText: 'Phone',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.phone),
-              ),
-              validator: (value) {
-                // Simple validation for demo purposes
-                if (value != null && value.isNotEmpty && !RegExp(r'^\+?[0-9]{10,15}$').hasMatch(value)) {
-                  return 'Please enter a valid phone number';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            
-            // Bio field
-            TextFormField(
-              controller: _bioController,
-              decoration: const InputDecoration(
-                labelText: 'Bio',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.info_outline),
-                alignLabelWithHint: true,
-              ),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 24),
-            
-            // Update button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _updateProfile,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: const Text('Update Profile'),
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
-    );
-  }
-  
-  Widget _buildCreditsTab() {
-    if (_userCredit == null) {
-      return const Center(child: Text('Credit data not available'));
-    }
-    
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Credits summary card
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+      body: Consumer<AuthProvider>(
+        builder: (context, authProvider, child) {
+          final user = authProvider.user;
+          
+          if (user == null) {
+            return const Center(child: Text('User not found'));
+          }
+          
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Available Credits',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                  _buildProfileHeader(user),
+                  const SizedBox(height: 24),
                   
-                  // Credits display
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildCreditItem(
-                        title: 'Gym Credits',
-                        value: _userCredit!.isUnlimited 
-                            ? 'Unlimited' 
-                            : _userCredit!.gymCredits.toString(),
-                        color: AppTheme.primaryColor,
-                        icon: Icons.fitness_center,
-                      ),
-                      _buildCreditItem(
-                        title: 'Interval Credits',
-                        value: _userCredit!.intervalCredits.toString(),
-                        color: AppTheme.accentColor,
-                        icon: Icons.loop,
-                      ),
-                    ],
-                  ),
+                  _buildSectionTitle('Account Information'),
+                  const SizedBox(height: 12),
                   
-                  const SizedBox(height: 16),
+                  _buildProfileForm(),
+                  const SizedBox(height: 24),
                   
-                  // Next refill info
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.refresh, color: AppTheme.primaryColor),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Next Credit Refill',
+                  if (_isEditing) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: _isSaving ? null : _saveProfile,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: _isSaving
+                            ? const LoadingIndicator(color: Colors.white)
+                            : const Text(
+                                'Save Changes',
                                 style: TextStyle(
+                                  fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'May 31, 2025', // This would be calculated based on lastRefilled date
-                                style: TextStyle(
-                                  color: Colors.grey.shade700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
+                    const SizedBox(height: 24),
+                  ],
+                  
+                  _buildSectionTitle('Account Type'),
+                  const SizedBox(height: 12),
+                  
+                  _buildInfoCard(
+                    title: user.role.toUpperCase(),
+                    subtitle: _getRoleDescription(user.role),
+                    icon: _getRoleIcon(user.role),
+                    color: _getRoleColor(user.role),
                   ),
+                  const SizedBox(height: 24),
                   
-                  const SizedBox(height: 16),
+                  _buildSectionTitle('Credits'),
+                  const SizedBox(height: 12),
                   
-                  // Buy more credits button
+                  _buildCreditsSection(user),
+                  const SizedBox(height: 24),
+                  
+                  if (user.hasMembership) ...[
+                    _buildSectionTitle('Membership'),
+                    const SizedBox(height: 12),
+                    
+                    _buildMembershipCard(user),
+                    const SizedBox(height: 24),
+                  ],
+                  
+                  _buildSectionTitle('Settings'),
+                  const SizedBox(height: 12),
+                  
+                  _buildSettingsOptions(),
+                  const SizedBox(height: 36),
+                  
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton.icon(
+                    height: 50,
+                    child: OutlinedButton.icon(
                       onPressed: () {
-                        // Navigate to purchase credits screen
+                        authProvider.signOut();
                       },
-                      icon: const Icon(Icons.add),
-                      label: const Text('Purchase Credits'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      icon: const Icon(Icons.logout, color: Colors.red),
+                      label: const Text(
+                        'Logout',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.red),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
+          );
+        },
+      ),
+    );
+  }
+  
+  Widget _buildProfileHeader(UserModel user) {
+    return Center(
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 60,
+            backgroundColor: AppTheme.primaryColor,
+            backgroundImage: user.photoUrl != null ? NetworkImage(user.photoUrl!) : null,
+            child: user.photoUrl == null
+                ? Text(
+                    user.initials,
+                    style: const TextStyle(
+                      fontSize: 40,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  )
+                : null,
           ),
-          
-          const SizedBox(height: 24),
-          
-          // Credit history section
-          const Text(
-            'Credit History',
-            style: TextStyle(
-              fontSize: 18,
+          const SizedBox(height: 16),
+          Text(
+            user.displayName,
+            style: const TextStyle(
+              fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 16),
-          
-          if (_creditHistory.isEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.history,
-                      size: 64,
-                      color: Colors.grey.shade400,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No credit history yet',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _creditHistory.length,
-              itemBuilder: (context, index) {
-                final adjustment = _creditHistory[index];
-                return _buildCreditHistoryItem(adjustment);
-              },
+          const SizedBox(height: 4),
+          Text(
+            user.email,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
             ),
+          ),
         ],
       ),
     );
   }
   
-  Widget _buildCreditHistoryItem(CreditAdjustment adjustment) {
-    final bool isPositive = adjustment.totalCreditChange > 0;
-    
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+  
+  Widget _buildProfileForm() {
+    return Column(
+      children: [
+        TextFormField(
+          controller: _nameController,
+          enabled: _isEditing,
+          decoration: const InputDecoration(
+            labelText: 'Full Name',
+            prefixIcon: Icon(Icons.person),
+            border: OutlineInputBorder(),
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please enter your name';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+        
+        TextFormField(
+          controller: _emailController,
+          enabled: false, // Email can't be changed
+          decoration: const InputDecoration(
+            labelText: 'Email',
+            prefixIcon: Icon(Icons.email),
+            border: OutlineInputBorder(),
+            disabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.grey),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        
+        TextFormField(
+          controller: _phoneController,
+          enabled: _isEditing,
+          keyboardType: TextInputType.phone,
+          decoration: const InputDecoration(
+            labelText: 'Phone Number',
+            prefixIcon: Icon(Icons.phone),
+            border: OutlineInputBorder(),
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please enter your phone number';
+            }
+            return null;
+          },
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildCreditsSection(UserModel user) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildCreditCard(
+            title: 'Gym Credits',
+            count: user.credits.gymCredits,
+            icon: Icons.fitness_center,
+            color: Colors.blue,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _buildCreditCard(
+            title: 'Interval Credits',
+            count: user.credits.intervalCredits,
+            icon: Icons.timer,
+            color: Colors.orange,
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildCreditCard({
+    required String title,
+    required int count,
+    required IconData icon,
+    required Color color,
+  }) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isPositive 
-                    ? AppTheme.successColor.withOpacity(0.1) 
-                    : AppTheme.errorColor.withOpacity(0.1),
-              ),
-              child: Center(
-                child: Icon(
-                  isPositive ? Icons.add : Icons.remove,
-                  color: isPositive ? AppTheme.successColor : AppTheme.errorColor,
-                ),
+            Icon(
+              icon,
+              color: color,
+              size: 32,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    adjustment.reason,
-                    style: const TextStyle(
+            const SizedBox(height: 8),
+            Text(
+              count.toString(),
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () {
+                // Navigate to buy credits screen
+              },
+              child: const Text('Buy More'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildMembershipCard(UserModel user) {
+    final membership = user.membership;
+    if (membership == null) return const SizedBox.shrink();
+    
+    Color statusColor = membership.isExpiringSoon ? Colors.orange : Colors.green;
+    String statusText = membership.isExpiringSoon 
+        ? 'Expires Soon' 
+        : 'Active';
+    
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  membership.plan.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    statusText,
+                    style: TextStyle(
+                      color: statusColor,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  Text(
-                    _formatDate(adjustment.adjustedAt),
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            Text(
-              '${isPositive ? '+' : ''}${adjustment.totalCreditChange}',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isPositive ? AppTheme.successColor : AppTheme.errorColor,
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildMembershipDetail(
+                  'Days Left',
+                  '${membership.daysRemaining}',
+                  Icons.calendar_today,
+                ),
+                _buildMembershipDetail(
+                  'Monthly Credits',
+                  '${membership.monthlyGymCredits}',
+                  Icons.fitness_center,
+                ),
+                _buildMembershipDetail(
+                  'Auto Renew',
+                  membership.autoRenew ? 'Yes' : 'No',
+                  Icons.autorenew,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () {
+                  // Navigate to membership details screen
+                },
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: AppTheme.primaryColor),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Manage Membership'),
               ),
             ),
           ],
@@ -567,236 +491,142 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     );
   }
   
-  Widget _buildSettingsTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Account settings
-          const Text(
-            'Account Settings',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+  Widget _buildMembershipDetail(String label, String value, IconData icon) {
+    return Column(
+      children: [
+        Icon(icon, color: Colors.grey[600]),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 12,
           ),
-          const SizedBox(height: 16),
-          
-          // Change password
-          ListTile(
-            leading: const Icon(Icons.lock_outline),
-            title: const Text('Change Password'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: _changePassword,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
           ),
-          const Divider(),
-          
-          // Notification settings
-          ListTile(
-            leading: const Icon(Icons.notifications_outlined),
-            title: const Text('Notification Settings'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              // Navigate to notification settings
-            },
-          ),
-          const Divider(),
-          
-          // Privacy settings
-          ListTile(
-            leading: const Icon(Icons.privacy_tip_outlined),
-            title: const Text('Privacy Settings'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              // Navigate to privacy settings
-            },
-          ),
-          const Divider(),
-          
-          const SizedBox(height: 32),
-          
-          // App settings
-          const Text(
-            'App Settings',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          // Language
-          ListTile(
-            leading: const Icon(Icons.language),
-            title: const Text('Language'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'English', // This would be the actual selected language
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Icon(Icons.arrow_forward_ios, size: 16),
-              ],
-            ),
-            onTap: () {
-              // Navigate to language selection
-            },
-          ),
-          const Divider(),
-          
-          // Theme
-          ListTile(
-            leading: const Icon(Icons.palette_outlined),
-            title: const Text('Theme'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Light', // This would be the actual selected theme
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Icon(Icons.arrow_forward_ios, size: 16),
-              ],
-            ),
-            onTap: () {
-              // Navigate to theme selection
-            },
-          ),
-          const Divider(),
-          
-          const SizedBox(height: 32),
-          
-          // Danger zone
-          const Text(
-            'Danger Zone',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.errorColor,
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          // Delete account
-          ListTile(
-            leading: const Icon(Icons.delete_forever, color: AppTheme.errorColor),
-            title: const Text(
-              'Delete Account',
-              style: TextStyle(
-                color: AppTheme.errorColor,
-              ),
-            ),
-            onTap: () {
-              // Show delete account confirmation dialog
-            },
-          ),
-          const Divider(color: AppTheme.errorColor),
-          
-          const SizedBox(height: 32),
-          
-          // Logout button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                // Logout user
-                Provider.of<AuthProvider>(context, listen: false).signOut();
-              },
-              icon: const Icon(Icons.logout),
-              label: const Text('Logout'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
   
-  Widget _buildCreditItem({
+  Widget _buildInfoCard({
     required String title,
-    required String value,
-    required Color color,
+    required String subtitle,
     required IconData icon,
+    required Color color,
   }) {
-    return Container(
-      width: MediaQuery.of(context).size.width * 0.4,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: color.withOpacity(0.2),
+          child: Icon(icon, color: color),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
           ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-        ],
+        ),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: () {
+          // Show account type details or navigate to related screen
+        },
       ),
     );
   }
   
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date).inDays;
+  Widget _buildSettingsOptions() {
+    final options = [
+      {
+        'title': 'Notifications',
+        'icon': Icons.notifications,
+        'color': Colors.blue,
+      },
+      {
+        'title': 'Privacy Settings',
+        'icon': Icons.privacy_tip,
+        'color': Colors.purple,
+      },
+      {
+        'title': 'App Preferences',
+        'icon': Icons.settings,
+        'color': Colors.green,
+      },
+      {
+        'title': 'Help & Support',
+        'icon': Icons.help,
+        'color': Colors.orange,
+      },
+    ];
     
-    if (difference == 0) {
-      return 'Today';
-    } else if (difference == 1) {
-      return 'Yesterday';
-    } else {
-      return '${date.day}/${date.month}/${date.year}';
+    return Column(
+      children: options.map((option) {
+        return Card(
+          elevation: 1,
+          margin: const EdgeInsets.only(bottom: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: (option['color'] as Color).withOpacity(0.2),
+              child: Icon(option['icon'] as IconData, color: option['color'] as Color),
+            ),
+            title: Text(option['title'] as String),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {
+              // Navigate to respective settings screen
+            },
+          ),
+        );
+      }).toList(),
+    );
+  }
+  
+  IconData _getRoleIcon(String role) {
+    switch (role.toLowerCase()) {
+      case 'admin':
+        return Icons.admin_panel_settings;
+      case 'instructor':
+        return Icons.fitness_center;
+      case 'client':
+      default:
+        return Icons.person;
     }
   }
   
-  Color _getRoleColor(UserModel user) {
-    if (user.isAdmin) {
-      return Colors.red;
-    } else if (user.isInstructor) {
-      return Colors.blue;
-    } else {
-      return AppTheme.primaryColor;
+  Color _getRoleColor(String role) {
+    switch (role.toLowerCase()) {
+      case 'admin':
+        return Colors.purple;
+      case 'instructor':
+        return Colors.blue;
+      case 'client':
+      default:
+        return Colors.green;
     }
   }
   
-  String _getRoleName(UserModel user) {
-    if (user.isAdmin) {
-      return 'Admin';
-    } else if (user.isInstructor) {
-      return 'Instructor';
-    } else {
-      return 'Client';
+  String _getRoleDescription(String role) {
+    switch (role.toLowerCase()) {
+      case 'admin':
+        return 'Full system access and management';
+      case 'instructor':
+        return 'Session management and client tracking';
+      case 'client':
+      default:
+        return 'Access to sessions and tutorials';
     }
   }
 }

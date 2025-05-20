@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:fitsaga/models/tutorial_model.dart';
+import 'package:fitsaga/navigation/app_router.dart';
 import 'package:fitsaga/theme/app_theme.dart';
-import 'package:fitsaga/widgets/common/loading_indicator.dart';
 import 'package:fitsaga/widgets/common/error_widget.dart';
+import 'package:fitsaga/widgets/common/loading_indicator.dart';
 
 class TutorialListScreen extends StatefulWidget {
   const TutorialListScreen({Key? key}) : super(key: key);
@@ -11,95 +13,79 @@ class TutorialListScreen extends StatefulWidget {
 }
 
 class _TutorialListScreenState extends State<TutorialListScreen> {
-  bool _isLoading = false;
-  String? _error;
-  List<Map<String, dynamic>> _tutorialDays = [];
+  bool _isLoading = true;
+  bool _hasError = false;
+  String _errorMessage = '';
+  List<Tutorial> _tutorials = [];
+  String _selectedCategory = 'all';
+  String _selectedDifficulty = 'all';
+  final _searchController = TextEditingController();
   
   @override
   void initState() {
     super.initState();
-    _loadTutorialData();
+    _loadTutorials();
   }
   
-  Future<void> _loadTutorialData() async {
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+  
+  Future<void> _loadTutorials() async {
     setState(() {
       _isLoading = true;
-      _error = null;
+      _hasError = false;
     });
     
     try {
-      // Simulate loading data from Firebase
-      await Future.delayed(const Duration(seconds: 1));
+      // In a real app, this would fetch from a provider or API
+      await Future.delayed(const Duration(seconds: 1)); // Simulate API call
       
-      // Sample tutorial data (in a real app, this would come from Firebase)
-      _tutorialDays = [
-        {
-          'id': 'day1',
-          'title': 'Day 1: Getting Started',
-          'subtitle': 'Introduction to FitSAGA',
-          'description': 'Learn the basics of the gym and get familiar with the equipment.',
-          'exercises': 5,
-          'difficulty': 'Beginner',
-          'duration': '30 mins',
-          'imageUrl': 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48',
-          'progress': 1.0, // Completed
-        },
-        {
-          'id': 'day2',
-          'title': 'Day 2: Upper Body Focus',
-          'subtitle': 'Chest, Arms, and Shoulders',
-          'description': 'Build strength in your upper body with these targeted exercises.',
-          'exercises': 7,
-          'difficulty': 'Beginner',
-          'duration': '45 mins',
-          'imageUrl': 'https://images.unsplash.com/photo-1532384748853-8f54a8f476e2',
-          'progress': 0.7, // In progress
-        },
-        {
-          'id': 'day3',
-          'title': 'Day 3: Lower Body Power',
-          'subtitle': 'Legs, Glutes, and Core',
-          'description': 'Focus on your lower body to build a strong foundation.',
-          'exercises': 6,
-          'difficulty': 'Intermediate',
-          'duration': '40 mins',
-          'imageUrl': 'https://images.unsplash.com/photo-1574680178050-55c6a6a96e0a',
-          'progress': 0.3, // Just started
-        },
-        {
-          'id': 'day4',
-          'title': 'Day 4: Cardio Blast',
-          'subtitle': 'Heart-Pumping Exercises',
-          'description': 'Improve your cardiovascular health with this high-energy session.',
-          'exercises': 8,
-          'difficulty': 'Intermediate',
-          'duration': '50 mins',
-          'imageUrl': 'https://images.unsplash.com/photo-1538805060514-97d9cc17730c',
-          'progress': 0.0, // Not started
-        },
-        {
-          'id': 'day5',
-          'title': 'Day 5: Full Body Circuit',
-          'subtitle': 'Total Body Workout',
-          'description': 'Challenge every muscle group with this comprehensive circuit.',
-          'exercises': 10,
-          'difficulty': 'Advanced',
-          'duration': '60 mins',
-          'imageUrl': 'https://images.unsplash.com/photo-1517963879433-6ad2b056d712',
-          'progress': 0.0, // Not started
-        },
-      ];
+      // Sample data for demo purposes
+      final tutorials = _getSampleTutorials();
+      
+      setState(() {
+        _tutorials = tutorials;
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() {
-        _error = 'Failed to load tutorial data: $e';
-      });
-    } finally {
-      setState(() {
+        _hasError = true;
+        _errorMessage = e.toString();
         _isLoading = false;
       });
     }
   }
   
+  List<Tutorial> _getFilteredTutorials() {
+    return _tutorials.where((tutorial) {
+      // Apply category filter
+      if (_selectedCategory != 'all' && 
+          !tutorial.categories.contains(_selectedCategory)) {
+        return false;
+      }
+      
+      // Apply difficulty filter
+      if (_selectedDifficulty != 'all' && 
+          tutorial.difficulty.toLowerCase() != _selectedDifficulty.toLowerCase()) {
+        return false;
+      }
+      
+      // Apply search filter
+      if (_searchController.text.isNotEmpty) {
+        final searchTerm = _searchController.text.toLowerCase();
+        return tutorial.title.toLowerCase().contains(searchTerm) ||
+            tutorial.description.toLowerCase().contains(searchTerm) ||
+            tutorial.categories.any((category) => 
+                category.toLowerCase().contains(searchTerm));
+      }
+      
+      return true;
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -107,420 +93,450 @@ class _TutorialListScreenState extends State<TutorialListScreen> {
         title: const Text('Tutorials'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () {
-              // Show filter options
-              _showFilterDialog();
-            },
-            tooltip: 'Filter',
+            icon: const Icon(Icons.search),
+            onPressed: _showSearchBar,
           ),
           IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              // Show search bar
-              _showSearchBar();
-            },
-            tooltip: 'Search',
+            icon: const Icon(Icons.filter_list),
+            onPressed: _showFilterOptions,
           ),
         ],
       ),
-      body: _isLoading
-          ? const LoadingIndicator(message: 'Loading tutorials...')
-          : _error != null
-              ? CustomErrorWidget(
-                  message: _error!,
-                  onRetry: _loadTutorialData,
-                )
-              : _buildTutorialList(),
+      body: RefreshIndicator(
+        onRefresh: _loadTutorials,
+        child: _buildContent(),
+      ),
     );
   }
   
-  Widget _buildTutorialList() {
-    if (_tutorialDays.isEmpty) {
-      return const NoDataWidget(
-        message: 'No tutorials available',
-        icon: Icons.video_library,
+  Widget _buildContent() {
+    if (_isLoading) {
+      return const Center(
+        child: LoadingIndicator(
+          size: 40,
+          showText: true,
+          text: 'Loading tutorials...',
+        ),
       );
     }
     
-    return ListView(
-      padding: const EdgeInsets.all(16.0),
-      children: [
-        // Header with description
-        const Text(
-          'Fitness Tutorials',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Follow our structured tutorial program to learn proper form and technique for all exercises.',
-          style: TextStyle(
-            color: AppTheme.textSecondaryColor,
-          ),
-        ),
-        const SizedBox(height: 24),
-        
-        // Tutorial day cards
-        for (final day in _tutorialDays) ...[
-          _buildTutorialDayCard(day),
-          const SizedBox(height: 16),
-        ],
-      ],
-    );
-  }
-  
-  Widget _buildTutorialDayCard(Map<String, dynamic> day) {
-    final progress = day['progress'] as double;
-    final isCompleted = progress >= 1.0;
-    final isStarted = progress > 0.0;
+    if (_hasError) {
+      return CustomErrorWidget(
+        message: 'Error loading tutorials: $_errorMessage',
+        onRetry: _loadTutorials,
+        fullScreen: true,
+      );
+    }
     
-    return InkWell(
-      onTap: () {
-        // Navigate to tutorial detail screen
-        _navigateToTutorialDay(day);
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Card(
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final filteredTutorials = _getFilteredTutorials();
+    
+    if (filteredTutorials.isEmpty) {
+      return _buildEmptyState();
+    }
+    
+    return Column(
+      children: [
+        if (_searchController.text.isNotEmpty || 
+            _selectedCategory != 'all' || 
+            _selectedDifficulty != 'all')
+          _buildActiveFilters(),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
             children: [
-              // Image with overlay
-              Stack(
-                children: [
-                  // Tutorial image
-                  AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: Image.network(
-                      day['imageUrl'] as String,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: Colors.grey.shade300,
-                          child: const Center(
-                            child: Icon(
-                              Icons.image_not_supported,
-                              size: 48,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  
-                  // Difficulty badge
-                  Positioned(
-                    top: 16,
-                    right: 16,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _getDifficultyColor(day['difficulty'] as String),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        day['difficulty'] as String,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ),
-                  
-                  // Status indicator
-                  if (isCompleted || isStarted)
-                    Positioned(
-                      top: 16,
-                      left: 16,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: isCompleted ? AppTheme.successColor : AppTheme.primaryColor,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          isCompleted ? 'Completed' : 'In Progress',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              
-              // Content
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title
-                    Text(
-                      day['title'] as String,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    
-                    // Subtitle
-                    Text(
-                      day['subtitle'] as String,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    
-                    // Description
-                    Text(
-                      day['description'] as String,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Info row
-                    Row(
-                      children: [
-                        _buildInfoChip(
-                          icon: Icons.fitness_center,
-                          label: '${day['exercises']} exercises',
-                        ),
-                        const SizedBox(width: 16),
-                        _buildInfoChip(
-                          icon: Icons.timer,
-                          label: day['duration'] as String,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Progress bar
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Progress',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey.shade700,
-                              ),
-                            ),
-                            Text(
-                              '${(progress * 100).toInt()}%',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: _getProgressColor(progress),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        LinearProgressIndicator(
-                          value: progress,
-                          backgroundColor: Colors.grey.shade200,
-                          valueColor: AlwaysStoppedAnimation<Color>(_getProgressColor(progress)),
-                          borderRadius: BorderRadius.circular(4),
-                          minHeight: 8,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Action buttons
-              Padding(
-                padding: const EdgeInsets.only(left: 8, right: 8, bottom: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton.icon(
-                      onPressed: () {
-                        // View tutorial details
-                        _navigateToTutorialDay(day);
-                      },
-                      icon: const Icon(Icons.visibility),
-                      label: const Text('View Details'),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        // Continue or start tutorial
-                        _navigateToTutorialDay(day, startExercise: true);
-                      },
-                      icon: Icon(isStarted ? Icons.play_arrow : Icons.start),
-                      label: Text(isStarted ? 'Continue' : 'Start'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isCompleted ? Colors.grey : AppTheme.primaryColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _buildCategorySection('Featured', 
+                  filteredTutorials.where((t) => t.isFeatured).toList()),
+              const SizedBox(height: 16),
+              _buildCategorySection('Popular', 
+                  filteredTutorials.where((t) => t.isPopular).toList()),
+              const SizedBox(height: 16),
+              _buildCategorySection('All Tutorials', filteredTutorials),
             ],
           ),
         ),
-      ),
+      ],
     );
   }
   
-  Widget _buildInfoChip({required IconData icon, required String label}) {
-    return Row(
+  Widget _buildCategorySection(String title, List<Tutorial> tutorials) {
+    if (tutorials.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          size: 16,
-          color: AppTheme.textSecondaryColor,
-        ),
-        const SizedBox(width: 4),
         Text(
-          label,
+          title,
           style: const TextStyle(
-            fontSize: 14,
-            color: AppTheme.textSecondaryColor,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
           ),
+        ),
+        const SizedBox(height: 12),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: tutorials.length,
+          itemBuilder: (context, index) {
+            return _buildTutorialCard(tutorials[index]);
+          },
         ),
       ],
     );
   }
   
-  Color _getDifficultyColor(String difficulty) {
-    switch (difficulty.toLowerCase()) {
-      case 'beginner':
-        return Colors.green;
-      case 'intermediate':
-        return Colors.orange;
-      case 'advanced':
-        return Colors.red;
-      default:
-        return AppTheme.primaryColor;
-    }
-  }
-  
-  Color _getProgressColor(double progress) {
-    if (progress >= 1.0) {
-      return AppTheme.successColor;
-    } else if (progress >= 0.5) {
-      return Colors.orange;
-    } else if (progress > 0.0) {
-      return AppTheme.primaryColor;
-    } else {
-      return Colors.grey;
-    }
-  }
-  
-  void _navigateToTutorialDay(Map<String, dynamic> day, {bool startExercise = false}) {
-    // In a real app, this would navigate to the tutorial detail screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(startExercise 
-            ? 'Starting ${day['title']}' 
-            : 'Viewing details for ${day['title']}'),
-        behavior: SnackBarBehavior.floating,
+  Widget _buildTutorialCard(Tutorial tutorial) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        onTap: () => _navigateToTutorialDetail(tutorial),
+        borderRadius: BorderRadius.circular(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Tutorial image
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              child: Image.network(
+                tutorial.imageUrl,
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    height: 180,
+                    width: double.infinity,
+                    color: Colors.grey[300],
+                    child: const Icon(
+                      Icons.image,
+                      size: 50,
+                      color: Colors.grey,
+                    ),
+                  );
+                },
+              ),
+            ),
+            
+            // Tutorial content
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title and progress
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          tutorial.title,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      if (tutorial.userProgress != null) ...[
+                        Text(
+                          '${(tutorial.userProgress! * 100).round()}%',
+                          style: TextStyle(
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  // Duration and level
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.timer,
+                        size: 16,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${tutorial.totalDurationMinutes} min',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Icon(
+                        Icons.fitness_center,
+                        size: 16,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        tutorial.difficulty,
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  // Description
+                  Text(
+                    tutorial.description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.grey[800],
+                      fontSize: 14,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  // Categories
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: tutorial.categories.map((category) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          category,
+                          style: TextStyle(
+                            color: AppTheme.primaryColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  
+                  // Progress bar if in progress
+                  if (tutorial.userProgress != null && tutorial.userProgress! > 0) ...[
+                    const SizedBox(height: 16),
+                    LinearProgressIndicator(
+                      value: tutorial.userProgress,
+                      backgroundColor: Colors.grey[300],
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppTheme.primaryColor,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
   
-  void _showFilterDialog() {
+  Widget _buildEmptyState() {
+    String message;
+    IconData icon;
+    
+    if (_searchController.text.isNotEmpty) {
+      message = 'No tutorials match your search criteria';
+      icon = Icons.search_off;
+    } else if (_selectedCategory != 'all' || _selectedDifficulty != 'all') {
+      message = 'No tutorials match your filters';
+      icon = Icons.filter_list_off;
+    } else {
+      message = 'No tutorials available';
+      icon = Icons.video_library_outlined;
+    }
+    
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 80,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Try changing your filters or check back later',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 16,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () {
+              setState(() {
+                _searchController.clear();
+                _selectedCategory = 'all';
+                _selectedDifficulty = 'all';
+              });
+            },
+            icon: const Icon(Icons.refresh),
+            label: const Text('Reset Filters'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildActiveFilters() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Active Filters:',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (_searchController.text.isNotEmpty)
+                _buildFilterChip(
+                  'Search: ${_searchController.text}',
+                  () {
+                    setState(() {
+                      _searchController.clear();
+                    });
+                  },
+                ),
+              if (_selectedCategory != 'all')
+                _buildFilterChip(
+                  'Category: ${_selectedCategory[0].toUpperCase()}${_selectedCategory.substring(1)}',
+                  () {
+                    setState(() {
+                      _selectedCategory = 'all';
+                    });
+                  },
+                ),
+              if (_selectedDifficulty != 'all')
+                _buildFilterChip(
+                  'Difficulty: ${_selectedDifficulty[0].toUpperCase()}${_selectedDifficulty.substring(1)}',
+                  () {
+                    setState(() {
+                      _selectedDifficulty = 'all';
+                    });
+                  },
+                ),
+              _buildFilterChip(
+                'Clear All',
+                () {
+                  setState(() {
+                    _searchController.clear();
+                    _selectedCategory = 'all';
+                    _selectedDifficulty = 'all';
+                  });
+                },
+                isReset: true,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildFilterChip(String label, VoidCallback onRemove, {bool isReset = false}) {
+    return Chip(
+      label: Text(
+        label,
+        style: TextStyle(
+          color: isReset ? Colors.white : Colors.black87,
+          fontSize: 12,
+        ),
+      ),
+      backgroundColor: isReset ? AppTheme.primaryColor : Colors.grey[200],
+      deleteIcon: Icon(
+        isReset ? Icons.refresh : Icons.close,
+        size: 16,
+        color: isReset ? Colors.white : Colors.black54,
+      ),
+      onDeleted: onRemove,
+    );
+  }
+  
+  void _navigateToTutorialDetail(Tutorial tutorial) {
+    Navigator.of(context).pushNamed(
+      AppRouter.tutorialDetail,
+      arguments: tutorial,
+    );
+  }
+  
+  void _showSearchBar() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (context) {
         return Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 16,
+            right: 16,
+            top: 16,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Filter Tutorials',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+              TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search tutorials...',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clear();
+                    },
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
+                autofocus: true,
               ),
               const SizedBox(height: 16),
-              
-              // Difficulty filter
-              const Text(
-                'Difficulty',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  _buildFilterChip('Beginner', Colors.green),
-                  const SizedBox(width: 8),
-                  _buildFilterChip('Intermediate', Colors.orange),
-                  const SizedBox(width: 8),
-                  _buildFilterChip('Advanced', Colors.red),
-                ],
-              ),
-              const SizedBox(height: 16),
-              
-              // Progress filter
-              const Text(
-                'Progress',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  _buildFilterChip('Not Started', Colors.grey),
-                  const SizedBox(width: 8),
-                  _buildFilterChip('In Progress', AppTheme.primaryColor),
-                  const SizedBox(width: 8),
-                  _buildFilterChip('Completed', AppTheme.successColor),
-                ],
-              ),
-              const SizedBox(height: 24),
-              
-              // Apply/Clear buttons
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -528,18 +544,22 @@ class _TutorialListScreenState extends State<TutorialListScreen> {
                     onPressed: () {
                       Navigator.pop(context);
                     },
-                    child: const Text('Clear All'),
+                    child: const Text('Cancel'),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 8),
                   ElevatedButton(
                     onPressed: () {
+                      setState(() {});
                       Navigator.pop(context);
-                      // Apply filters
                     },
-                    child: const Text('Apply'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                    ),
+                    child: const Text('Search'),
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
             ],
           ),
         );
@@ -547,166 +567,242 @@ class _TutorialListScreenState extends State<TutorialListScreen> {
     );
   }
   
-  Widget _buildFilterChip(String label, Color color) {
-    return FilterChip(
-      label: Text(label),
-      onSelected: (selected) {
-        // Apply filter
-      },
-      backgroundColor: Colors.grey.shade200,
-      selectedColor: color.withOpacity(0.2),
-      checkmarkColor: color,
-      labelStyle: TextStyle(
-        color: Colors.grey.shade800,
-      ),
-      side: BorderSide(
-        color: Colors.grey.shade300,
-      ),
-    );
-  }
-  
-  void _showSearchBar() {
-    showSearch(
+  void _showFilterOptions() {
+    showModalBottomSheet(
       context: context,
-      delegate: TutorialSearchDelegate(_tutorialDays),
-    );
-  }
-}
-
-class TutorialSearchDelegate extends SearchDelegate<String> {
-  final List<Map<String, dynamic>> tutorials;
-  
-  TutorialSearchDelegate(this.tutorials);
-  
-  @override
-  List<Widget> buildActions(BuildContext context) {
-    return [
-      IconButton(
-        icon: const Icon(Icons.clear),
-        onPressed: () {
-          query = '';
-        },
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-    ];
-  }
-  
-  @override
-  Widget buildLeading(BuildContext context) {
-    return IconButton(
-      icon: const Icon(Icons.arrow_back),
-      onPressed: () {
-        close(context, '');
-      },
-    );
-  }
-  
-  @override
-  Widget buildResults(BuildContext context) {
-    return buildSuggestions(context);
-  }
-  
-  @override
-  Widget buildSuggestions(BuildContext context) {
-    if (query.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.search,
-              size: 64,
-              color: Colors.grey.shade300,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Search for tutorials',
-              style: TextStyle(
-                color: AppTheme.textSecondaryColor,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    
-    final results = tutorials.where((tutorial) {
-      final title = tutorial['title'] as String;
-      final subtitle = tutorial['subtitle'] as String;
-      final description = tutorial['description'] as String;
-      
-      return title.toLowerCase().contains(query.toLowerCase()) ||
-             subtitle.toLowerCase().contains(query.toLowerCase()) ||
-             description.toLowerCase().contains(query.toLowerCase());
-    }).toList();
-    
-    if (results.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.search_off,
-              size: 64,
-              color: Colors.grey.shade300,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No results found for "$query"',
-              style: const TextStyle(
-                color: AppTheme.textSecondaryColor,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: results.length,
-      itemBuilder: (context, index) {
-        final tutorial = results[index];
-        
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
-          leading: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.network(
-              tutorial['imageUrl'] as String,
-              width: 60,
-              height: 60,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  width: 60,
-                  height: 60,
-                  color: Colors.grey.shade300,
-                  child: const Icon(
-                    Icons.image_not_supported,
-                    color: Colors.grey,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Filter Tutorials',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setModalState(() {
+                            _selectedCategory = 'all';
+                            _selectedDifficulty = 'all';
+                          });
+                        },
+                        child: const Text('Reset'),
+                      ),
+                    ],
                   ),
-                );
-              },
-            ),
-          ),
-          title: Text(
-            tutorial['title'] as String,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          subtitle: Text(
-            tutorial['subtitle'] as String,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-          onTap: () {
-            // Navigate to tutorial detail
-            close(context, tutorial['id'] as String);
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Category',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _filterChipOption('all', 'All', _selectedCategory, (value) {
+                        setModalState(() {
+                          _selectedCategory = value;
+                        });
+                      }),
+                      _filterChipOption('strength', 'Strength', _selectedCategory, (value) {
+                        setModalState(() {
+                          _selectedCategory = value;
+                        });
+                      }),
+                      _filterChipOption('cardio', 'Cardio', _selectedCategory, (value) {
+                        setModalState(() {
+                          _selectedCategory = value;
+                        });
+                      }),
+                      _filterChipOption('yoga', 'Yoga', _selectedCategory, (value) {
+                        setModalState(() {
+                          _selectedCategory = value;
+                        });
+                      }),
+                      _filterChipOption('hiit', 'HIIT', _selectedCategory, (value) {
+                        setModalState(() {
+                          _selectedCategory = value;
+                        });
+                      }),
+                      _filterChipOption('stretching', 'Stretching', _selectedCategory, (value) {
+                        setModalState(() {
+                          _selectedCategory = value;
+                        });
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Difficulty',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _filterChipOption('all', 'All', _selectedDifficulty, (value) {
+                        setModalState(() {
+                          _selectedDifficulty = value;
+                        });
+                      }),
+                      _filterChipOption('beginner', 'Beginner', _selectedDifficulty, (value) {
+                        setModalState(() {
+                          _selectedDifficulty = value;
+                        });
+                      }),
+                      _filterChipOption('intermediate', 'Intermediate', _selectedDifficulty, (value) {
+                        setModalState(() {
+                          _selectedDifficulty = value;
+                        });
+                      }),
+                      _filterChipOption('advanced', 'Advanced', _selectedDifficulty, (value) {
+                        setModalState(() {
+                          _selectedDifficulty = value;
+                        });
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        setState(() {});
+                        Navigator.pop(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Apply Filters',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
           },
         );
       },
     );
+  }
+  
+  Widget _filterChipOption(
+    String value,
+    String label,
+    String selectedValue,
+    Function(String) onSelected,
+  ) {
+    final bool isSelected = selectedValue == value;
+    
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        onSelected(selected ? value : 'all');
+      },
+      backgroundColor: Colors.grey[200],
+      selectedColor: AppTheme.primaryColor.withOpacity(0.2),
+      checkmarkColor: AppTheme.primaryColor,
+    );
+  }
+  
+  List<Tutorial> _getSampleTutorials() {
+    return [
+      Tutorial(
+        id: 'tutorial1',
+        title: 'Complete Body Strength Workout',
+        description: 'A comprehensive strength training program focused on building muscle and improving overall strength.',
+        imageUrl: 'https://images.unsplash.com/photo-1517963879433-6ad2b056d712',
+        categories: ['strength', 'full body'],
+        difficulty: 'Intermediate',
+        isFeatured: true,
+        isPopular: true,
+        totalDurationMinutes: 120,
+        daysCount: 5,
+        userProgress: 0.3,
+      ),
+      Tutorial(
+        id: 'tutorial2',
+        title: 'Morning Yoga Flow',
+        description: 'Start your day with energy and focus with this gentle but effective yoga routine.',
+        imageUrl: 'https://images.unsplash.com/photo-1575052814086-f385e2e2ad1b',
+        categories: ['yoga', 'flexibility'],
+        difficulty: 'Beginner',
+        isFeatured: true,
+        isPopular: false,
+        totalDurationMinutes: 30,
+        daysCount: 7,
+        userProgress: 0.7,
+      ),
+      Tutorial(
+        id: 'tutorial3',
+        title: 'HIIT Fat Burning Challenge',
+        description: 'High-intensity interval training designed to maximize calorie burn and improve cardiovascular fitness.',
+        imageUrl: 'https://images.unsplash.com/photo-1434682881908-b43d0467b798',
+        categories: ['cardio', 'hiit'],
+        difficulty: 'Advanced',
+        isFeatured: false,
+        isPopular: true,
+        totalDurationMinutes: 45,
+        daysCount: 14,
+        userProgress: 0.0,
+      ),
+      Tutorial(
+        id: 'tutorial4',
+        title: 'Core Strength & Stability',
+        description: 'Build a strong core foundation with exercises targeting all the abdominal and back muscles.',
+        imageUrl: 'https://images.unsplash.com/photo-1516826957135-700dedea698c',
+        categories: ['strength', 'core'],
+        difficulty: 'Intermediate',
+        isFeatured: false,
+        isPopular: true,
+        totalDurationMinutes: 60,
+        daysCount: 10,
+        userProgress: null,
+      ),
+      Tutorial(
+        id: 'tutorial5',
+        title: 'Flexibility & Mobility Routine',
+        description: 'Improve your range of motion and prevent injuries with this comprehensive stretching program.',
+        imageUrl: 'https://images.unsplash.com/photo-1551656941-dc4f9c646a6e',
+        categories: ['stretching', 'recovery'],
+        difficulty: 'Beginner',
+        isFeatured: false,
+        isPopular: false,
+        totalDurationMinutes: 40,
+        daysCount: 3,
+        userProgress: null,
+      ),
+    ];
   }
 }

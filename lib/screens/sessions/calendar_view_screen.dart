@@ -1,13 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:fitsaga/models/booking_model.dart';
-import 'package:fitsaga/providers/auth_provider.dart';
-import 'package:fitsaga/services/booking_service.dart';
-import 'package:fitsaga/theme/app_theme.dart';
-import 'package:fitsaga/widgets/common/loading_indicator.dart';
-import 'package:fitsaga/widgets/common/error_widget.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:fitsaga/models/session_model.dart';
+import 'package:fitsaga/theme/app_theme.dart';
 
 class CalendarViewScreen extends StatefulWidget {
   const CalendarViewScreen({Key? key}) : super(key: key);
@@ -17,342 +12,197 @@ class CalendarViewScreen extends StatefulWidget {
 }
 
 class _CalendarViewScreenState extends State<CalendarViewScreen> {
-  CalendarFormat _calendarFormat = CalendarFormat.week;
-  DateTime _focusedDay = DateTime.now();
-  DateTime? _selectedDay;
-  
-  bool _isLoading = false;
-  String? _error;
-  Map<DateTime, List<Map<String, dynamic>>> _events = {};
-  List<Map<String, dynamic>> _selectedEvents = [];
+  late DateTime _focusedDay;
+  late DateTime _selectedDay;
+  late Map<DateTime, List<SessionModel>> _sessions;
+  late List<SessionModel> _selectedSessions;
+  CalendarFormat _calendarFormat = CalendarFormat.month;
+  String _filter = 'all'; // 'all', 'yoga', 'hiit', 'strength', 'pilates', 'cardio'
   
   @override
   void initState() {
     super.initState();
-    _selectedDay = _focusedDay;
+    _focusedDay = DateTime.now();
+    _selectedDay = DateTime.now();
     _loadSessions();
+    _selectedSessions = _getSessionsForDay(_selectedDay);
   }
   
-  Future<void> _loadSessions() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  void _loadSessions() {
+    // In a real app, this would fetch from a provider or API
+    // For demo purposes, we'll use sample data
+    final List<SessionModel> allSessions = SessionModel.getSampleSessions();
     
-    try {
-      // In a real app, we would fetch sessions from Firebase
-      // For demo purposes, generate sample sessions
-      await Future.delayed(const Duration(seconds: 1));
+    // Group sessions by day
+    _sessions = {};
+    for (final session in allSessions) {
+      final dateKey = DateTime(
+        session.date.year,
+        session.date.month,
+        session.date.day,
+      );
       
-      // Generate sessions for the next 14 days
-      final now = DateTime.now();
-      final events = <DateTime, List<Map<String, dynamic>>>{};
-      
-      for (int i = -1; i < 14; i++) {
-        final day = DateTime(now.year, now.month, now.day + i);
-        
-        // Skip generating sessions for past days except today and yesterday
-        if (i < -1) continue;
-        
-        // Generate 2-4 sessions per day
-        final sessionCount = 2 + (day.day % 3); // 2-4 sessions per day
-        final daySessions = <Map<String, dynamic>>[];
-        
-        for (int j = 0; j < sessionCount; j++) {
-          // Create varied session times throughout the day
-          final startHour = 8 + ((j * 3) % 12); // 8am, 11am, 2pm, 5pm
-          final sessionDuration = 60; // minutes
-          
-          // Session capacity and booking status
-          final capacity = 10 + (day.day % 5); // 10-14 capacity
-          final bookedCount = (capacity * 0.7).floor() + (day.day % 4); // 70%-100% booked
-          final spaceAvailable = bookedCount < capacity;
-          
-          // Create session
-          daySessions.add({
-            'id': 'session-${day.year}-${day.month}-${day.day}-$j',
-            'title': _getSessionTitle(j),
-            'instructor': _getInstructorName(j),
-            'startTime': DateTime(day.year, day.month, day.day, startHour, 0),
-            'endTime': DateTime(day.year, day.month, day.day, startHour, sessionDuration),
-            'capacity': capacity,
-            'bookedCount': bookedCount,
-            'spaceAvailable': spaceAvailable,
-            'creditsRequired': j == 0 ? 1 : 2, // Regular or premium session
-            'isBooked': day.isAfter(now) && j == 1, // Pretend some sessions are booked
-            'isPast': day.isBefore(DateTime(now.year, now.month, now.day)),
-          });
-        }
-        
-        events[day] = daySessions;
+      if (!_sessions.containsKey(dateKey)) {
+        _sessions[dateKey] = [];
       }
       
-      setState(() {
-        _events = events;
-        _updateSelectedEvents();
-      });
-    } catch (e) {
-      setState(() {
-        _error = 'Failed to load sessions: $e';
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      _sessions[dateKey]!.add(session);
     }
   }
   
-  void _updateSelectedEvents() {
-    if (_selectedDay != null) {
-      // Get the day-only version of the selected date (no time component)
-      final selectedDate = DateTime(_selectedDay!.year, _selectedDay!.month, _selectedDay!.day);
-      _selectedEvents = _events[selectedDate] ?? [];
+  List<SessionModel> _getSessionsForDay(DateTime day) {
+    final dateKey = DateTime(day.year, day.month, day.day);
+    
+    // Filter by session type if needed
+    if (_filter == 'all' || _filter.isEmpty) {
+      return _sessions[dateKey] ?? [];
     } else {
-      _selectedEvents = [];
+      return (_sessions[dateKey] ?? [])
+          .where((session) => session.sessionType.toLowerCase() == _filter.toLowerCase())
+          .toList();
     }
   }
   
-  String _getSessionTitle(int index) {
-    final titles = [
-      'Morning Yoga',
-      'HIIT Training',
-      'Spin Class',
-      'Strength Training',
-      'Kickboxing',
-      'Pilates',
-      'Zumba Dance',
-      'CrossFit'
-    ];
-    return titles[index % titles.length];
-  }
-  
-  String _getInstructorName(int index) {
-    final names = [
-      'Sarah Johnson',
-      'Mike Torres',
-      'Emma Williams',
-      'Alex Chen',
-      'David Kim',
-      'Lisa Rodriguez'
-    ];
-    return names[index % names.length];
-  }
-  
-  Future<void> _bookSession(Map<String, dynamic> session) async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  bool _hasSessionsForDay(DateTime day) {
+    final dateKey = DateTime(day.year, day.month, day.day);
     
-    // Check if user is authenticated
-    if (!authProvider.isAuthenticated) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please sign in to book a session'),
-          backgroundColor: AppTheme.errorColor,
-        ),
-      );
-      return;
-    }
-    
-    // Show confirmation dialog
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Booking'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              session['title'],
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${DateFormat('EEEE, MMMM d').format(session['startTime'])} • '
-              '${DateFormat('h:mm a').format(session['startTime'])} - '
-              '${DateFormat('h:mm a').format(session['endTime'])}',
-            ),
-            const SizedBox(height: 8),
-            Text('Instructor: ${session['instructor']}'),
-            const SizedBox(height: 16),
-            Text(
-              'Credits required: ${session['creditsRequired']}',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text('Do you want to book this session?'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Book Session'),
-          ),
-        ],
-      ),
-    );
-    
-    if (confirm != true) return;
-    
-    setState(() {
-      _isLoading = true;
-    });
-    
-    try {
-      final bookingService = Provider.of<BookingService>(context, listen: false);
-      final result = await bookingService.bookSession(
-        userId: authProvider.currentUser!.id,
-        sessionId: session['id'],
-        sessionTitle: session['title'],
-        instructorId: null,
-        instructorName: session['instructor'],
-        sessionDate: session['startTime'],
-        startTime: session['startTime'],
-        endTime: session['endTime'],
-        creditsRequired: session['creditsRequired'],
-      );
-      
-      if (result.success) {
-        // Update UI
-        setState(() {
-          session['isBooked'] = true;
-          session['bookedCount'] = (session['bookedCount'] as int) + 1;
-          session['spaceAvailable'] = session['bookedCount'] < session['capacity'];
-        });
-        
-        // Show success message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Successfully booked ${session['title']}'),
-              backgroundColor: AppTheme.successColor,
-            ),
-          );
-        }
-      } else {
-        // Show error message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result.errorMessage ?? 'Failed to book session'),
-              backgroundColor: AppTheme.errorColor,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error booking session: $e'),
-            backgroundColor: AppTheme.errorColor,
-          ),
-        );
-      }
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+    if (_filter == 'all' || _filter.isEmpty) {
+      return (_sessions[dateKey]?.isNotEmpty ?? false);
+    } else {
+      return (_sessions[dateKey]?.any(
+            (session) => session.sessionType.toLowerCase() == _filter.toLowerCase(),
+          ) ??
+          false);
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Session Schedule'),
+        title: const Text('Sessions'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadSessions,
-            tooltip: 'Refresh',
+            icon: const Icon(Icons.filter_list),
+            onPressed: _showFilterDialog,
           ),
         ],
       ),
-      body: _isLoading
-          ? const LoadingIndicator(message: 'Loading sessions...')
-          : _error != null
-              ? CustomErrorWidget(
-                  message: _error!,
-                  onRetry: _loadSessions,
-                )
-              : Column(
-                  children: [
-                    _buildCalendar(),
-                    const Divider(height: 0),
-                    Expanded(
-                      child: _buildSessionList(),
-                    ),
-                  ],
-                ),
+      body: Column(
+        children: [
+          _buildFilterChips(),
+          _buildCalendar(),
+          const Divider(height: 1),
+          Expanded(
+            child: _buildSessionsList(),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          // Navigate to all sessions view
+        },
+        icon: const Icon(Icons.view_list),
+        label: const Text('All Sessions'),
+        backgroundColor: AppTheme.primaryColor,
+      ),
+    );
+  }
+  
+  Widget _buildFilterChips() {
+    // Define filter options
+    final filterOptions = [
+      {'label': 'All', 'value': 'all'},
+      {'label': 'Yoga', 'value': 'yoga'},
+      {'label': 'HIIT', 'value': 'hiit'},
+      {'label': 'Strength', 'value': 'strength'},
+      {'label': 'Pilates', 'value': 'pilates'},
+      {'label': 'Cardio', 'value': 'cardio'},
+    ];
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: filterOptions.map((option) {
+            final label = option['label'] as String;
+            final value = option['value'] as String;
+            final isSelected = _filter == value;
+            
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: FilterChip(
+                label: Text(label),
+                selected: isSelected,
+                onSelected: (selected) {
+                  setState(() {
+                    _filter = selected ? value : 'all';
+                    _selectedSessions = _getSessionsForDay(_selectedDay);
+                  });
+                },
+                backgroundColor: Colors.grey[200],
+                selectedColor: AppTheme.primaryColor.withOpacity(0.2),
+                checkmarkColor: AppTheme.primaryColor,
+              ),
+            );
+          }).toList(),
+        ),
+      ),
     );
   }
   
   Widget _buildCalendar() {
     return TableCalendar(
-      firstDay: DateTime.now().subtract(const Duration(days: 7)),
-      lastDay: DateTime.now().add(const Duration(days: 30)),
+      firstDay: DateTime.now().subtract(const Duration(days: 30)),
+      lastDay: DateTime.now().add(const Duration(days: 365)),
       focusedDay: _focusedDay,
       calendarFormat: _calendarFormat,
+      selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+      eventLoader: (day) {
+        // This is used to mark days with events
+        return _hasSessionsForDay(day) ? [1] : [];
+      },
+      calendarStyle: CalendarStyle(
+        markersMaxCount: 1,
+        markerDecoration: BoxDecoration(
+          color: AppTheme.primaryColor,
+          shape: BoxShape.circle,
+        ),
+        todayDecoration: BoxDecoration(
+          color: AppTheme.primaryColor.withOpacity(0.5),
+          shape: BoxShape.circle,
+        ),
+        selectedDecoration: BoxDecoration(
+          color: AppTheme.primaryColor,
+          shape: BoxShape.circle,
+        ),
+      ),
       availableCalendarFormats: const {
         CalendarFormat.month: 'Month',
-        CalendarFormat.twoWeeks: '2 Weeks',
+        CalendarFormat.twoWeeks: '2 weeks',
         CalendarFormat.week: 'Week',
+      },
+      onDaySelected: (selectedDay, focusedDay) {
+        setState(() {
+          _selectedDay = selectedDay;
+          _focusedDay = focusedDay;
+          _selectedSessions = _getSessionsForDay(selectedDay);
+        });
       },
       onFormatChanged: (format) {
         setState(() {
           _calendarFormat = format;
         });
       },
-      selectedDayPredicate: (day) {
-        return isSameDay(_selectedDay, day);
-      },
-      onDaySelected: (selectedDay, focusedDay) {
-        setState(() {
-          _selectedDay = selectedDay;
-          _focusedDay = focusedDay;
-          _updateSelectedEvents();
-        });
-      },
       onPageChanged: (focusedDay) {
         _focusedDay = focusedDay;
-      },
-      // Styling
-      calendarStyle: CalendarStyle(
-        todayDecoration: BoxDecoration(
-          color: AppTheme.primaryColor.withOpacity(0.5),
-          shape: BoxShape.circle,
-        ),
-        selectedDecoration: const BoxDecoration(
-          color: AppTheme.primaryColor,
-          shape: BoxShape.circle,
-        ),
-        markerDecoration: const BoxDecoration(
-          color: AppTheme.accentColor,
-          shape: BoxShape.circle,
-        ),
-      ),
-      headerStyle: const HeaderStyle(
-        formatButtonTextStyle: TextStyle(fontSize: 14),
-        titleCentered: true,
-      ),
-      eventLoader: (day) {
-        final dayEvents = _events[DateTime(day.year, day.month, day.day)] ?? [];
-        return dayEvents;
       },
     );
   }
   
-  Widget _buildSessionList() {
-    if (_selectedEvents.isEmpty) {
+  Widget _buildSessionsList() {
+    if (_selectedSessions.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -360,229 +210,582 @@ class _CalendarViewScreenState extends State<CalendarViewScreen> {
             Icon(
               Icons.event_busy,
               size: 64,
-              color: Colors.grey.shade300,
+              color: Colors.grey[400],
             ),
             const SizedBox(height: 16),
             Text(
-              'No sessions on ${DateFormat.yMMMMd().format(_selectedDay!)}',
-              style: TextStyle(
-                color: Colors.grey.shade700,
+              'No sessions on ${DateFormat('EEEE, MMMM d').format(_selectedDay)}',
+              style: const TextStyle(
                 fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                // Change selected day to next day with sessions
-                for (int i = 1; i < 14; i++) {
-                  final nextDay = _selectedDay!.add(Duration(days: i));
-                  final nextDayEvents = _events[DateTime(nextDay.year, nextDay.month, nextDay.day)];
-                  
-                  if (nextDayEvents != null && nextDayEvents.isNotEmpty) {
-                    setState(() {
-                      _selectedDay = nextDay;
-                      _focusedDay = nextDay;
-                      _updateSelectedEvents();
-                    });
-                    break;
-                  }
-                }
-              },
-              child: const Text('Find Next Available'),
+            const SizedBox(height: 8),
+            Text(
+              'Select a different day or change filters',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
             ),
           ],
         ),
       );
     }
     
-    return ListView(
+    return ListView.builder(
       padding: const EdgeInsets.all(16),
-      children: [
-        Text(
-          DateFormat.yMMMMEEEEd().format(_selectedDay!),
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        ..._selectedEvents.map((session) => _buildSessionCard(session)),
-      ],
+      itemCount: _selectedSessions.length,
+      itemBuilder: (context, index) {
+        final session = _selectedSessions[index];
+        return _buildSessionCard(session);
+      },
     );
   }
   
-  Widget _buildSessionCard(Map<String, dynamic> session) {
-    final bool isBooked = session['isBooked'] as bool;
-    final bool isPast = session['isPast'] as bool;
-    final bool isAvailable = session['spaceAvailable'] as bool;
-    final bool isFull = !isAvailable;
+  Widget _buildSessionCard(SessionModel session) {
+    final bool hasAvailableSlots = session.hasAvailableSlots;
+    final String timeRange = session.formattedTimeRange;
+    final String instructor = session.instructorName ?? 'Unknown Instructor';
     
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      clipBehavior: Clip.antiAlias,
       elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
-        children: [
-          // Time header
-          Container(
-            color: isPast 
-                ? Colors.grey 
-                : (isBooked ? AppTheme.primaryColor : AppTheme.accentColor),
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.access_time,
-                  color: Colors.white,
-                  size: 18,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${DateFormat('h:mm a').format(session['startTime'])} - '
-                  '${DateFormat('h:mm a').format(session['endTime'])}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                if (isBooked && !isPast)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: () {
+          _showSessionDetails(session);
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with session type and availability
+            _buildSessionHeader(session),
+            
+            // Session details
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  Text(
+                    session.title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
-                    child: Text(
-                      'Booked',
-                      style: TextStyle(
-                        color: isPast ? Colors.grey : AppTheme.primaryColor,
-                        fontSize: 12,
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  // Time and instructor
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.access_time,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        timeRange,
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      const Icon(
+                        Icons.person,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        instructor,
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  // Short description
+                  Text(
+                    session.description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.grey[800],
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Capacity and book button
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${session.bookedCount}/${session.capacity} booked',
+                        style: TextStyle(
+                          color: hasAvailableSlots ? Colors.grey[600] : Colors.red,
+                          fontWeight: hasAvailableSlots ? FontWeight.normal : FontWeight.bold,
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: hasAvailableSlots ? () => _bookSession(session) : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: Text(
+                          hasAvailableSlots ? 'Book (${session.creditsRequired} credits)' : 'Full',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildSessionHeader(SessionModel session) {
+    Color headerColor;
+    
+    // Set color based on session type
+    switch (session.sessionType.toLowerCase()) {
+      case 'yoga':
+        headerColor = Colors.purple;
+        break;
+      case 'hiit':
+        headerColor = Colors.orange;
+        break;
+      case 'strength':
+        headerColor = Colors.blue;
+        break;
+      case 'pilates':
+        headerColor = Colors.teal;
+        break;
+      case 'cardio':
+        headerColor = Colors.red;
+        break;
+      default:
+        headerColor = AppTheme.primaryColor;
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: headerColor.withOpacity(0.2),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            session.sessionType.toUpperCase(),
+            style: TextStyle(
+              color: headerColor,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: session.hasAvailableSlots ? Colors.green : Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              session.hasAvailableSlots
+                  ? '${session.availableSlots} spots left'
+                  : 'Full',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _showFilterDialog() {
+    // Show more advanced filter options
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Filter Sessions',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _filter = 'all';
+                        Navigator.pop(context);
+                        _selectedSessions = _getSessionsForDay(_selectedDay);
+                      });
+                    },
+                    child: const Text('Reset'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Session Type',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  _filterChip('All', 'all'),
+                  _filterChip('Yoga', 'yoga'),
+                  _filterChip('HIIT', 'hiit'),
+                  _filterChip('Strength', 'strength'),
+                  _filterChip('Pilates', 'pilates'),
+                  _filterChip('Cardio', 'cardio'),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Duration',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  _filterChip('30 mins', '30'),
+                  _filterChip('45 mins', '45'),
+                  _filterChip('60 mins', '60'),
+                  _filterChip('90+ mins', '90+'),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        setState(() {
+                          _selectedSessions = _getSessionsForDay(_selectedDay);
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text('Apply Filters'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  
+  Widget _filterChip(String label, String value) {
+    final bool isSelected = _filter == value;
+    
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        setState(() {
+          _filter = selected ? value : 'all';
+        });
+      },
+      backgroundColor: Colors.grey[200],
+      selectedColor: AppTheme.primaryColor.withOpacity(0.2),
+      checkmarkColor: AppTheme.primaryColor,
+    );
+  }
+  
+  void _showSessionDetails(SessionModel session) {
+    // Show detailed session information and booking option
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.8,
+          maxChildSize: 0.9,
+          minChildSize: 0.5,
+          expand: false,
+          builder: (context, scrollController) {
+            return SingleChildScrollView(
+              controller: scrollController,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Session image
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.network(
+                        session.imageUrl ?? 'https://via.placeholder.com/600x300?text=Session',
+                        width: double.infinity,
+                        height: 200,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: double.infinity,
+                            height: 200,
+                            color: Colors.grey[300],
+                            child: const Icon(
+                              Icons.fitness_center,
+                              size: 80,
+                              color: Colors.grey,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Session title and type
+                    Text(
+                      session.title,
+                      style: const TextStyle(
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-              ],
-            ),
-          ),
-          
-          // Session details
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title and credits
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        session['title'] as String,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.star,
-                            color: AppTheme.accentColor,
-                            size: 16,
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${session['creditsRequired']} credits',
-                            style: const TextStyle(
+                          child: Text(
+                            session.sessionType.toUpperCase(),
+                            style: TextStyle(
+                              color: AppTheme.primaryColor,
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${session.durationMinutes} minutes',
+                            style: const TextStyle(
+                              color: Colors.orange,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                
-                // Instructor
-                Row(
-                  children: [
-                    const Icon(
+                    const SizedBox(height: 16),
+                    
+                    // Date and time
+                    _buildDetailRow(
+                      Icons.calendar_today,
+                      'Date',
+                      session.formattedDate,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildDetailRow(
+                      Icons.access_time,
+                      'Time',
+                      session.formattedTimeRange,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildDetailRow(
                       Icons.person,
-                      size: 16,
-                      color: AppTheme.textSecondaryColor,
+                      'Instructor',
+                      session.instructorName ?? 'Unknown Instructor',
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Instructor: ${session['instructor']}',
-                      style: const TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                      ),
+                    const SizedBox(height: 8),
+                    _buildDetailRow(
+                      Icons.group,
+                      'Capacity',
+                      '${session.bookedCount}/${session.capacity} booked',
                     ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                
-                // Available spots
-                Row(
-                  children: [
-                    Icon(
-                      Icons.people,
-                      size: 16,
-                      color: isFull ? AppTheme.errorColor : AppTheme.successColor,
+                    const SizedBox(height: 8),
+                    _buildDetailRow(
+                      Icons.credit_card,
+                      'Credits Required',
+                      '${session.creditsRequired} credits',
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Available: ${session['capacity'] - session['bookedCount']} / ${session['capacity']}',
+                    const SizedBox(height: 16),
+                    
+                    // Description
+                    const Text(
+                      'Description',
                       style: TextStyle(
-                        color: isFull ? AppTheme.errorColor : AppTheme.successColor,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ],
-                ),
-                
-                // Booking button
-                if (!isPast)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: SizedBox(
+                    const SizedBox(height: 8),
+                    Text(
+                      session.description,
+                      style: TextStyle(
+                        color: Colors.grey[800],
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    
+                    // Book button
+                    SizedBox(
                       width: double.infinity,
+                      height: 50,
                       child: ElevatedButton(
-                        onPressed: isBooked || !isAvailable
-                            ? null // Disable if already booked or full
-                            : () => _bookSession(session),
+                        onPressed: session.hasAvailableSlots
+                            ? () {
+                                Navigator.pop(context);
+                                _bookSession(session);
+                              }
+                            : null,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isBooked
-                              ? Colors.grey
-                              : AppTheme.primaryColor,
-                          disabledBackgroundColor: isBooked
-                              ? AppTheme.primaryColor.withOpacity(0.5)
-                              : Colors.grey.shade300,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          backgroundColor: AppTheme.primaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                         child: Text(
-                          isBooked
-                              ? 'Already Booked'
-                              : (isAvailable ? 'Book Session' : 'Session Full'),
+                          session.hasAvailableSlots
+                              ? 'Book Session (${session.creditsRequired} credits)'
+                              : 'Session Full',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+  
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 20,
+          color: AppTheme.primaryColor,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '$label: ',
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(value),
+      ],
+    );
+  }
+  
+  void _bookSession(SessionModel session) {
+    // Show booking confirmation dialog
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Booking'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Session: ${session.title}'),
+            const SizedBox(height: 8),
+            Text('Date: ${session.formattedDate}'),
+            const SizedBox(height: 8),
+            Text('Time: ${session.formattedTimeRange}'),
+            const SizedBox(height: 8),
+            Text('Credits Required: ${session.creditsRequired}'),
+            const SizedBox(height: 16),
+            const Text(
+              'Are you sure you want to book this session?',
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // In a real app, we would call a booking service here
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Booked ${session.title} successfully!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+            ),
+            child: const Text('Confirm Booking'),
           ),
         ],
       ),

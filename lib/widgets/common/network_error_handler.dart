@@ -1,190 +1,126 @@
 import 'package:flutter/material.dart';
 import 'package:fitsaga/theme/app_theme.dart';
-import 'package:fitsaga/widgets/common/error_widget.dart';
 
-/// A wrapper widget that handles network errors and provides a consistent
-/// user experience for data loading states.
-///
-/// This widget shows appropriate loading indicators, error messages, and
-/// empty state messages based on the status of the data loading operation.
-class NetworkErrorHandler<T> extends StatelessWidget {
-  /// The data being loaded. If null, the widget assumes data is still loading.
-  final T? data;
+/// A widget that displays a network error and provides a retry option
+class NetworkErrorWidget extends StatelessWidget {
+  /// Whether to show a retry button
+  final bool showRetryButton;
   
-  /// Whether the data is currently being loaded.
-  final bool isLoading;
-  
-  /// An error message to display if the data loading failed.
-  final String? errorMessage;
-  
-  /// A function to retry the data loading operation if it failed.
+  /// Callback for when the retry button is pressed
   final VoidCallback? onRetry;
   
-  /// The widget to display when data is successfully loaded.
-  final Widget Function(T data) builder;
+  /// Whether the error should take up the full screen
+  final bool fullScreen;
   
-  /// A custom loading widget to show while data is being loaded.
-  final Widget? loadingWidget;
+  /// Custom message to show (if not provided, a default will be used)
+  final String? message;
   
-  /// The message to display while data is being loaded.
-  final String loadingMessage;
-  
-  /// A widget to display when the data is empty.
-  final Widget? emptyWidget;
-  
-  /// The message to display when the data is empty.
-  final String emptyMessage;
-  
-  /// Creates a [NetworkErrorHandler] widget.
-  ///
-  /// The [builder] parameter is required and is called when data is successfully loaded.
-  /// The [data] parameter is the data being loaded.
-  /// The [isLoading] parameter indicates whether data is currently being loaded.
-  /// The [errorMessage] parameter is an error message to display if the data loading failed.
-  /// The [onRetry] parameter is a function to retry the data loading operation if it failed.
-  /// The [loadingWidget] parameter is a custom loading widget to show while data is being loaded.
-  /// The [loadingMessage] parameter is the message to display while data is being loaded.
-  /// The [emptyWidget] parameter is a widget to display when the data is empty.
-  /// The [emptyMessage] parameter is the message to display when the data is empty.
-  const NetworkErrorHandler({
+  /// Create a network error widget
+  const NetworkErrorWidget({
     Key? key,
-    required this.data,
-    required this.isLoading,
-    this.errorMessage,
+    this.showRetryButton = true,
     this.onRetry,
-    required this.builder,
-    this.loadingWidget,
-    this.loadingMessage = 'Loading data...',
-    this.emptyWidget,
-    this.emptyMessage = 'No data available',
+    this.fullScreen = false,
+    this.message,
   }) : super(key: key);
-
-  /// Helper method to determine if the data is empty
-  bool _isDataEmpty() {
-    if (data == null) return true;
-    
-    if (data is List) return (data as List).isEmpty;
-    if (data is Map) return (data as Map).isEmpty;
-    if (data is String) return (data as String).isEmpty;
-    
-    return false;
-  }
 
   @override
   Widget build(BuildContext context) {
-    // Show loading state
-    if (isLoading) {
-      return loadingWidget ?? _buildDefaultLoadingWidget();
-    }
-    
-    // Show error state
-    if (errorMessage != null) {
-      if (errorMessage!.toLowerCase().contains('network') || 
-          errorMessage!.toLowerCase().contains('connect')) {
-        return NetworkErrorWidget(onRetry: onRetry);
-      }
-      
-      return CustomErrorWidget(
-        message: errorMessage!,
-        onRetry: onRetry,
-      );
-    }
-    
-    // Show empty state
-    if (data == null || _isDataEmpty()) {
-      return emptyWidget ?? _buildDefaultEmptyWidget();
-    }
-    
-    // Show successfully loaded data
-    return builder(data as T);
-  }
-  
-  /// Builds a default loading widget
-  Widget _buildDefaultLoadingWidget() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            loadingMessage,
-            style: const TextStyle(
-              color: AppTheme.textSecondaryColor,
+    return Container(
+      width: fullScreen ? double.infinity : null,
+      height: fullScreen ? double.infinity : null,
+      padding: const EdgeInsets.all(24.0),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/images/no_connection.png',
+              width: 120,
+              height: 120,
+              errorBuilder: (context, error, stackTrace) {
+                // Fallback if image is not available
+                return Icon(
+                  Icons.wifi_off,
+                  size: 100,
+                  color: Colors.grey[400],
+                );
+              },
             ),
-          ),
-        ],
+            const SizedBox(height: 24),
+            Text(
+              message ?? 'No Internet Connection',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Please check your internet connection and try again.',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[700],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (showRetryButton && onRetry != null) ...[
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry Connection'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
-    );
-  }
-  
-  /// Builds a default empty state widget
-  Widget _buildDefaultEmptyWidget() {
-    return NoDataWidget(
-      message: emptyMessage,
-      onAction: onRetry,
-      actionText: onRetry != null ? 'Refresh' : null,
     );
   }
 }
 
-/// A specialized version of [NetworkErrorHandler] for handling list data.
-class ListNetworkErrorHandler<T> extends StatelessWidget {
-  /// The list data being loaded.
-  final List<T>? data;
+/// A widget that shows different content based on connectivity status
+class ConditionalNetworkWidget extends StatelessWidget {
+  /// Whether the device is connected to the network
+  final bool isConnected;
   
-  /// Whether the data is currently being loaded.
-  final bool isLoading;
+  /// The widget to show when connected
+  final Widget connectedWidget;
   
-  /// An error message to display if the data loading failed.
-  final String? errorMessage;
-  
-  /// A function to retry the data loading operation if it failed.
+  /// Optional callback when retry is pressed
   final VoidCallback? onRetry;
   
-  /// The widget to display when data is successfully loaded.
-  final Widget Function(List<T> data) builder;
+  /// Custom error message
+  final String? errorMessage;
   
-  /// A custom loading widget to show while data is being loaded.
-  final Widget? loadingWidget;
-  
-  /// The message to display while data is being loaded.
-  final String loadingMessage;
-  
-  /// A widget to display when the list is empty.
-  final Widget? emptyWidget;
-  
-  /// The message to display when the list is empty.
-  final String emptyMessage;
-  
-  /// Creates a [ListNetworkErrorHandler] widget.
-  const ListNetworkErrorHandler({
+  /// Create a conditional network widget
+  const ConditionalNetworkWidget({
     Key? key,
-    required this.data,
-    required this.isLoading,
-    this.errorMessage,
+    required this.isConnected,
+    required this.connectedWidget,
     this.onRetry,
-    required this.builder,
-    this.loadingWidget,
-    this.loadingMessage = 'Loading data...',
-    this.emptyWidget,
-    this.emptyMessage = 'No items found',
+    this.errorMessage,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return NetworkErrorHandler<List<T>>(
-      data: data,
-      isLoading: isLoading,
-      errorMessage: errorMessage,
+    if (isConnected) {
+      return connectedWidget;
+    }
+    
+    return NetworkErrorWidget(
+      fullScreen: true,
+      showRetryButton: onRetry != null,
       onRetry: onRetry,
-      builder: builder,
-      loadingWidget: loadingWidget,
-      loadingMessage: loadingMessage,
-      emptyWidget: emptyWidget,
-      emptyMessage: emptyMessage,
+      message: errorMessage,
     );
   }
 }

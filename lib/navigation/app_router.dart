@@ -1,81 +1,95 @@
 import 'package:flutter/material.dart';
-import 'package:fitsaga/navigation/app_navigation.dart';
+import 'package:fitsaga/models/tutorial_model.dart';
 import 'package:fitsaga/screens/auth/login_screen.dart';
 import 'package:fitsaga/screens/auth/register_screen.dart';
+import 'package:fitsaga/screens/home/home_screen.dart';
 import 'package:fitsaga/screens/profile/profile_screen.dart';
 import 'package:fitsaga/screens/sessions/calendar_view_screen.dart';
-import 'package:fitsaga/screens/bookings/my_bookings_screen.dart';
+import 'package:fitsaga/screens/sessions/booking_screen.dart';
 import 'package:fitsaga/screens/tutorials/tutorial_list_screen.dart';
-import 'package:fitsaga/screens/admin/admin_dashboard_screen.dart';
-import 'package:fitsaga/widgets/common/error_widget.dart';
+import 'package:fitsaga/screens/tutorials/tutorial_detail_screen.dart';
 
-/// A class that manages app routes and navigation.
+/// Class responsible for defining all app routes
 class AppRouter {
-  /// Named routes for the app
+  // Route names
   static const String initial = '/';
   static const String login = '/login';
   static const String register = '/register';
+  static const String home = '/home';
   static const String profile = '/profile';
   static const String sessions = '/sessions';
   static const String bookings = '/bookings';
   static const String tutorials = '/tutorials';
+  static const String tutorialDetail = '/tutorials/detail';
+  static const String instructorDashboard = '/instructor/dashboard';
   static const String adminDashboard = '/admin/dashboard';
 
-  /// Route generation function to be used with onGenerateRoute
+  /// Generate routes based on route name
   static Route<dynamic> generateRoute(RouteSettings settings) {
-    final args = settings.arguments;
-
     switch (settings.name) {
       case initial:
-        return MaterialPageRoute(builder: (_) => const AppNavigation());
-      
+      case home:
+        return MaterialPageRoute(
+          builder: (_) => const HomeScreen(),
+          settings: settings,
+        );
+
       case login:
-        return MaterialPageRoute(builder: (_) => const LoginScreen());
-      
+        return MaterialPageRoute(
+          builder: (_) => const LoginScreen(),
+          settings: settings,
+        );
+
       case register:
-        return MaterialPageRoute(builder: (_) => const RegisterScreen());
-      
+        return MaterialPageRoute(
+          builder: (_) => const RegisterScreen(),
+          settings: settings,
+        );
+
       case profile:
-        return MaterialPageRoute(builder: (_) => const ProfileScreen());
-      
+        return MaterialPageRoute(
+          builder: (_) => const ProfileScreen(),
+          settings: settings,
+        );
+
       case sessions:
-        return MaterialPageRoute(builder: (_) => const CalendarViewScreen());
-      
+        return MaterialPageRoute(
+          builder: (_) => const CalendarViewScreen(),
+          settings: settings,
+        );
+
       case bookings:
-        return MaterialPageRoute(builder: (_) => const MyBookingsScreen());
-      
+        return MaterialPageRoute(
+          builder: (_) => const BookingScreen(),
+          settings: settings,
+        );
+
       case tutorials:
-        return MaterialPageRoute(builder: (_) => const TutorialListScreen());
-      
-      case adminDashboard:
-        return MaterialPageRoute(builder: (_) => const AdminDashboardScreen());
-        
+        return MaterialPageRoute(
+          builder: (_) => const TutorialListScreen(),
+          settings: settings,
+        );
+
+      case tutorialDetail:
+        final Tutorial tutorial = settings.arguments as Tutorial;
+        return MaterialPageRoute(
+          builder: (_) => TutorialDetailScreen(tutorial: tutorial),
+          settings: settings,
+        );
+
+      // Add other routes as needed
+
       default:
-        // If route doesn't exist, show a not found error
+        // If the route is not defined, return a 404 page
         return MaterialPageRoute(
           builder: (_) => Scaffold(
-            appBar: AppBar(title: const Text('Page Not Found')),
-            body: CustomErrorWidget(
-              message: 'The page "${settings.name}" was not found.',
-              fullScreen: true,
-              icon: Icons.error_outline,
+            appBar: AppBar(title: const Text('Not Found')),
+            body: const Center(
+              child: Text('Page not found'),
             ),
           ),
+          settings: settings,
         );
     }
-  }
-
-  /// Default route if no route is found
-  static Route<dynamic> unknownRoute(RouteSettings settings) {
-    return MaterialPageRoute(
-      builder: (_) => Scaffold(
-        appBar: AppBar(title: const Text('Page Not Found')),
-        body: CustomErrorWidget(
-          message: 'The page "${settings.name}" was not found.',
-          fullScreen: true,
-          icon: Icons.error_outline,
-        ),
-      ),
-    );
   }
 }

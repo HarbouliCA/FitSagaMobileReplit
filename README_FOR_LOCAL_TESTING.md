@@ -1,89 +1,105 @@
-# FitSAGA Local Testing Setup Guide
+# FitSAGA Local Testing Instructions
 
-This guide will help you set up the FitSAGA mobile app for local testing using VS Code or Android Studio.
+This document provides instructions for setting up and testing the FitSAGA gym management application on your local development environment.
 
 ## Prerequisites
 
-- Flutter SDK (latest stable version)
-- Android Studio or VS Code with Flutter extensions
-- Android emulator or physical device
-- Git (for cloning the repository)
+Before you begin, ensure you have the following installed:
+- Flutter SDK (version 3.0.0 or later)
+- Dart SDK (version 2.17.0 or later)
+- Android Studio or Visual Studio Code
+- Android SDK (for Android development)
+- Xcode (for iOS development, macOS only)
+- Git
 
-## Setup Instructions
+## Getting Started
 
-1. **Clone the repository to your local machine**
-   ```
-   git clone [repository-url]
-   cd fitsaga
-   ```
+1. Clone this repository to your local machine:
+```
+git clone https://github.com/your-username/fitsaga.git
+```
 
-2. **Install dependencies**
-   ```
-   flutter pub get
-   ```
+2. Navigate to the project directory:
+```
+cd fitsaga
+```
 
-3. **Set up Firebase**
-   
-   The app uses Firebase for authentication and database. Follow these steps:
-   
-   - Make sure the `google-services.json` file is placed in the `android/app/` directory
-   - For iOS testing, you'll need to add the GoogleService-Info.plist file to the iOS/Runner directory
+3. Install dependencies:
+```
+flutter pub get
+```
 
-4. **Run the app**
-   ```
-   flutter run
-   ```
+## Firebase Configuration
 
-## App Structure
+The app uses Firebase for authentication and data storage. To test with Firebase:
 
-- `lib/main.dart` - Entry point of the application
-- `lib/navigation/` - Contains navigation system with role-based access
-- `lib/models/` - Data models with Firestore integration
-- `lib/screens/` - UI screens organized by feature
-- `lib/providers/` - State management using Provider pattern
-- `lib/services/` - API and Firebase integration services
+1. Create a new Firebase project at [https://console.firebase.google.com/](https://console.firebase.google.com/)
+2. Add Android and iOS apps to your Firebase project
+3. Download and add the configuration files:
+   - `google-services.json` for Android (place in `android/app/`)
+   - `GoogleService-Info.plist` for iOS (place in `ios/Runner/`)
+4. Enable Authentication with Email/Password in the Firebase console
+5. Create Firestore collections for users, sessions, and tutorials
 
-## Testing Scenarios
+## Mock Mode
 
-1. **User Authentication**
-   - Test login flow (uses demo mode if Firebase is not configured)
-   - Test role-based access (admin, instructor, client)
+For testing without Firebase:
+- The app includes a mock mode that simulates backend functionality
+- Firebase initialization is wrapped in try-catch to allow the app to run without proper Firebase setup
+- Sample data is provided for sessions, tutorials, and bookings
 
-2. **Session Booking**
-   - Browse available sessions
-   - Book a session using credits
-   - Cancel a session
-   - View booking history
+## Running the App
 
-3. **Tutorial System**
-   - Browse tutorials by difficulty and category
-   - Track tutorial progress
-   - View tutorial details and exercises
+Launch the app using your preferred IDE or run:
+```
+flutter run
+```
 
-4. **Profile Management**
-   - View and edit profile information
-   - Check credit balance and history
-   - View membership details
+## Testing Different User Roles
+
+You can test different user roles (client, instructor, admin) by modifying the `role` field in the `AuthProvider` class or by creating different user accounts with different roles.
+
+## Testing Features
+
+### Authentication
+- Test registration with a new email
+- Test login with existing credentials
+- Test password reset functionality
+
+### Client Features
+- Browse available sessions in the calendar view
+- Book sessions and manage bookings
+- View and interact with tutorials
+- Update profile information
+
+### Instructor Features
+- Manage sessions (view participants, mark attendance)
+- Create and modify your sessions
+
+### Admin Features
+- Manage users (view, edit roles)
+- Manage all sessions and bookings
+- Access analytics and reports
 
 ## Troubleshooting
 
-If you encounter issues:
+### Common Issues:
+1. **Firebase Connection Issues**
+   - Verify your Firebase configuration files are correctly placed
+   - Ensure you have the correct dependencies in pubspec.yaml
 
-1. Make sure Flutter is up-to-date:
-   ```
-   flutter upgrade
-   ```
+2. **Flutter Version Issues**
+   - Run `flutter doctor` to diagnose any Flutter installation issues
+   - Update Flutter with `flutter upgrade` if needed
 
-2. Check Firebase configuration:
-   - Verify the package name in `google-services.json` matches your app's package name
-   - Ensure Firebase project is properly set up with Authentication and Firestore
+3. **Dependency Issues**
+   - Run `flutter clean` followed by `flutter pub get`
 
-3. For build issues:
-   ```
-   flutter clean
-   flutter pub get
-   ```
+## Additional Information
 
-## Need Help?
+- The app uses Provider for state management
+- Navigation is centralized through the AppRouter and NavigationService
+- The UI is built using Material Design components with custom theming
+- All data models are defined in the models directory with proper Firebase integration
 
-If you have any questions or need assistance with the setup, please contact the development team.
+For more information, please refer to the code documentation in each file.

@@ -1,110 +1,130 @@
-# FitSAGA - Gym Management App
+# FitSAGA Gym Management Application
 
-FitSAGA is a comprehensive cross-platform mobile application designed for gym management with role-based access control, advanced session booking, tutorial system, and credit-based payment.
+## Overview
 
-## Features
+FitSAGA is a comprehensive gym management mobile application designed to streamline tutorial experiences, session bookings, and user engagement through advanced mobile technologies. The application connects to Firebase for authentication and data storage, implementing a role-based access control system with three primary user roles: Admin, Instructor, and Client.
 
-### User Management
-- Role-based access control with three user types: Admin, Instructor, and Client
-- User registration and authentication with email/password
-- User profile management
-- Credit system for booking sessions
+## Key Features
 
-### Session Management
-- Calendar view with day/week/month views
-- Session booking system for clients
-- Session creation and management for instructors
-- Recurring session scheduling with various patterns
-- Conflict detection to prevent double-booking
-- Session capacity management
+### Role-Based Access Control
+- **Admin**: Full system management, user administration, analytics
+- **Instructor**: Session management, tutorial creation, client tracking
+- **Client**: Session booking, tutorial access, profile management
+
+### Credit-Based Session Booking
+- Two credit types: Gym Credits and Interval Credits
+- Credits can be purchased or awarded through memberships
+- Each session requires a specific number of credits to book
 
 ### Tutorial System
-- Categorized workout and nutrition tutorials
-- Video and text-based content
+- Comprehensive fitness tutorials with video integration
+- Multi-day structured content with exercises
+- Progress tracking and difficulty levels
+- Categories by workout type and difficulty
+- Video content stored on Azure Blob Storage with secure access
+
+### Session Management
+- Calendar view of available sessions
+- Booking and cancellation functionality
+- Session filtering by type and instructor
+- Attendance tracking
+
+### User Profiles
+- Customizable user profiles
+- Credit balance and transaction history
+- Workout history and progress tracking
+- Membership management
+
+## Technology Stack
+
+- **Framework**: Flutter for cross-platform mobile development
+- **Backend**: Firebase (Authentication, Firestore, Storage)
+- **Media Storage**: Azure Blob Storage for tutorial videos
+- **State Management**: Provider pattern
+- **Navigation**: Centralized routing system
+- **UI/UX**: Material Design with custom theming
+
+## Project Structure
+
+```
+lib/
+├── main.dart                  # Application entry point
+├── models/                    # Data models
+│   ├── user_model.dart        # User profile model
+│   ├── session_model.dart     # Session and booking models
+│   └── tutorial_model.dart    # Tutorial system models
+├── providers/                 # State management
+│   ├── auth_provider.dart     # Authentication logic
+│   └── ...
+├── screens/                   # UI screens
+│   ├── auth/                  # Authentication screens
+│   ├── home/                  # Dashboard and main navigation
+│   ├── profile/               # User profile management
+│   ├── sessions/              # Session booking and calendar
+│   └── tutorials/             # Tutorial browsing and viewing
+├── widgets/                   # Reusable UI components
+│   └── common/                # Shared widgets
+├── navigation/                # Routing system
+│   ├── app_router.dart        # Route definitions
+│   └── navigation_service.dart # Navigation utilities
+├── theme/                     # UI styling
+│   └── app_theme.dart         # Theme configuration
+└── services/                  # API communication and backend services
+```
+
+## Installation and Setup
+
+Refer to the `README_FOR_LOCAL_TESTING.md` file for detailed setup instructions, including:
+- Setting up your development environment
+- Firebase configuration
+- Running the application locally
+- Testing features with different user roles
+
+## Firebase Integration
+
+The application uses Firebase for:
+- **Authentication**: Email/password auth with role-based access
+- **Firestore**: Database for users, sessions, tutorials, and bookings
+- **Storage**: File storage for images (profile pictures, session images)
+
+## Credit System Implementation
+
+The credit system allows:
+- Purchasing of two credit types (gym and interval)
+- Credit consumption when booking sessions
+- Credit rewards through membership plans
+- Credit history and transaction tracking
+
+## Tutorial System Implementation
+
+Tutorials include:
+- Multi-day structured content
+- Individual exercises with detailed instructions
+- Video integration for demonstration
 - Progress tracking
-- Difficulty levels
-- Rating and feedback system
-- Personalized recommendations based on user activity
+- Difficulty levels and categorization
 
-### Admin Features
-- Comprehensive dashboard with business insights
-- User management and role assignment
-- Credit package management
-- Revenue tracking and reporting
-- Content moderation
+## Session Booking Flow
 
-## Technical Architecture
+1. User browses available sessions in calendar view
+2. User selects a session and views details
+3. User confirms booking using available credits
+4. System deducts credits and reserves a spot
+5. User can manage or cancel bookings
 
-### Frontend
-- Flutter framework for cross-platform development (iOS & Android)
-- Provider pattern for state management
-- Clean architecture with separation of concerns
-- Responsive UI with reusable components
+## Development Guidelines
 
-### Backend
-- Firebase Authentication for user management
-- Cloud Firestore for database
-- Firebase Storage for media content
-- Firebase Cloud Messaging for notifications
+- Use proper code documentation
+- Follow Flutter best practices for state management
+- Ensure proper error handling
+- Implement responsive designs for various screen sizes
+- Test across different device types
+- Use Firebase security rules for data protection
 
-### Data Models
-- User model with role-based permissions
-- Session model with recurring support
-- Credit system with transaction history
-- Tutorial model with progress tracking
+## License
 
-## Screens & Flow
+This project is proprietary and confidential. Unauthorized copying, distribution, or use is strictly prohibited.
 
-### Authentication Flow
-- Login
-- Registration
-- Password reset
-- Profile setup
+## Contact
 
-### Client Flow
-- Session booking from calendar
-- Tutorial browsing and viewing
-- Credit purchase
-- Session history
-
-### Instructor Flow
-- Session creation and management
-- Recurring session configuration
-- Participant management
-- Tutorial creation
-
-### Admin Flow
-- Dashboard with key metrics
-- User management
-- Financial reporting
-- Content management
-
-## Development Status
-
-Current development focus:
-- Calendar and session booking system
-- Recurring session management
-- Role-based permissions
-- Firebase integration
-- Tutorial system
-
-## Next Steps
-- Complete schedule management implementation
-- Integrate payment processing
-- Add notification system
-- Implement offline support
-- Add analytics tracking
-
-## Getting Started
-
-1. Clone the repository
-2. Set up Firebase project and add the configuration files
-3. Install dependencies with `flutter pub get`
-4. Run the app with `flutter run`
-
-## Requirements
-
-- Flutter SDK (latest stable version)
-- Dart SDK (latest stable version)
-- Firebase project with Authentication, Firestore, and Storage enabled
-- Android Studio / Xcode for native platform development
+For further information, please contact the development team at [dev-team@fitsaga.com](mailto:dev-team@fitsaga.com).

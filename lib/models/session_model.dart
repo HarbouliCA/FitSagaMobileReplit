@@ -1,257 +1,397 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
-/// Represents a fitness session that users can book
+/// Class representing a gym session that can be booked by users
 class SessionModel {
   final String id;
   final String title;
   final String description;
+  final String sessionType;
   final DateTime date;
-  final DateTime startTime;
-  final DateTime endTime;
-  final String instructorId;
-  final String? instructorName;
+  final int startTimeMinutes; // Minutes from midnight (e.g., 8:30 AM = 510)
+  final int durationMinutes;
+  final String? instructorId;
+  final String? instructorName; 
   final int capacity;
   final int bookedCount;
   final int creditsRequired;
-  final String sessionType;
+  final String? roomId;
+  final String? roomName;
   final String? imageUrl;
-  final bool isRecurring;
-  final String? recurringPattern;
-  final List<String>? tags;
+  final bool isCancelled;
+  final Map<String, dynamic>? requirements;
+  final List<String>? bookedUserIds;
 
   SessionModel({
     required this.id,
     required this.title,
     required this.description,
+    required this.sessionType,
     required this.date,
-    required this.startTime,
-    required this.endTime,
-    required this.instructorId,
+    required this.startTimeMinutes,
+    required this.durationMinutes,
+    this.instructorId,
     this.instructorName,
     required this.capacity,
     required this.bookedCount,
     required this.creditsRequired,
-    required this.sessionType,
+    this.roomId,
+    this.roomName,
     this.imageUrl,
-    this.isRecurring = false,
-    this.recurringPattern,
-    this.tags,
+    this.isCancelled = false,
+    this.requirements,
+    this.bookedUserIds,
   });
 
-  // Create a session from Firebase document snapshot
-  factory SessionModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    
-    // Parse dates from Firestore Timestamps
-    final date = (data['date'] as Timestamp?)?.toDate() ?? DateTime.now();
-    final startTime = (data['startTime'] as Timestamp?)?.toDate() ?? DateTime.now();
-    final endTime = (data['endTime'] as Timestamp?)?.toDate() ?? DateTime.now().add(const Duration(hours: 1));
-    
-    // Parse tags if they exist
-    List<String>? tags;
-    if (data['tags'] != null) {
-      tags = List<String>.from(data['tags']);
-    }
-
+  factory SessionModel.fromJson(Map<String, dynamic> json) {
     return SessionModel(
-      id: doc.id,
-      title: data['title'] ?? 'Unnamed Session',
-      description: data['description'] ?? '',
-      date: date,
-      startTime: startTime,
-      endTime: endTime,
-      instructorId: data['instructorId'] ?? '',
-      instructorName: data['instructorName'],
-      capacity: data['capacity'] ?? 10,
-      bookedCount: data['bookedCount'] ?? 0,
-      creditsRequired: data['creditsRequired'] ?? 1,
-      sessionType: data['sessionType'] ?? 'general',
-      imageUrl: data['imageUrl'],
-      isRecurring: data['isRecurring'] ?? false,
-      recurringPattern: data['recurringPattern'],
-      tags: tags,
+      id: json['id'] ?? '',
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+      sessionType: json['sessionType'] ?? '',
+      date: json['date'] != null
+          ? (json['date'] as Timestamp).toDate()
+          : DateTime.now(),
+      startTimeMinutes: json['startTimeMinutes'] ?? 0,
+      durationMinutes: json['durationMinutes'] ?? 60,
+      instructorId: json['instructorId'],
+      instructorName: json['instructorName'],
+      capacity: json['capacity'] ?? 0,
+      bookedCount: json['bookedCount'] ?? 0,
+      creditsRequired: json['creditsRequired'] ?? 1,
+      roomId: json['roomId'],
+      roomName: json['roomName'],
+      imageUrl: json['imageUrl'],
+      isCancelled: json['isCancelled'] ?? false,
+      requirements: json['requirements'],
+      bookedUserIds: json['bookedUserIds'] != null
+          ? List<String>.from(json['bookedUserIds'])
+          : null,
     );
   }
 
-  // Convert session to a map for Firebase
-  Map<String, dynamic> toFirestore() {
+  Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'title': title,
       'description': description,
+      'sessionType': sessionType,
       'date': Timestamp.fromDate(date),
-      'startTime': Timestamp.fromDate(startTime),
-      'endTime': Timestamp.fromDate(endTime),
+      'startTimeMinutes': startTimeMinutes,
+      'durationMinutes': durationMinutes,
       'instructorId': instructorId,
       'instructorName': instructorName,
       'capacity': capacity,
       'bookedCount': bookedCount,
       'creditsRequired': creditsRequired,
-      'sessionType': sessionType,
+      'roomId': roomId,
+      'roomName': roomName,
       'imageUrl': imageUrl,
-      'isRecurring': isRecurring,
-      'recurringPattern': recurringPattern,
-      'tags': tags,
+      'isCancelled': isCancelled,
+      'requirements': requirements,
+      'bookedUserIds': bookedUserIds,
     };
   }
 
-  // Create copy of session with updated fields
-  SessionModel copyWith({
-    String? id,
-    String? title,
-    String? description,
-    DateTime? date,
-    DateTime? startTime,
-    DateTime? endTime,
-    String? instructorId,
-    String? instructorName,
-    int? capacity,
-    int? bookedCount,
-    int? creditsRequired,
-    String? sessionType,
-    String? imageUrl,
-    bool? isRecurring,
-    String? recurringPattern,
-    List<String>? tags,
-  }) {
-    return SessionModel(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      description: description ?? this.description,
-      date: date ?? this.date,
-      startTime: startTime ?? this.startTime,
-      endTime: endTime ?? this.endTime,
-      instructorId: instructorId ?? this.instructorId,
-      instructorName: instructorName ?? this.instructorName,
-      capacity: capacity ?? this.capacity,
-      bookedCount: bookedCount ?? this.bookedCount,
-      creditsRequired: creditsRequired ?? this.creditsRequired,
-      sessionType: sessionType ?? this.sessionType,
-      imageUrl: imageUrl ?? this.imageUrl,
-      isRecurring: isRecurring ?? this.isRecurring,
-      recurringPattern: recurringPattern ?? this.recurringPattern,
-      tags: tags ?? this.tags,
+  /// Get the end time in minutes from midnight
+  int get endTimeMinutes => startTimeMinutes + durationMinutes;
+
+  /// Get the start time as a DateTime
+  DateTime get startTime {
+    return DateTime(
+      date.year,
+      date.month,
+      date.day,
+      startTimeMinutes ~/ 60,
+      startTimeMinutes % 60,
     );
   }
 
-  // Check if session has available slots
-  bool get hasAvailableSlots => bookedCount < capacity;
+  /// Get the end time as a DateTime
+  DateTime get endTime {
+    return DateTime(
+      date.year,
+      date.month,
+      date.day,
+      endTimeMinutes ~/ 60,
+      endTimeMinutes % 60,
+    );
+  }
 
-  // Get the number of available slots
-  int get availableSlots => capacity - bookedCount;
+  /// Check if the session has available slots
+  bool get hasAvailableSlots => !isCancelled && bookedCount < capacity;
 
-  // Get formatted date string
-  String get formattedDate => DateFormat('EEEE, MMMM d, yyyy').format(date);
+  /// Get number of available slots
+  int get availableSlots => isCancelled ? 0 : capacity - bookedCount;
 
-  // Get formatted time range string
+  /// Format the date as a string (e.g., "Mon, Jan 1, 2023")
+  String get formattedDate => DateFormat('E, MMM d, y').format(date);
+
+  /// Format the time range as a string (e.g., "8:30 AM - 9:30 AM")
   String get formattedTimeRange {
-    final startFormat = DateFormat('h:mm a');
-    final endFormat = DateFormat('h:mm a');
-    return '${startFormat.format(startTime)} - ${endFormat.format(endTime)}';
+    final startFormatted = DateFormat('h:mm a').format(startTime);
+    final endFormatted = DateFormat('h:mm a').format(endTime);
+    return '$startFormatted - $endFormatted';
   }
 
-  // Get duration in minutes
-  int get durationMinutes {
-    return endTime.difference(startTime).inMinutes;
+  /// Check if a session is in the future
+  bool get isUpcoming => !isCancelled && date.isAfter(DateTime.now());
+
+  /// Method to determine if a user has booked this session
+  bool isBookedByUser(String userId) {
+    return bookedUserIds?.contains(userId) ?? false;
   }
 
-  // Check if session is in the past
-  bool get isPast => date.isBefore(DateTime.now());
-
-  // Check if session is upcoming (today or in the future)
-  bool get isUpcoming {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final sessionDay = DateTime(date.year, date.month, date.day);
-    return sessionDay.isAtSameMomentAs(today) || sessionDay.isAfter(today);
-  }
-
-  // Generate sample sessions for demo/testing
+  /// Get sample sessions for testing and UI development
   static List<SessionModel> getSampleSessions() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     
     return [
+      // Today's sessions
       SessionModel(
         id: 'session1',
-        title: 'Morning Yoga',
-        description: 'Start your day with a refreshing yoga session to improve flexibility and mental clarity.',
+        title: 'Morning Yoga Flow',
+        description: 'Start your day with energy and focus with this gentle but effective yoga session.',
+        sessionType: 'Yoga',
         date: today,
-        startTime: DateTime(today.year, today.month, today.day, 7, 0),
-        endTime: DateTime(today.year, today.month, today.day, 8, 0),
+        startTimeMinutes: 8 * 60, // 8:00 AM
+        durationMinutes: 60,
         instructorId: 'instructor1',
         instructorName: 'Sarah Johnson',
         capacity: 15,
-        bookedCount: 10,
+        bookedCount: 8,
         creditsRequired: 1,
-        sessionType: 'yoga',
+        roomId: 'room1',
+        roomName: 'Studio 1',
         imageUrl: 'https://images.unsplash.com/photo-1575052814086-f385e2e2ad1b',
-        tags: ['beginner', 'yoga', 'morning'],
       ),
       SessionModel(
         id: 'session2',
-        title: 'HIIT Training',
-        description: 'High-intensity interval training to maximize calorie burn and improve cardiovascular health.',
-        date: today.add(const Duration(days: 1)),
-        startTime: DateTime(today.year, today.month, today.day + 1, 18, 0),
-        endTime: DateTime(today.year, today.month, today.day + 1, 19, 0),
+        title: 'High-Intensity Interval Training',
+        description: 'A fast-paced workout that alternates between intense bursts of activity and fixed periods of less-intense activity or rest.',
+        sessionType: 'HIIT',
+        date: today,
+        startTimeMinutes: 12 * 60, // 12:00 PM
+        durationMinutes: 45,
         instructorId: 'instructor2',
-        instructorName: 'Mike Torres',
-        capacity: 12,
-        bookedCount: 8,
+        instructorName: 'Mike Davis',
+        capacity: 10,
+        bookedCount: 10, // Full session
         creditsRequired: 2,
-        sessionType: 'hiit',
+        roomId: 'room2',
+        roomName: 'Training Room',
         imageUrl: 'https://images.unsplash.com/photo-1434682881908-b43d0467b798',
-        tags: ['intermediate', 'hiit', 'evening'],
       ),
+      
+      // Tomorrow's sessions
       SessionModel(
         id: 'session3',
-        title: 'Strength Training',
-        description: 'Build muscle and improve overall strength with this focused training session.',
-        date: today.add(const Duration(days: 2)),
-        startTime: DateTime(today.year, today.month, today.day + 2, 10, 0),
-        endTime: DateTime(today.year, today.month, today.day + 2, 11, 0),
-        instructorId: 'instructor2',
-        instructorName: 'Mike Torres',
-        capacity: 10,
-        bookedCount: 10, // Full
-        creditsRequired: 1,
-        sessionType: 'strength',
+        title: 'Strength Training Basics',
+        description: 'Learn the fundamentals of strength training with proper form and technique.',
+        sessionType: 'Strength',
+        date: today.add(const Duration(days: 1)),
+        startTimeMinutes: 9 * 60, // 9:00 AM
+        durationMinutes: 75,
+        instructorId: 'instructor3',
+        instructorName: 'James Wilson',
+        capacity: 8,
+        bookedCount: 3,
+        creditsRequired: 2,
+        roomId: 'room3',
+        roomName: 'Weights Room',
         imageUrl: 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5',
-        tags: ['intermediate', 'strength', 'morning'],
       ),
       SessionModel(
         id: 'session4',
-        title: 'Pilates',
-        description: 'Focus on core strength and posture improvement with controlled movements.',
-        date: today.add(const Duration(days: 2)),
-        startTime: DateTime(today.year, today.month, today.day + 2, 17, 0),
-        endTime: DateTime(today.year, today.month, today.day + 2, 18, 0),
-        instructorId: 'instructor1',
-        instructorName: 'Sarah Johnson',
+        title: 'Pilates Core Focus',
+        description: 'Strengthen your core and improve posture with this targeted Pilates session.',
+        sessionType: 'Pilates',
+        date: today.add(const Duration(days: 1)),
+        startTimeMinutes: 17 * 60 + 30, // 5:30 PM
+        durationMinutes: 60,
+        instructorId: 'instructor4',
+        instructorName: 'Emily Chen',
         capacity: 12,
-        bookedCount: 6,
+        bookedCount: 5,
         creditsRequired: 1,
-        sessionType: 'pilates',
+        roomId: 'room1',
+        roomName: 'Studio 1',
         imageUrl: 'https://images.unsplash.com/photo-1518611012118-696072aa579a',
-        tags: ['beginner', 'pilates', 'evening'],
       ),
+      
+      // Next week sessions
       SessionModel(
         id: 'session5',
-        title: 'Spin Class',
-        description: 'High-energy cycling workout to build endurance and burn calories.',
-        date: today.add(const Duration(days: 3)),
-        startTime: DateTime(today.year, today.month, today.day + 3, 12, 30),
-        endTime: DateTime(today.year, today.month, today.day + 3, 13, 30),
-        instructorId: 'instructor3',
-        instructorName: 'Emma Williams',
+        title: 'Advanced Spinning',
+        description: 'An intense indoor cycling session designed to build endurance and burn calories.',
+        sessionType: 'Cardio',
+        date: today.add(const Duration(days: 7)),
+        startTimeMinutes: 18 * 60, // 6:00 PM
+        durationMinutes: 45,
+        instructorId: 'instructor5',
+        instructorName: 'David Lee',
         capacity: 20,
-        bookedCount: 15,
+        bookedCount: 12,
         creditsRequired: 2,
-        sessionType: 'cardio',
-        imageUrl: 'https://images.unsplash.com/photo-1534787238916-9ba6764efd4f',
-        tags: ['intermediate', 'cardio', 'afternoon'],
+        roomId: 'room4',
+        roomName: 'Cycling Studio',
+        imageUrl: 'https://images.unsplash.com/photo-1517963628607-235ccdd5476c',
+      ),
+      SessionModel(
+        id: 'session6',
+        title: 'Beginner Yoga',
+        description: 'A gentle introduction to yoga, focusing on basic poses and breathing techniques.',
+        sessionType: 'Yoga',
+        date: today.add(const Duration(days: 8)),
+        startTimeMinutes: 10 * 60, // 10:00 AM
+        durationMinutes: 60,
+        instructorId: 'instructor1',
+        instructorName: 'Sarah Johnson',
+        capacity: 15,
+        bookedCount: 7,
+        creditsRequired: 1,
+        roomId: 'room1',
+        roomName: 'Studio 1',
+        imageUrl: 'https://images.unsplash.com/photo-1588286840104-8957b019727f',
       ),
     ];
+  }
+}
+
+/// Class representing a booking made by a user for a session
+class BookingModel {
+  final String id;
+  final String userId;
+  final String sessionId;
+  final DateTime bookingDate;
+  final int creditsUsed;
+  final String status; // 'pending', 'confirmed', 'cancelled', 'completed'
+  final String? cancellationReason;
+  final DateTime? cancelledAt;
+  final bool hasAttended;
+  final Map<String, dynamic>? metadata;
+
+  BookingModel({
+    required this.id,
+    required this.userId,
+    required this.sessionId,
+    required this.bookingDate,
+    required this.creditsUsed,
+    required this.status,
+    this.cancellationReason,
+    this.cancelledAt,
+    this.hasAttended = false,
+    this.metadata,
+  });
+
+  factory BookingModel.fromJson(Map<String, dynamic> json) {
+    return BookingModel(
+      id: json['id'] ?? '',
+      userId: json['userId'] ?? '',
+      sessionId: json['sessionId'] ?? '',
+      bookingDate: json['bookingDate'] != null
+          ? (json['bookingDate'] as Timestamp).toDate()
+          : DateTime.now(),
+      creditsUsed: json['creditsUsed'] ?? 0,
+      status: json['status'] ?? 'pending',
+      cancellationReason: json['cancellationReason'],
+      cancelledAt: json['cancelledAt'] != null
+          ? (json['cancelledAt'] as Timestamp).toDate()
+          : null,
+      hasAttended: json['hasAttended'] ?? false,
+      metadata: json['metadata'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'userId': userId,
+      'sessionId': sessionId,
+      'bookingDate': Timestamp.fromDate(bookingDate),
+      'creditsUsed': creditsUsed,
+      'status': status,
+      'cancellationReason': cancellationReason,
+      'cancelledAt': cancelledAt != null ? Timestamp.fromDate(cancelledAt!) : null,
+      'hasAttended': hasAttended,
+      'metadata': metadata,
+    };
+  }
+
+  bool get isCancelled => status == 'cancelled';
+  bool get isConfirmed => status == 'confirmed';
+  bool get isPending => status == 'pending';
+  bool get isCompleted => status == 'completed';
+
+  BookingModel copyWith({
+    String? id,
+    String? userId,
+    String? sessionId,
+    DateTime? bookingDate,
+    int? creditsUsed,
+    String? status,
+    String? cancellationReason,
+    DateTime? cancelledAt,
+    bool? hasAttended,
+    Map<String, dynamic>? metadata,
+  }) {
+    return BookingModel(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      sessionId: sessionId ?? this.sessionId,
+      bookingDate: bookingDate ?? this.bookingDate,
+      creditsUsed: creditsUsed ?? this.creditsUsed,
+      status: status ?? this.status,
+      cancellationReason: cancellationReason ?? this.cancellationReason,
+      cancelledAt: cancelledAt ?? this.cancelledAt,
+      hasAttended: hasAttended ?? this.hasAttended,
+      metadata: metadata ?? this.metadata,
+    );
+  }
+}
+
+/// Class representing a specific gym room or studio
+class RoomModel {
+  final String id;
+  final String name;
+  final String description;
+  final int capacity;
+  final String? imageUrl;
+  final Map<String, dynamic>? equipment;
+  final bool isActive;
+
+  RoomModel({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.capacity,
+    this.imageUrl,
+    this.equipment,
+    this.isActive = true,
+  });
+
+  factory RoomModel.fromJson(Map<String, dynamic> json) {
+    return RoomModel(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      description: json['description'] ?? '',
+      capacity: json['capacity'] ?? 0,
+      imageUrl: json['imageUrl'],
+      equipment: json['equipment'],
+      isActive: json['isActive'] ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+      'capacity': capacity,
+      'imageUrl': imageUrl,
+      'equipment': equipment,
+      'isActive': isActive,
+    };
   }
 }
