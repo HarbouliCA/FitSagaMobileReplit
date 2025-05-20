@@ -1,10 +1,10 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fitsaga/providers/auth_provider.dart';
 import 'package:fitsaga/theme/app_theme.dart';
 import 'package:fitsaga/config/constants.dart';
 import 'package:fitsaga/widgets/common/loading_indicator.dart';
-import 'package:fitsaga/widgets/common/error_widget.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -49,23 +49,25 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 40),
+              const SizedBox(height: 60),
+              
               // Logo
               Center(
                 child: Container(
-                  width: 100,
-                  height: 100,
+                  width: 120,
+                  height: 120,
                   decoration: BoxDecoration(
                     color: AppTheme.primaryColor,
                     borderRadius: BorderRadius.circular(AppTheme.borderRadiusLarge),
                   ),
                   child: const Icon(
                     Icons.fitness_center,
-                    size: 60,
+                    size: 70,
                     color: Colors.white,
                   ),
                 ),
               ),
+              
               const SizedBox(height: 24),
               
               // App Name
@@ -83,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
               
               // Login Title
               const Text(
-                'Login to your account',
+                'Sign in to your account',
                 style: TextStyle(
                   fontSize: AppTheme.fontSizeMedium,
                   color: AppTheme.textLightColor,
@@ -185,32 +187,29 @@ class _LoginScreenState extends State<LoginScreen> {
                 },
               ),
               
-              const SizedBox(height: AppTheme.spacingRegular),
+              const SizedBox(height: AppTheme.spacingMedium),
               
               // Remember Me & Forgot Password
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Remember Me Checkbox
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: _rememberMe,
-                        onChanged: (value) {
-                          setState(() {
-                            _rememberMe = value ?? false;
-                          });
-                        },
-                        activeColor: AppTheme.primaryColor,
-                      ),
-                      const Text('Remember Me'),
-                    ],
+                  // Remember Me
+                  Checkbox(
+                    value: _rememberMe,
+                    onChanged: (value) {
+                      setState(() {
+                        _rememberMe = value ?? false;
+                      });
+                    },
+                    activeColor: AppTheme.primaryColor,
                   ),
+                  const Text('Remember me'),
+                  
+                  const Spacer(),
                   
                   // Forgot Password
                   TextButton(
                     onPressed: () {
-                      _showForgotPasswordDialog(context);
+                      Navigator.pushNamed(context, '/forgot-password');
                     },
                     child: const Text('Forgot Password?'),
                   ),
@@ -224,6 +223,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 onPressed: () => _handleLogin(authProvider),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: AppTheme.primaryColor,
                 ),
                 child: const Text(
                   'LOGIN',
@@ -237,22 +237,28 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: AppTheme.spacingLarge),
               
               // Register Link
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'Don\'t have an account? ',
-                    style: TextStyle(
+              Center(
+                child: Text.rich(
+                  TextSpan(
+                    text: 'Don\'t have an account? ',
+                    style: const TextStyle(
                       color: AppTheme.textLightColor,
                     ),
+                    children: [
+                      TextSpan(
+                        text: 'Register',
+                        style: const TextStyle(
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () {
+                            Navigator.pushNamed(context, '/register');
+                          },
+                      ),
+                    ],
                   ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pushReplacementNamed(context, '/register');
-                    },
-                    child: const Text('Register Now'),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
@@ -276,83 +282,5 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacementNamed(context, '/home');
       }
     }
-  }
-
-  void _showForgotPasswordDialog(BuildContext context) {
-    final TextEditingController emailController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Forgot Password'),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Enter your email address and we\'ll send you a link to reset your password.',
-                  style: TextStyle(color: AppTheme.textLightColor),
-                ),
-                const SizedBox(height: AppTheme.spacingRegular),
-                TextFormField(
-                  controller: emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    hintText: 'Enter your email',
-                    prefixIcon: Icon(Icons.email),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your email';
-                    }
-                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                      return 'Please enter a valid email';
-                    }
-                    return null;
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (formKey.currentState!.validate()) {
-                  Navigator.pop(context);
-                  
-                  final email = emailController.text.trim();
-                  final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                  
-                  try {
-                    await authProvider.resetPassword(email);
-                    if (context.mounted) {
-                      ErrorSnackBar.showSuccess(
-                        context, 
-                        AppConstants.successPasswordReset,
-                      );
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ErrorSnackBar.show(context, e.toString());
-                    }
-                  }
-                }
-              },
-              child: const Text('Send Reset Link'),
-            ),
-          ],
-        );
-      },
-    );
   }
 }

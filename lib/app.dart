@@ -3,120 +3,118 @@ import 'package:provider/provider.dart';
 import 'package:fitsaga/providers/auth_provider.dart';
 import 'package:fitsaga/screens/auth/login_screen.dart';
 import 'package:fitsaga/screens/auth/register_screen.dart';
-import 'package:fitsaga/screens/home/home_screen.dart';
-import 'package:fitsaga/screens/sessions/sessions_screen.dart';
-import 'package:fitsaga/screens/sessions/session_details_screen.dart';
-import 'package:fitsaga/screens/sessions/booking_confirmation_screen.dart';
-import 'package:fitsaga/screens/tutorials/tutorials_screen.dart';
-import 'package:fitsaga/screens/tutorials/tutorial_details_screen.dart';
-import 'package:fitsaga/screens/tutorials/tutorial_video_screen.dart';
-import 'package:fitsaga/screens/profile/profile_screen.dart';
-import 'package:fitsaga/screens/splash_screen.dart';
 import 'package:fitsaga/theme/app_theme.dart';
+import 'package:fitsaga/config/constants.dart';
+import 'package:fitsaga/widgets/common/loading_indicator.dart';
 
-class FitSagaApp extends StatelessWidget {
+class FitSagaApp extends StatefulWidget {
   const FitSagaApp({Key? key}) : super(key: key);
+
+  @override
+  State<FitSagaApp> createState() => _FitSagaAppState();
+}
+
+class _FitSagaAppState extends State<FitSagaApp> {
+  bool _initializing = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await authProvider.initialize();
+    
+    if (mounted) {
+      setState(() {
+        _initializing = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'FitSAGA',
-      theme: ThemeData(
-        primarySwatch: AppTheme.createMaterialColor(AppTheme.primaryColor),
-        scaffoldBackgroundColor: Colors.white,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: AppTheme.primaryColor,
-          elevation: 0,
-          iconTheme: IconThemeData(color: Colors.white),
-          titleTextStyle: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primaryColor,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ),
-        textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(
-            foregroundColor: AppTheme.primaryColor,
-          ),
-        ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppTheme.primaryColor,
-            side: BorderSide(color: AppTheme.primaryColor),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.grey.shade300),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: AppTheme.primaryColor),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.red),
-          ),
-          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        ),
-        cardTheme: CardTheme(
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          clipBehavior: Clip.antiAlias,
-        ),
-      ),
-      initialRoute: '/splash',
-      routes: {
-        '/splash': (context) => const SplashScreen(),
-        '/login': (context) => const LoginScreen(),
-        '/register': (context) => const RegisterScreen(),
-        '/home': (context) => const HomeScreen(),
-        '/sessions': (context) => const SessionsScreen(),
-        '/sessions/details': (context) => const SessionDetailsScreen(),
-        '/sessions/booking-confirmation': (context) => const BookingConfirmationScreen(),
-        '/tutorials': (context) => const TutorialsScreen(),
-        '/tutorials/details': (context) => const TutorialDetailsScreen(),
-        '/tutorials/video': (context) => const TutorialVideoScreen(),
-        '/profile': (context) => const ProfileScreen(),
-      },
-      builder: (context, child) {
-        return Consumer<AuthProvider>(
-          builder: (context, authProvider, _) {
-            // Show loading screen if auth state is being determined
-            if (authProvider.isLoading) {
-              return MaterialApp(
-                home: Scaffold(
-                  body: Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                ),
-                debugShowCheckedModeBanner: false,
-              );
-            }
-            
-            return child!;
-          },
-        );
-      },
+      title: AppConstants.appName,
+      theme: AppTheme.getTheme(),
+      darkTheme: AppTheme.getDarkTheme(),
+      themeMode: ThemeMode.light, // Default to light theme
       debugShowCheckedModeBanner: false,
+      home: _initializing
+          ? _buildLoadingScreen()
+          : _buildHomeScreen(),
+      routes: _buildRoutes(),
     );
+  }
+
+  Widget _buildLoadingScreen() {
+    return const Scaffold(
+      body: LoadingIndicator(
+        message: 'Starting FitSAGA...',
+      ),
+    );
+  }
+
+  Widget _buildHomeScreen() {
+    final authProvider = Provider.of<AuthProvider>(context);
+    
+    // Check if user is authenticated
+    if (authProvider.isAuthenticated) {
+      // User is logged in, redirect to dashboard/home based on role
+      return _buildAuthenticatedScreen(authProvider);
+    } else {
+      // User is not logged in, show login screen
+      return const LoginScreen();
+    }
+  }
+
+  Widget _buildAuthenticatedScreen(AuthProvider authProvider) {
+    final user = authProvider.currentUser;
+    
+    if (user == null) {
+      return const LoginScreen();
+    }
+    
+    // For now, redirect to a placeholder HomeScreen
+    // Later, we'll implement role-based routing to different home screens
+    return const Scaffold(
+      body: Center(
+        child: Text('Welcome to FitSAGA! Home screen coming soon.'),
+      ),
+    );
+    
+    // TODO: Implement role-based routing
+    /*
+    // Based on user role, redirect to the appropriate home screen
+    if (user.isAdmin) {
+      return const AdminHomeScreen();
+    } else if (user.isInstructor) {
+      return const InstructorHomeScreen();
+    } else {
+      return const ClientHomeScreen();
+    }
+    */
+  }
+
+  Map<String, WidgetBuilder> _buildRoutes() {
+    return {
+      '/login': (context) => const LoginScreen(),
+      '/register': (context) => const RegisterScreen(),
+      // TODO: Add more routes as screens are implemented
+      /*
+      '/forgot-password': (context) => const ForgotPasswordScreen(),
+      '/home': (context) => const HomeScreen(),
+      '/profile': (context) => const ProfileScreen(),
+      '/sessions': (context) => const SessionsScreen(),
+      '/tutorial': (context) => const TutorialsScreen(),
+      '/credits': (context) => const CreditsScreen(),
+      '/admin/users': (context) => const AdminUsersScreen(),
+      '/admin/sessions': (context) => const AdminSessionsScreen(),
+      '/instructor/sessions': (context) => const InstructorSessionsScreen(),
+      '/instructor/tutorials': (context) => const InstructorTutorialsScreen(),
+      */
+    };
   }
 }

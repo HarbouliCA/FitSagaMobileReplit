@@ -1,158 +1,184 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:fitsaga/models/credit_model.dart';
 import 'package:fitsaga/services/firebase_service.dart';
-import 'package:fitsaga/theme/app_theme.dart';
 
+/// Provider class for managing user credits in the FitSAGA app
 class CreditProvider with ChangeNotifier {
-  final FirebaseService _firebaseService;
+  /// Instance of the Firebase service
+  final FirebaseService _firebaseService = FirebaseService();
   
-  CreditProvider(this._firebaseService);
+  /// User's current credit balance
+  int _creditBalance = 0;
   
-  bool _loading = false;
+  /// User's credit transaction history
+  List<CreditModel> _creditHistory = [];
+  
+  /// Loading state for credit operations
+  bool _isLoading = false;
+  
+  /// Error message if credit operations fail
   String? _error;
-  List<CreditModel> _userCredits = [];
-  List<CreditPackageModel> _availablePackages = [];
   
-  // Getters
-  bool get loading => _loading;
+  /// Flag to track if credit data has been loaded
+  bool _isInitialized = false;
+  
+  /// Returns the user's current credit balance
+  int get creditBalance => _creditBalance;
+  
+  /// Returns the user's credit transaction history
+  List<CreditModel> get creditHistory => _creditHistory;
+  
+  /// Returns whether a credit operation is in progress
+  bool get isLoading => _isLoading;
+  
+  /// Returns any error message from the last credit operation
   String? get error => _error;
-  List<CreditModel> get userCredits => _userCredits;
-  List<CreditPackageModel> get availablePackages => _availablePackages;
   
-  // Computed values
-  int get totalCredits {
-    if (_userCredits.any((credit) => credit.isUnlimited)) {
-      return -1; // -1 indicates unlimited credits
-    }
-    
-    return _userCredits.fold(0, (sum, credit) => sum + credit.credits);
-  }
+  /// Returns whether credit data has been loaded
+  bool get isInitialized => _isInitialized;
   
-  bool get hasUnlimitedCredits => totalCredits == -1;
-  
-  List<CreditModel> get activeCredits => 
-      _userCredits.where((credit) => credit.isActive).toList();
-  
-  List<CreditModel> get expiredCredits => 
-      _userCredits.where((credit) => credit.isExpired).toList();
-  
-  // Methods
-  Future<void> fetchUserCredits(String userId) async {
+  /// Loads a user's credit balance and history
+  Future<void> loadUserCredits(String userId) async {
     try {
-      _loading = true;
-      _error = null;
-      notifyListeners();
+      _setLoading(true);
+      _clearError();
       
-      _userCredits = await _firebaseService.getUserCredits(userId);
+      // Load user's credit balance
+      _creditBalance = await _firebaseService.getUserCreditBalance(userId);
       
-      _loading = false;
+      // Load user's credit history
+      _creditHistory = await _firebaseService.getUserCreditHistory(userId);
+      _creditHistory.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      
+      _isInitialized = true;
       notifyListeners();
     } catch (e) {
-      _loading = false;
-      _error = e.toString();
-      notifyListeners();
+      _setError('Failed to load credit information: ${e.toString()}');
+    } finally {
+      _setLoading(false);
     }
   }
   
-  Future<void> fetchAvailablePackages() async {
+  /// Purchases new credits (client only)
+  Future<bool> purchaseCredits(String userId, int amount, String paymentReference) async {
     try {
-      _loading = true;
-      _error = null;
-      notifyListeners();
+      _setLoading(true);
+      _clearError();
       
-      _availablePackages = await _firebaseService.getCreditPackages();
+      final success = await _firebaseService.purchaseCredits(userId, amount, paymentReference);
       
-      _loading = false;
-      notifyListeners();
-    } catch (e) {
-      _loading = false;
-      _error = e.toString();
-      notifyListeners();
-    }
-  }
-  
-  bool hasSufficientCredits(int requiredCredits) {
-    if (hasUnlimitedCredits) {
-      return true;
-    }
-    
-    return totalCredits >= requiredCredits;
-  }
-  
-  int remainingAfterBooking(int requiredCredits) {
-    if (hasUnlimitedCredits) {
-      return -1; // Unlimited
-    }
-    
-    return totalCredits - requiredCredits;
-  }
-  
-  Future<bool> deductCredits(String userId, int amount, String description, {String? reference}) async {
-    try {
-      _loading = true;
-      _error = null;
-      notifyListeners();
-      
-      // Check if user has sufficient credits
-      if (!hasSufficientCredits(amount)) {
-        _error = 'Insufficient credits';
-        _loading = false;
-        notifyListeners();
+      if (success) {
+        // Reload credit data to ensure it's up to date
+        await loadUserCredits(userId);
+        return true;
+      } else {
+        _setError('Failed to purchase credits.');
         return false;
       }
-      
-      // If user has unlimited credits, don't actually deduct anything
-      if (!hasUnlimitedCredits) {
-        await _firebaseService.deductCredits(userId, amount, description, reference);
-      }
-      
-      // Refresh user credits
-      await fetchUserCredits(userId);
-      
-      _loading = false;
-      notifyListeners();
-      return true;
     } catch (e) {
-      _loading = false;
-      _error = e.toString();
-      notifyListeners();
+      _setError('Failed to purchase credits: ${e.toString()}');
       return false;
+    } finally {
+      _setLoading(false);
     }
   }
   
-  String getCreditStatusText() {
-    if (hasUnlimitedCredits) {
-      return 'Unlimited Credits';
+  /// Gifts credits to a user (admin only)
+  Future<bool> giftCredits(String userId, int amount, String reason) async {
+    try {
+      _setLoading(true);
+      _clearError();
+      
+      final success = await _firebaseService.giftCredits(userId, amount, reason);
+      
+      if (success) {
+        // If crediting the current user, reload their credit data
+        if (userId == _creditHistory.first.userId) {
+          await loadUserCredits(userId);
+        }
+        return true;
+      } else {
+        _setError('Failed to gift credits.');
+        return false;
+      }
+    } catch (e) {
+      _setError('Failed to gift credits: ${e.toString()}');
+      return false;
+    } finally {
+      _setLoading(false);
     }
-    
-    return '$totalCredits Credits';
   }
   
-  Color getCreditStatusColor() {
-    if (hasUnlimitedCredits) {
-      return AppTheme.creditUnlimitedColor;
-    }
-    
-    if (totalCredits <= 0) {
-      return AppTheme.creditEmptyColor;
-    } else if (totalCredits < 5) {
-      return AppTheme.creditLowColor;
-    } else if (totalCredits < 10) {
-      return AppTheme.creditMediumColor;
-    } else {
-      return AppTheme.creditFullColor;
+  /// Gets credit transactions filtered by type
+  List<CreditModel> getTransactionsByType(CreditTransactionType type) {
+    return _creditHistory.where((credit) => credit.type == type).toList();
+  }
+  
+  /// Gets credit increases (purchases, initial credits, refunds)
+  List<CreditModel> get creditIncreases {
+    return _creditHistory.where((credit) => credit.isCredit).toList();
+  }
+  
+  /// Gets credit decreases (session bookings)
+  List<CreditModel> get creditDecreases {
+    return _creditHistory.where((credit) => credit.isDebit).toList();
+  }
+  
+  /// Gets recent transactions (last 30 days)
+  List<CreditModel> get recentTransactions {
+    final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
+    return _creditHistory
+        .where((credit) => credit.createdAt.isAfter(thirtyDaysAgo))
+        .toList();
+  }
+  
+  /// Calculates total credits purchased
+  int get totalCreditsPurchased {
+    return _creditHistory
+        .where((credit) => credit.type == CreditTransactionType.purchase)
+        .fold(0, (sum, credit) => sum + credit.amount);
+  }
+  
+  /// Calculates total credits used
+  int get totalCreditsUsed {
+    return _creditHistory
+        .where((credit) => credit.type == CreditTransactionType.usage)
+        .fold(0, (sum, credit) => sum + credit.amount);
+  }
+  
+  /// Checks if user has sufficient credits for booking a session
+  bool hasSufficientCredits(int requiredCredits) {
+    return _creditBalance >= requiredCredits;
+  }
+  
+  /// Sets the loading state and notifies listeners if changed
+  void _setLoading(bool loading) {
+    if (_isLoading != loading) {
+      _isLoading = loading;
+      notifyListeners();
     }
   }
   
-  Future<String> _getCurrentUserId() async {
-    // This should be implemented to get the current user ID
-    // For now, returning a placeholder
-    return 'user123';
+  /// Sets an error message and notifies listeners
+  void _setError(String errorMessage) {
+    _error = errorMessage;
+    notifyListeners();
   }
   
-  void clearError() {
-    _error = null;
+  /// Clears any existing error message
+  void _clearError() {
+    if (_error != null) {
+      _error = null;
+      notifyListeners();
+    }
+  }
+  
+  /// Clears all credit data (used for sign out)
+  void clear() {
+    _creditBalance = 0;
+    _creditHistory = [];
+    _isInitialized = false;
+    _clearError();
     notifyListeners();
   }
 }

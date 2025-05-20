@@ -1,244 +1,197 @@
-import 'package:equatable/equatable.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class SessionModel extends Equatable {
-  final String id;
-  final String activityName;
-  final String activityType;
-  final String? title;
-  final String instructorId;
-  final String instructorName;
-  final DateTime startTime;
-  final DateTime endTime;
-  final int capacity;
-  final int enrolledCount;
-  final int requiredCredits;
-  final String? description;
-  final String? notes;
-  final String? imageUrl;
-  final String status;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+/// Enum representing the different types of gym sessions
+enum SessionType {
+  /// Individual one-on-one training with an instructor
+  personal,
+  
+  /// Group class with multiple participants
+  group,
+  
+  /// Specialized workshop focused on a specific technique or skill
+  workshop,
+  
+  /// Special event (competition, challenge, etc.)
+  event,
+}
 
-  const SessionModel({
+/// Extension to convert string to SessionType enum
+extension SessionTypeExtension on String {
+  SessionType toSessionType() {
+    switch (this.toLowerCase()) {
+      case 'personal':
+        return SessionType.personal;
+      case 'group':
+        return SessionType.group;
+      case 'workshop':
+        return SessionType.workshop;
+      case 'event':
+        return SessionType.event;
+      default:
+        return SessionType.group; // Default to group session
+    }
+  }
+}
+
+/// Model class representing a gym session in the FitSAGA app
+class SessionModel {
+  /// Unique identifier for the session
+  final String id;
+  
+  /// Title/name of the session
+  String title;
+  
+  /// Detailed description of what the session entails
+  String description;
+  
+  /// Type of session (personal, group, workshop, event)
+  SessionType type;
+  
+  /// ID of the instructor leading the session
+  String instructorId;
+  
+  /// Name of the instructor (for easier display without separate lookup)
+  String instructorName;
+  
+  /// When the session starts
+  DateTime startTime;
+  
+  /// When the session ends
+  DateTime endTime;
+  
+  /// Location within the gym/facility where the session will take place
+  String location;
+  
+  /// Maximum number of participants allowed
+  int maxParticipants;
+  
+  /// List of user IDs who have booked this session
+  List<String> participantIds;
+  
+  /// Any equipment or materials participants should bring
+  String? requirements;
+  
+  /// Difficulty level (e.g., 'Beginner', 'Intermediate', 'Advanced')
+  String? level;
+  
+  /// Whether the session is active and available for booking
+  bool isActive;
+  
+  /// When the session was created
+  final DateTime createdAt;
+  
+  /// Constructor for creating a new SessionModel
+  SessionModel({
     required this.id,
-    required this.activityName,
-    required this.activityType,
-    this.title,
+    required this.title,
+    required this.description,
+    required this.type,
     required this.instructorId,
     required this.instructorName,
     required this.startTime,
     required this.endTime,
-    required this.capacity,
-    required this.enrolledCount,
-    required this.requiredCredits,
-    this.description,
-    this.notes,
-    this.imageUrl,
-    required this.status,
+    required this.location,
+    required this.maxParticipants,
+    required this.participantIds,
+    this.requirements,
+    this.level,
+    required this.isActive,
     required this.createdAt,
-    required this.updatedAt,
   });
-
-  SessionModel copyWith({
-    String? id,
-    String? activityName,
-    String? activityType,
-    String? title,
-    String? instructorId,
-    String? instructorName,
-    DateTime? startTime,
-    DateTime? endTime,
-    int? capacity,
-    int? enrolledCount,
-    int? requiredCredits,
-    String? description,
-    String? notes,
-    String? imageUrl,
-    String? status,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
+  
+  /// Creates a SessionModel from a Firebase document map
+  factory SessionModel.fromMap(Map<String, dynamic> map, String docId) {
     return SessionModel(
-      id: id ?? this.id,
-      activityName: activityName ?? this.activityName,
-      activityType: activityType ?? this.activityType,
-      title: title ?? this.title,
-      instructorId: instructorId ?? this.instructorId,
-      instructorName: instructorName ?? this.instructorName,
-      startTime: startTime ?? this.startTime,
-      endTime: endTime ?? this.endTime,
-      capacity: capacity ?? this.capacity,
-      enrolledCount: enrolledCount ?? this.enrolledCount,
-      requiredCredits: requiredCredits ?? this.requiredCredits,
-      description: description ?? this.description,
-      notes: notes ?? this.notes,
-      imageUrl: imageUrl ?? this.imageUrl,
-      status: status ?? this.status,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
-
-  factory SessionModel.fromMap(Map<String, dynamic> map) {
-    return SessionModel(
-      id: map['id'] as String,
-      activityName: map['activityName'] as String,
-      activityType: map['activityType'] as String,
-      title: map['title'] as String?,
-      instructorId: map['instructorId'] as String,
-      instructorName: map['instructorName'] as String,
+      id: docId,
+      title: map['title'] ?? '',
+      description: map['description'] ?? '',
+      type: (map['type'] as String? ?? 'group').toSessionType(),
+      instructorId: map['instructorId'] ?? '',
+      instructorName: map['instructorName'] ?? '',
       startTime: (map['startTime'] as Timestamp).toDate(),
       endTime: (map['endTime'] as Timestamp).toDate(),
-      capacity: map['capacity'] as int,
-      enrolledCount: map['enrolledCount'] as int,
-      requiredCredits: map['requiredCredits'] as int,
-      description: map['description'] as String?,
-      notes: map['notes'] as String?,
-      imageUrl: map['imageUrl'] as String?,
-      status: map['status'] as String,
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
-      updatedAt: (map['updatedAt'] as Timestamp).toDate(),
+      location: map['location'] ?? '',
+      maxParticipants: map['maxParticipants'] ?? 10,
+      participantIds: List<String>.from(map['participantIds'] ?? []),
+      requirements: map['requirements'],
+      level: map['level'],
+      isActive: map['isActive'] ?? true,
+      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
-
+  
+  /// Converts the SessionModel to a map for Firebase storage
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'activityName': activityName,
-      'activityType': activityType,
       'title': title,
+      'description': description,
+      'type': type.toString().split('.').last,
       'instructorId': instructorId,
       'instructorName': instructorName,
       'startTime': Timestamp.fromDate(startTime),
       'endTime': Timestamp.fromDate(endTime),
-      'capacity': capacity,
-      'enrolledCount': enrolledCount,
-      'requiredCredits': requiredCredits,
-      'description': description,
-      'notes': notes,
-      'imageUrl': imageUrl,
-      'status': status,
+      'location': location,
+      'maxParticipants': maxParticipants,
+      'participantIds': participantIds,
+      'requirements': requirements,
+      'level': level,
+      'isActive': isActive,
       'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': Timestamp.fromDate(updatedAt),
     };
   }
-
-  // Computed properties
-  Duration get sessionDuration => endTime.difference(startTime);
-  bool get isFull => enrolledCount >= capacity;
-  bool get isActive => status == 'active' && startTime.isAfter(DateTime.now());
-  bool get isPast => endTime.isBefore(DateTime.now());
-  bool get isInProgress => startTime.isBefore(DateTime.now()) && endTime.isAfter(DateTime.now());
-  bool get isUpcoming => startTime.isAfter(DateTime.now());
   
-  @override
-  List<Object?> get props => [
-    id,
-    activityName,
-    activityType,
-    title,
-    instructorId,
-    instructorName,
-    startTime,
-    endTime,
-    capacity,
-    enrolledCount,
-    requiredCredits,
-    description,
-    notes,
-    imageUrl,
-    status,
-    createdAt,
-    updatedAt,
-  ];
-}
-
-class BookingModel extends Equatable {
-  final String id;
-  final String sessionId;
-  final String userId;
-  final String status;
-  final int creditsUsed;
-  final DateTime bookingTime;
-  final DateTime? cancelledTime;
-  final String? cancellationReason;
-
-  const BookingModel({
-    required this.id,
-    required this.sessionId,
-    required this.userId,
-    required this.status,
-    required this.creditsUsed,
-    required this.bookingTime,
-    this.cancelledTime,
-    this.cancellationReason,
-  });
-
-  BookingModel copyWith({
-    String? id,
-    String? sessionId,
-    String? userId,
-    String? status,
-    int? creditsUsed,
-    DateTime? bookingTime,
-    DateTime? cancelledTime,
-    String? cancellationReason,
+  /// Checks if the session is full (no more spots available)
+  bool get isFull => participantIds.length >= maxParticipants;
+  
+  /// Calculates the number of available spots left
+  int get availableSpots => maxParticipants - participantIds.length;
+  
+  /// Determines if the session has already passed
+  bool get isPast => DateTime.now().isAfter(endTime);
+  
+  /// Calculates the duration of the session in minutes
+  int get durationInMinutes => endTime.difference(startTime).inMinutes;
+  
+  /// Checks if a specific user is registered for this session
+  bool isUserRegistered(String userId) => participantIds.contains(userId);
+  
+  /// Creates a copy of this SessionModel with optional new values
+  SessionModel copyWith({
+    String? title,
+    String? description,
+    SessionType? type,
+    String? instructorId,
+    String? instructorName,
+    DateTime? startTime,
+    DateTime? endTime,
+    String? location,
+    int? maxParticipants,
+    List<String>? participantIds,
+    String? requirements,
+    String? level,
+    bool? isActive,
   }) {
-    return BookingModel(
-      id: id ?? this.id,
-      sessionId: sessionId ?? this.sessionId,
-      userId: userId ?? this.userId,
-      status: status ?? this.status,
-      creditsUsed: creditsUsed ?? this.creditsUsed,
-      bookingTime: bookingTime ?? this.bookingTime,
-      cancelledTime: cancelledTime ?? this.cancelledTime,
-      cancellationReason: cancellationReason ?? this.cancellationReason,
+    return SessionModel(
+      id: this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      type: type ?? this.type,
+      instructorId: instructorId ?? this.instructorId,
+      instructorName: instructorName ?? this.instructorName,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      location: location ?? this.location,
+      maxParticipants: maxParticipants ?? this.maxParticipants,
+      participantIds: participantIds ?? this.participantIds,
+      requirements: requirements ?? this.requirements,
+      level: level ?? this.level,
+      isActive: isActive ?? this.isActive,
+      createdAt: this.createdAt,
     );
   }
-
-  factory BookingModel.fromMap(Map<String, dynamic> map) {
-    return BookingModel(
-      id: map['id'] as String,
-      sessionId: map['sessionId'] as String,
-      userId: map['userId'] as String,
-      status: map['status'] as String,
-      creditsUsed: map['creditsUsed'] as int,
-      bookingTime: (map['bookingTime'] as Timestamp).toDate(),
-      cancelledTime: map['cancelledTime'] != null 
-          ? (map['cancelledTime'] as Timestamp).toDate() 
-          : null,
-      cancellationReason: map['cancellationReason'] as String?,
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'sessionId': sessionId,
-      'userId': userId,
-      'status': status,
-      'creditsUsed': creditsUsed,
-      'bookingTime': Timestamp.fromDate(bookingTime),
-      'cancelledTime': cancelledTime != null 
-          ? Timestamp.fromDate(cancelledTime!) 
-          : null,
-      'cancellationReason': cancellationReason,
-    };
-  }
-
-  bool get isActive => status == 'active';
-  bool get isCancelled => status == 'cancelled';
   
   @override
-  List<Object?> get props => [
-    id,
-    sessionId,
-    userId,
-    status,
-    creditsUsed,
-    bookingTime,
-    cancelledTime,
-    cancellationReason,
-  ];
+  String toString() {
+    return 'SessionModel(id: $id, title: $title, instructor: $instructorName, startTime: $startTime)';
+  }
 }
