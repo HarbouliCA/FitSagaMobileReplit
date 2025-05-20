@@ -1,15 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:equatable/equatable.dart';
 
-/// Difficulty levels for tutorials
 enum TutorialDifficulty {
   beginner,
   intermediate,
   advanced,
-  expert
+  expert,
 }
 
-/// Category types for tutorials
 enum TutorialCategory {
   cardio,
   strength,
@@ -18,11 +15,10 @@ enum TutorialCategory {
   nutrition,
   recovery,
   technique,
-  program
+  program,
 }
 
-/// Model for tutorials
-class TutorialModel extends Equatable {
+class TutorialModel {
   final String id;
   final String title;
   final String description;
@@ -35,16 +31,19 @@ class TutorialModel extends Equatable {
   final List<String> tags;
   final String? thumbnailUrl;
   final String? videoUrl;
-  final double averageRating;
-  final int ratingCount;
-  final int viewCount;
-  final bool isPublished;
   final bool isPremium;
+  final bool isPublished;
   final DateTime createdAt;
   final DateTime? updatedAt;
-  final Map<String, dynamic>? metadata;
-
-  const TutorialModel({
+  final int viewCount;
+  final double averageRating;
+  final int ratingCount;
+  
+  // Video specific parameters
+  final Map<String, dynamic>? videoMetadata;
+  final List<VideoBookmark>? bookmarks;
+  
+  TutorialModel({
     required this.id,
     required this.title,
     required this.description,
@@ -57,76 +56,119 @@ class TutorialModel extends Equatable {
     required this.tags,
     this.thumbnailUrl,
     this.videoUrl,
-    this.averageRating = 0.0,
-    this.ratingCount = 0,
-    this.viewCount = 0,
-    this.isPublished = false,
-    this.isPremium = false,
+    required this.isPremium,
+    required this.isPublished,
     required this.createdAt,
     this.updatedAt,
-    this.metadata,
+    required this.viewCount,
+    required this.averageRating,
+    required this.ratingCount,
+    this.videoMetadata,
+    this.bookmarks,
   });
-
-  // Calculate reading time based on content length (estimate)
-  int get estimatedReadingTimeMinutes {
-    // Average reading speed: 200 words per minute
-    const wordsPerMinute = 200;
-    final wordCount = content.split(' ').length;
-    return (wordCount / wordsPerMinute).ceil();
-  }
-
-  // Format categories as readable string
-  String get categoryString {
-    return categories.map((c) => _categoryToString(c).toCapitalized()).join(', ');
-  }
-
-  // Format difficulty as readable string
-  String get difficultyString {
-    return _difficultyToString(difficulty).toCapitalized();
-  }
-
-  // Factory method to create a TutorialModel from Firestore document
-  factory TutorialModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    
-    // Parse categories from string list
-    List<TutorialCategory> parsedCategories = [];
-    if (data['categories'] != null) {
-      for (final categoryStr in data['categories']) {
-        final category = _parseCategory(categoryStr);
-        if (category != null) {
-          parsedCategories.add(category);
-        }
-      }
-    }
-    
+  
+  factory TutorialModel.fromJson(Map<String, dynamic> json) {
     return TutorialModel(
-      id: doc.id,
-      title: data['title'] ?? '',
-      description: data['description'] ?? '',
-      content: data['content'] ?? '',
-      authorId: data['authorId'] ?? '',
-      authorName: data['authorName'] ?? '',
-      categories: parsedCategories,
-      difficulty: _parseDifficulty(data['difficulty']),
-      durationMinutes: data['durationMinutes'] ?? 0,
-      tags: List<String>.from(data['tags'] ?? []),
-      thumbnailUrl: data['thumbnailUrl'],
-      videoUrl: data['videoUrl'],
-      averageRating: (data['averageRating'] ?? 0.0).toDouble(),
-      ratingCount: data['ratingCount'] ?? 0,
-      viewCount: data['viewCount'] ?? 0,
-      isPublished: data['isPublished'] ?? false,
-      isPremium: data['isPremium'] ?? false,
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      updatedAt: data['updatedAt'] != null 
-          ? (data['updatedAt'] as Timestamp).toDate() 
+      id: json['id'],
+      title: json['title'],
+      description: json['description'],
+      content: json['content'],
+      authorId: json['authorId'],
+      authorName: json['authorName'],
+      categories: (json['categories'] as List<dynamic>)
+          .map((c) => TutorialCategory.values[c])
+          .toList(),
+      difficulty: TutorialDifficulty.values[json['difficulty']],
+      durationMinutes: json['durationMinutes'],
+      tags: List<String>.from(json['tags']),
+      thumbnailUrl: json['thumbnailUrl'],
+      videoUrl: json['videoUrl'],
+      isPremium: json['isPremium'],
+      isPublished: json['isPublished'],
+      createdAt: (json['createdAt'] as Timestamp).toDate(),
+      updatedAt: json['updatedAt'] != null 
+          ? (json['updatedAt'] as Timestamp).toDate() 
           : null,
-      metadata: data['metadata'],
+      viewCount: json['viewCount'] ?? 0,
+      averageRating: (json['averageRating'] ?? 0.0).toDouble(),
+      ratingCount: json['ratingCount'] ?? 0,
+      videoMetadata: json['videoMetadata'],
+      bookmarks: json['bookmarks'] != null 
+          ? (json['bookmarks'] as List<dynamic>)
+              .map((b) => VideoBookmark.fromJson(b))
+              .toList() 
+          : null,
     );
   }
-
-  // Create a copy with modified fields
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'content': content,
+      'authorId': authorId,
+      'authorName': authorName,
+      'categories': categories.map((c) => c.index).toList(),
+      'difficulty': difficulty.index,
+      'durationMinutes': durationMinutes,
+      'tags': tags,
+      'thumbnailUrl': thumbnailUrl,
+      'videoUrl': videoUrl,
+      'isPremium': isPremium,
+      'isPublished': isPublished,
+      'createdAt': createdAt,
+      'updatedAt': updatedAt,
+      'viewCount': viewCount,
+      'averageRating': averageRating,
+      'ratingCount': ratingCount,
+      'videoMetadata': videoMetadata,
+      'bookmarks': bookmarks?.map((b) => b.toJson()).toList(),
+    };
+  }
+  
+  // Helper getters for display purposes
+  String get difficultyString {
+    switch (difficulty) {
+      case TutorialDifficulty.beginner:
+        return 'Beginner';
+      case TutorialDifficulty.intermediate:
+        return 'Intermediate';
+      case TutorialDifficulty.advanced:
+        return 'Advanced';
+      case TutorialDifficulty.expert:
+        return 'Expert';
+    }
+  }
+  
+  String get categoryString {
+    if (categories.isEmpty) return 'Uncategorized';
+    
+    final categoryNames = categories.map((c) {
+      switch (c) {
+        case TutorialCategory.cardio:
+          return 'Cardio';
+        case TutorialCategory.strength:
+          return 'Strength';
+        case TutorialCategory.flexibility:
+          return 'Flexibility';
+        case TutorialCategory.balance:
+          return 'Balance';
+        case TutorialCategory.nutrition:
+          return 'Nutrition';
+        case TutorialCategory.recovery:
+          return 'Recovery';
+        case TutorialCategory.technique:
+          return 'Technique';
+        case TutorialCategory.program:
+          return 'Program';
+      }
+    }).toList();
+    
+    return categoryNames.join(', ');
+  }
+  
+  // Create a copy with updated fields
   TutorialModel copyWith({
     String? id,
     String? title,
@@ -140,14 +182,15 @@ class TutorialModel extends Equatable {
     List<String>? tags,
     String? thumbnailUrl,
     String? videoUrl,
-    double? averageRating,
-    int? ratingCount,
-    int? viewCount,
-    bool? isPublished,
     bool? isPremium,
+    bool? isPublished,
     DateTime? createdAt,
     DateTime? updatedAt,
-    Map<String, dynamic>? metadata,
+    int? viewCount,
+    double? averageRating,
+    int? ratingCount,
+    Map<String, dynamic>? videoMetadata,
+    List<VideoBookmark>? bookmarks,
   }) {
     return TutorialModel(
       id: id ?? this.id,
@@ -162,259 +205,126 @@ class TutorialModel extends Equatable {
       tags: tags ?? this.tags,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
       videoUrl: videoUrl ?? this.videoUrl,
-      averageRating: averageRating ?? this.averageRating,
-      ratingCount: ratingCount ?? this.ratingCount,
-      viewCount: viewCount ?? this.viewCount,
-      isPublished: isPublished ?? this.isPublished,
       isPremium: isPremium ?? this.isPremium,
+      isPublished: isPublished ?? this.isPublished,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      metadata: metadata ?? this.metadata,
+      viewCount: viewCount ?? this.viewCount,
+      averageRating: averageRating ?? this.averageRating,
+      ratingCount: ratingCount ?? this.ratingCount,
+      videoMetadata: videoMetadata ?? this.videoMetadata,
+      bookmarks: bookmarks ?? this.bookmarks,
     );
   }
-
-  // Convert to Firestore document data
-  Map<String, dynamic> toFirestore() {
-    return {
-      'title': title,
-      'description': description,
-      'content': content,
-      'authorId': authorId,
-      'authorName': authorName,
-      'categories': categories.map((c) => _categoryToString(c)).toList(),
-      'difficulty': _difficultyToString(difficulty),
-      'durationMinutes': durationMinutes,
-      'tags': tags,
-      'thumbnailUrl': thumbnailUrl,
-      'videoUrl': videoUrl,
-      'averageRating': averageRating,
-      'ratingCount': ratingCount,
-      'viewCount': viewCount,
-      'isPublished': isPublished,
-      'isPremium': isPremium,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
-      'metadata': metadata,
-    };
-  }
-
-  // Helper methods for difficulty conversion
-  static TutorialDifficulty _parseDifficulty(String? difficultyStr) {
-    switch (difficultyStr?.toLowerCase()) {
-      case 'beginner':
-        return TutorialDifficulty.beginner;
-      case 'intermediate':
-        return TutorialDifficulty.intermediate;
-      case 'advanced':
-        return TutorialDifficulty.advanced;
-      case 'expert':
-        return TutorialDifficulty.expert;
-      default:
-        return TutorialDifficulty.beginner;
-    }
-  }
-
-  static String _difficultyToString(TutorialDifficulty difficulty) {
-    switch (difficulty) {
-      case TutorialDifficulty.beginner:
-        return 'beginner';
-      case TutorialDifficulty.intermediate:
-        return 'intermediate';
-      case TutorialDifficulty.advanced:
-        return 'advanced';
-      case TutorialDifficulty.expert:
-        return 'expert';
-    }
-  }
-
-  // Helper methods for category conversion
-  static TutorialCategory? _parseCategory(String? categoryStr) {
-    switch (categoryStr?.toLowerCase()) {
-      case 'cardio':
-        return TutorialCategory.cardio;
-      case 'strength':
-        return TutorialCategory.strength;
-      case 'flexibility':
-        return TutorialCategory.flexibility;
-      case 'balance':
-        return TutorialCategory.balance;
-      case 'nutrition':
-        return TutorialCategory.nutrition;
-      case 'recovery':
-        return TutorialCategory.recovery;
-      case 'technique':
-        return TutorialCategory.technique;
-      case 'program':
-        return TutorialCategory.program;
-      default:
-        return null;
-    }
-  }
-
-  static String _categoryToString(TutorialCategory category) {
-    switch (category) {
-      case TutorialCategory.cardio:
-        return 'cardio';
-      case TutorialCategory.strength:
-        return 'strength';
-      case TutorialCategory.flexibility:
-        return 'flexibility';
-      case TutorialCategory.balance:
-        return 'balance';
-      case TutorialCategory.nutrition:
-        return 'nutrition';
-      case TutorialCategory.recovery:
-        return 'recovery';
-      case TutorialCategory.technique:
-        return 'technique';
-      case TutorialCategory.program:
-        return 'program';
-    }
-  }
-
-  @override
-  List<Object?> get props => [
-    id,
-    title,
-    description,
-    content,
-    authorId,
-    authorName,
-    categories,
-    difficulty,
-    durationMinutes,
-    tags,
-    thumbnailUrl,
-    videoUrl,
-    averageRating,
-    ratingCount,
-    viewCount,
-    isPublished,
-    isPremium,
-    createdAt,
-    updatedAt,
-  ];
 }
 
-/// Model for tutorial progress tracking
-class TutorialProgressModel extends Equatable {
+class VideoBookmark {
   final String id;
+  final String title;
+  final String description;
+  final int timestamp; // in seconds
+  
+  VideoBookmark({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.timestamp,
+  });
+  
+  factory VideoBookmark.fromJson(Map<String, dynamic> json) {
+    return VideoBookmark(
+      id: json['id'],
+      title: json['title'],
+      description: json['description'],
+      timestamp: json['timestamp'],
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'timestamp': timestamp,
+    };
+  }
+  
+  String get formattedTime {
+    final minutes = timestamp ~/ 60;
+    final seconds = timestamp % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+}
+
+class TutorialProgressModel {
   final String userId;
   final String tutorialId;
-  final bool isCompleted;
   final double progress; // 0.0 to 1.0
-  final DateTime? startedAt;
-  final DateTime? completedAt;
-  final DateTime lastAccessedAt;
+  final bool isCompleted;
   final int? userRating; // 1-5 stars
-  final String? userFeedback;
-
-  const TutorialProgressModel({
-    required this.id,
+  final int lastWatchedPosition; // in seconds
+  final DateTime lastAccessedAt;
+  final List<String>? completedSections; // IDs of completed sections
+  
+  TutorialProgressModel({
     required this.userId,
     required this.tutorialId,
-    this.isCompleted = false,
-    this.progress = 0.0,
-    this.startedAt,
-    this.completedAt,
-    required this.lastAccessedAt,
+    required this.progress,
+    required this.isCompleted,
     this.userRating,
-    this.userFeedback,
+    required this.lastWatchedPosition,
+    required this.lastAccessedAt,
+    this.completedSections,
   });
-
-  // Factory method to create from Firestore document
-  factory TutorialProgressModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    
+  
+  factory TutorialProgressModel.fromJson(Map<String, dynamic> json) {
     return TutorialProgressModel(
-      id: doc.id,
-      userId: data['userId'] ?? '',
-      tutorialId: data['tutorialId'] ?? '',
-      isCompleted: data['isCompleted'] ?? false,
-      progress: (data['progress'] ?? 0.0).toDouble(),
-      startedAt: data['startedAt'] != null 
-          ? (data['startedAt'] as Timestamp).toDate() 
+      userId: json['userId'],
+      tutorialId: json['tutorialId'],
+      progress: json['progress'].toDouble(),
+      isCompleted: json['isCompleted'],
+      userRating: json['userRating'],
+      lastWatchedPosition: json['lastWatchedPosition'] ?? 0,
+      lastAccessedAt: (json['lastAccessedAt'] as Timestamp).toDate(),
+      completedSections: json['completedSections'] != null 
+          ? List<String>.from(json['completedSections']) 
           : null,
-      completedAt: data['completedAt'] != null 
-          ? (data['completedAt'] as Timestamp).toDate() 
-          : null,
-      lastAccessedAt: (data['lastAccessedAt'] as Timestamp).toDate(),
-      userRating: data['userRating'],
-      userFeedback: data['userFeedback'],
     );
   }
-
-  // Create a copy with modified fields
-  TutorialProgressModel copyWith({
-    String? id,
-    String? userId,
-    String? tutorialId,
-    bool? isCompleted,
-    double? progress,
-    DateTime? startedAt,
-    DateTime? completedAt,
-    DateTime? lastAccessedAt,
-    int? userRating,
-    String? userFeedback,
-  }) {
-    return TutorialProgressModel(
-      id: id ?? this.id,
-      userId: userId ?? this.userId,
-      tutorialId: tutorialId ?? this.tutorialId,
-      isCompleted: isCompleted ?? this.isCompleted,
-      progress: progress ?? this.progress,
-      startedAt: startedAt ?? this.startedAt,
-      completedAt: completedAt ?? this.completedAt,
-      lastAccessedAt: lastAccessedAt ?? this.lastAccessedAt,
-      userRating: userRating ?? this.userRating,
-      userFeedback: userFeedback ?? this.userFeedback,
-    );
-  }
-
-  // Convert to Firestore document data
-  Map<String, dynamic> toFirestore() {
+  
+  Map<String, dynamic> toJson() {
     return {
       'userId': userId,
       'tutorialId': tutorialId,
-      'isCompleted': isCompleted,
       'progress': progress,
-      'startedAt': startedAt != null ? Timestamp.fromDate(startedAt!) : null,
-      'completedAt': completedAt != null ? Timestamp.fromDate(completedAt!) : null,
-      'lastAccessedAt': Timestamp.fromDate(lastAccessedAt),
+      'isCompleted': isCompleted,
       'userRating': userRating,
-      'userFeedback': userFeedback,
+      'lastWatchedPosition': lastWatchedPosition,
+      'lastAccessedAt': lastAccessedAt,
+      'completedSections': completedSections,
     };
   }
-
-  // Progress as percentage
-  int get progressPercentage => (progress * 100).round();
-
-  // Duration spent if completed
-  Duration? get completionDuration {
-    if (startedAt != null && completedAt != null) {
-      return completedAt!.difference(startedAt!);
-    }
-    return null;
+  
+  // Create a copy with updated fields
+  TutorialProgressModel copyWith({
+    String? userId,
+    String? tutorialId,
+    double? progress,
+    bool? isCompleted,
+    int? userRating,
+    int? lastWatchedPosition,
+    DateTime? lastAccessedAt,
+    List<String>? completedSections,
+  }) {
+    return TutorialProgressModel(
+      userId: userId ?? this.userId,
+      tutorialId: tutorialId ?? this.tutorialId,
+      progress: progress ?? this.progress,
+      isCompleted: isCompleted ?? this.isCompleted,
+      userRating: userRating ?? this.userRating,
+      lastWatchedPosition: lastWatchedPosition ?? this.lastWatchedPosition,
+      lastAccessedAt: lastAccessedAt ?? this.lastAccessedAt,
+      completedSections: completedSections ?? this.completedSections,
+    );
   }
-
-  @override
-  List<Object?> get props => [
-    id,
-    userId,
-    tutorialId,
-    isCompleted,
-    progress,
-    startedAt,
-    completedAt,
-    lastAccessedAt,
-    userRating,
-    userFeedback,
-  ];
-}
-
-// Extension for string capitalization
-extension StringExtension on String {
-  String toCapitalized() => length > 0 
-      ? '${this[0].toUpperCase()}${substring(1).toLowerCase()}'
-      : '';
 }
