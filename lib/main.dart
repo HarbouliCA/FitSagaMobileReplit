@@ -1,33 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:fitsaga/demo/demo_app.dart';
+import 'package:fitsaga/theme/app_theme.dart';
+import 'package:fitsaga/screens/auth/login_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const DemoApp());
+  runApp(const MyApp());
 }
 
-// This class is temporarily not used while we demonstrate the UI enhancements
-// We'll re-enable it once Firebase integration is fixed
-/* 
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-      ],
-      child: MaterialApp(
-        title: 'FitSAGA',
-        theme: AppTheme.lightTheme(),
-        darkTheme: AppTheme.darkTheme(),
-        themeMode: ThemeMode.system,
-        debugShowCheckedModeBanner: false,
-        initialRoute: AppRouter.login, // Start with login screen
-        onGenerateRoute: AppRouter.generateRoute,
-      ),
+    return MaterialApp(
+      title: 'FitSAGA',
+      theme: AppTheme.lightTheme(),
+      darkTheme: AppTheme.darkTheme(),
+      themeMode: ThemeMode.light,
+      debugShowCheckedModeBanner: false,
+      home: const LoginScreen(),
     );
   }
 }
-*/
