@@ -1,6 +1,4 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:fitsaga/models/tutorial_model.dart';
 import 'package:fitsaga/providers/tutorial_provider.dart';
@@ -8,15 +6,13 @@ import 'package:fitsaga/providers/auth_provider.dart';
 import 'package:fitsaga/theme/app_theme.dart';
 import 'package:fitsaga/widgets/common/loading_indicator.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:video_player/video_player.dart';
-import 'package:uuid/uuid.dart';
-import 'package:intl/intl.dart';
+import 'dart:io';
 
 class TutorialCreateEditScreen extends StatefulWidget {
   final TutorialModel? tutorial; // Null for create, non-null for edit
 
   const TutorialCreateEditScreen({
-    Key? key, 
+    Key? key,
     this.tutorial,
   }) : super(key: key);
 
@@ -32,22 +28,18 @@ class _TutorialCreateEditScreenState extends State<TutorialCreateEditScreen> {
   // Form controllers
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
+  late TextEditingController _contentController;
+  late TextEditingController _tagsController;
   late TextEditingController _durationController;
+  late TextEditingController _videoUrlController;
   
   // Form values
-  TutorialLevel _selectedLevel = TutorialLevel.beginner;
-  TutorialCategory _selectedCategory = TutorialCategory.strength;
+  TutorialDifficulty _difficulty = TutorialDifficulty.beginner;
+  List<TutorialCategory> _selectedCategories = [];
   bool _isPremium = false;
-  bool _isActive = true;
-  List<String> _tags = [];
-  
-  // Media handling
-  File? _thumbnailFile;
-  File? _videoFile;
-  String? _thumbnailUrl;
-  String? _videoUrl;
-  VideoPlayerController? _videoController;
-  bool _isVideoInitialized = false;
+  bool _isPublished = true;
+  File? _thumbnailImage;
+  String? _currentThumbnailUrl;
   
   @override
   void initState() {
@@ -56,14 +48,14 @@ class _TutorialCreateEditScreenState extends State<TutorialCreateEditScreen> {
     // Initialize controllers
     _titleController = TextEditingController();
     _descriptionController = TextEditingController();
-    _durationController = TextEditingController();
+    _contentController = TextEditingController();
+    _tagsController = TextEditingController();
+    _durationController = TextEditingController(text: '30');
+    _videoUrlController = TextEditingController();
     
     // If editing, populate form with tutorial data
     if (widget.tutorial != null) {
       _populateFormWithTutorial();
-    } else {
-      // Default values for new tutorial
-      _durationController.text = '15';
     }
   }
   
@@ -72,134 +64,42 @@ class _TutorialCreateEditScreenState extends State<TutorialCreateEditScreen> {
     
     _titleController.text = tutorial.title;
     _descriptionController.text = tutorial.description;
-    _durationController.text = tutorial.durationInMinutes.toString();
-    _selectedLevel = tutorial.level;
-    _selectedCategory = tutorial.category;
+    _contentController.text = tutorial.content;
+    _tagsController.text = tutorial.tags.join(', ');
+    _durationController.text = tutorial.durationMinutes.toString();
+    _videoUrlController.text = tutorial.videoUrl ?? '';
+    
+    _difficulty = tutorial.difficulty;
+    _selectedCategories = List.from(tutorial.categories);
     _isPremium = tutorial.isPremium;
-    _isActive = tutorial.isActive;
-    _tags = List.from(tutorial.tags);
-    
-    // Existing media URLs
-    _thumbnailUrl = tutorial.thumbnailUrl;
-    _videoUrl = tutorial.videoUrl;
-    
-    // Initialize video player if video exists
-    if (tutorial.videoUrl.isNotEmpty) {
-      _initializeVideoPlayer(tutorial.videoUrl);
-    }
-  }
-  
-  Future<void> _initializeVideoPlayer(String url) async {
-    _videoController = VideoPlayerController.networkUrl(Uri.parse(url));
-    
-    try {
-      await _videoController!.initialize();
-      setState(() {
-        _isVideoInitialized = true;
-      });
-    } catch (e) {
-      setState(() {
-        _error = 'Error initializing video: $e';
-      });
-    }
+    _isPublished = tutorial.isPublished;
+    _currentThumbnailUrl = tutorial.thumbnailUrl;
   }
   
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
+    _contentController.dispose();
+    _tagsController.dispose();
     _durationController.dispose();
-    _videoController?.dispose();
+    _videoUrlController.dispose();
     super.dispose();
   }
   
-  Future<void> _pickThumbnail() async {
-    try {
-      final pickedFile = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1280,
-        maxHeight: 720,
-        imageQuality: 85,
-      );
-      
-      if (pickedFile != null) {
-        setState(() {
-          _thumbnailFile = File(pickedFile.path);
-        });
-      }
-    } catch (e) {
+  Future<void> _pickImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    
+    if (image != null) {
       setState(() {
-        _error = 'Error picking thumbnail: $e';
+        _thumbnailImage = File(image.path);
       });
     }
-  }
-  
-  Future<void> _pickVideo() async {
-    try {
-      final pickedFile = await ImagePicker().pickVideo(
-        source: ImageSource.gallery,
-        maxDuration: const Duration(minutes: 30),
-      );
-      
-      if (pickedFile != null) {
-        setState(() {
-          _videoFile = File(pickedFile.path);
-          _isVideoInitialized = false;
-        });
-        
-        // Dispose of old controller if exists
-        await _videoController?.dispose();
-        
-        // Initialize new video controller
-        _videoController = VideoPlayerController.file(_videoFile!);
-        
-        try {
-          await _videoController!.initialize();
-          
-          setState(() {
-            _isVideoInitialized = true;
-            
-            // Auto-set the duration based on the video
-            final minutes = _videoController!.value.duration.inMinutes;
-            _durationController.text = minutes.toString();
-          });
-        } catch (e) {
-          setState(() {
-            _error = 'Error initializing video: $e';
-          });
-        }
-      }
-    } catch (e) {
-      setState(() {
-        _error = 'Error picking video: $e';
-      });
-    }
-  }
-  
-  void _addTag(String tag) {
-    if (tag.isNotEmpty && !_tags.contains(tag)) {
-      setState(() {
-        _tags.add(tag);
-      });
-    }
-  }
-  
-  void _removeTag(String tag) {
-    setState(() {
-      _tags.remove(tag);
-    });
   }
   
   Future<void> _saveTutorial() async {
     if (!_formKey.currentState!.validate()) {
-      return;
-    }
-    
-    if ((_thumbnailFile == null && _thumbnailUrl == null) || 
-        (_videoFile == null && _videoUrl == null)) {
-      setState(() {
-        _error = 'A thumbnail and video are required';
-      });
       return;
     }
     
@@ -220,61 +120,71 @@ class _TutorialCreateEditScreenState extends State<TutorialCreateEditScreen> {
       
       final currentUser = authProvider.currentUser!;
       
-      // Upload media files first (this would be implemented with Firebase Storage)
-      // For now, we'll just pretend we've done this
-      final String thumbnailUrl = _thumbnailFile != null ? 
-          'https://example.com/thumbnails/${const Uuid().v4()}' : _thumbnailUrl!;
-          
-      final String videoUrl = _videoFile != null ? 
-          'https://example.com/videos/${const Uuid().v4()}' : _videoUrl!;
+      // Parse integer values
+      final int durationMinutes = int.parse(_durationController.text);
       
-      final int durationInMinutes = int.parse(_durationController.text);
+      // Parse tags
+      final List<String> tags = _tagsController.text
+          .split(',')
+          .map((tag) => tag.trim())
+          .where((tag) => tag.isNotEmpty)
+          .toList();
       
+      // Handle thumbnail upload
+      String? thumbnailUrl = _currentThumbnailUrl;
+      if (_thumbnailImage != null) {
+        // In a real app, this would upload the image to Firebase Storage
+        // and get the download URL
+        thumbnailUrl = 'https://example.com/placeholder-image.jpg';
+        
+        // For demonstration, we're just using the existing URL or a placeholder
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Image upload is simulated in this demo'),
+            backgroundColor: AppTheme.warningColor,
+          ),
+        );
+      }
+      
+      // Check if this is a create or edit operation
+      bool success;
       if (widget.tutorial == null) {
         // Creating a new tutorial
-        final newTutorial = TutorialModel(
-          id: const Uuid().v4(),
+        success = await tutorialProvider.createTutorial(
           title: _titleController.text,
           description: _descriptionController.text,
+          content: _contentController.text,
+          authorId: currentUser.id,
+          authorName: currentUser.name,
+          categories: _selectedCategories,
+          difficulty: _difficulty,
+          durationMinutes: durationMinutes,
+          tags: tags,
           thumbnailUrl: thumbnailUrl,
-          videoUrl: videoUrl,
-          instructorId: currentUser.id,
-          instructorName: currentUser.name,
-          level: _selectedLevel,
-          category: _selectedCategory,
-          tags: _tags,
-          durationInMinutes: durationInMinutes,
+          videoUrl: _videoUrlController.text.isEmpty ? null : _videoUrlController.text,
           isPremium: _isPremium,
-          isActive: _isActive,
-          createdAt: DateTime.now(),
+          isPublished: _isPublished,
         );
-        
-        final success = await tutorialProvider.createTutorial(newTutorial);
-        
-        if (!success) {
-          throw Exception(tutorialProvider.error ?? 'Failed to create tutorial');
-        }
       } else {
-        // Updating an existing tutorial
-        final updatedTutorial = widget.tutorial!.copyWith(
+        // Editing an existing tutorial
+        success = await tutorialProvider.updateTutorial(
+          id: widget.tutorial!.id,
           title: _titleController.text,
           description: _descriptionController.text,
+          content: _contentController.text,
+          categories: _selectedCategories,
+          difficulty: _difficulty,
+          durationMinutes: durationMinutes,
+          tags: tags,
           thumbnailUrl: thumbnailUrl,
-          videoUrl: videoUrl,
-          level: _selectedLevel,
-          category: _selectedCategory,
-          tags: _tags,
-          durationInMinutes: durationInMinutes,
+          videoUrl: _videoUrlController.text.isEmpty ? null : _videoUrlController.text,
           isPremium: _isPremium,
-          isActive: _isActive,
-          updatedAt: DateTime.now(),
+          isPublished: _isPublished,
         );
-        
-        final success = await tutorialProvider.updateTutorial(updatedTutorial);
-        
-        if (!success) {
-          throw Exception(tutorialProvider.error ?? 'Failed to update tutorial');
-        }
+      }
+      
+      if (!success) {
+        throw Exception(tutorialProvider.error ?? 'Failed to save tutorial');
       }
       
       if (mounted) {
@@ -335,10 +245,10 @@ class _TutorialCreateEditScreenState extends State<TutorialCreateEditScreen> {
   }
   
   Widget _buildForm() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppTheme.paddingMedium),
-      child: Form(
-        key: _formKey,
+    return Form(
+      key: _formKey,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppTheme.paddingMedium),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -382,464 +292,290 @@ class _TutorialCreateEditScreenState extends State<TutorialCreateEditScreen> {
                 ),
               ),
             
-            // Media section - Thumbnail and Video
-            Card(
-              elevation: AppTheme.elevationMedium,
-              child: Padding(
-                padding: const EdgeInsets.all(AppTheme.paddingMedium),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Media',
-                      style: TextStyle(
-                        fontSize: AppTheme.fontSizeLarge,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.spacingMedium),
-                    
-                    // Thumbnail
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Thumbnail Image',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Upload a high-quality image that represents this tutorial. Recommended size: 1280x720 pixels.',
-                                style: TextStyle(
-                                  color: AppTheme.textSecondaryColor,
-                                  fontSize: AppTheme.fontSizeSmall,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton.icon(
-                                onPressed: _pickThumbnail,
-                                icon: const Icon(Icons.image),
-                                label: const Text('Select Thumbnail'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 24),
-                        Container(
-                          width: 200,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade200,
-                            borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
-                            border: Border.all(color: Colors.grey.shade300),
-                            image: _thumbnailFile != null
-                                ? DecorationImage(
-                                    image: FileImage(_thumbnailFile!),
-                                    fit: BoxFit.cover,
-                                  )
-                                : _thumbnailUrl != null
-                                    ? DecorationImage(
-                                        image: NetworkImage(_thumbnailUrl!),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : null,
-                          ),
-                          child: _thumbnailFile == null && _thumbnailUrl == null
-                              ? const Center(
-                                  child: Icon(
-                                    Icons.image,
-                                    size: 48,
-                                    color: Colors.grey,
-                                  ),
-                                )
-                              : null,
-                        ),
-                      ],
-                    ),
-                    
-                    const Divider(height: 48),
-                    
-                    // Video
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Tutorial Video',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Upload the main tutorial video. Maximum duration: 30 minutes.',
-                                style: TextStyle(
-                                  color: AppTheme.textSecondaryColor,
-                                  fontSize: AppTheme.fontSizeSmall,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton.icon(
-                                onPressed: _pickVideo,
-                                icon: const Icon(Icons.video_library),
-                                label: const Text('Select Video'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 24),
-                        Container(
-                          width: 200,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            color: Colors.black,
-                            borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: _videoController != null && _isVideoInitialized
-                              ? Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    AspectRatio(
-                                      aspectRatio: _videoController!.value.aspectRatio,
-                                      child: VideoPlayer(_videoController!),
-                                    ),
-                                    IconButton(
-                                      icon: Icon(
-                                        _videoController!.value.isPlaying
-                                            ? Icons.pause
-                                            : Icons.play_arrow,
-                                        color: Colors.white,
-                                        size: 48,
-                                      ),
-                                      onPressed: () {
-                                        setState(() {
-                                          _videoController!.value.isPlaying
-                                              ? _videoController!.pause()
-                                              : _videoController!.play();
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                )
-                              : _videoFile != null || _videoUrl != null
-                                  ? const Center(
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Center(
-                                      child: Icon(
-                                        Icons.videocam,
-                                        size: 48,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+            // Basic information
+            const Text(
+              'Basic Information',
+              style: TextStyle(
+                fontSize: AppTheme.fontSizeLarge,
+                fontWeight: FontWeight.bold,
               ),
             ),
+            const SizedBox(height: AppTheme.spacingMedium),
             
-            const SizedBox(height: AppTheme.spacingLarge),
+            // Title
+            TextFormField(
+              controller: _titleController,
+              decoration: const InputDecoration(
+                labelText: 'Title',
+                hintText: 'Enter a descriptive title',
+                prefixIcon: Icon(Icons.title),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a title';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
             
-            // Basic info section
-            Card(
-              elevation: AppTheme.elevationMedium,
-              child: Padding(
-                padding: const EdgeInsets.all(AppTheme.paddingMedium),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Basic Information',
-                      style: TextStyle(
-                        fontSize: AppTheme.fontSizeLarge,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.spacingMedium),
-                    
-                    // Title
-                    TextFormField(
-                      controller: _titleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Tutorial Title',
-                        hintText: 'Enter a descriptive title',
-                        prefixIcon: Icon(Icons.title),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a title';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    // Description
-                    TextFormField(
-                      controller: _descriptionController,
-                      decoration: const InputDecoration(
-                        labelText: 'Description',
-                        hintText: 'Enter a detailed description',
-                        prefixIcon: Icon(Icons.description),
-                        alignLabelWithHint: true,
-                      ),
-                      maxLines: 5,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a description';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    // Level and Category
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<TutorialLevel>(
-                            decoration: const InputDecoration(
-                              labelText: 'Difficulty Level',
-                              prefixIcon: Icon(Icons.signal_cellular_alt),
-                            ),
-                            value: _selectedLevel,
-                            items: TutorialLevel.values.map((level) {
-                              return DropdownMenuItem<TutorialLevel>(
-                                value: level,
-                                child: Text(_getLevelText(level)),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() {
-                                  _selectedLevel = value;
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 24),
-                        Expanded(
-                          child: DropdownButtonFormField<TutorialCategory>(
-                            decoration: const InputDecoration(
-                              labelText: 'Category',
-                              prefixIcon: Icon(Icons.category),
-                            ),
-                            value: _selectedCategory,
-                            items: TutorialCategory.values.map((category) {
-                              return DropdownMenuItem<TutorialCategory>(
-                                value: category,
-                                child: Text(_getCategoryText(category)),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() {
-                                  _selectedCategory = value;
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    // Duration
-                    TextFormField(
-                      controller: _durationController,
-                      decoration: const InputDecoration(
-                        labelText: 'Duration (minutes)',
-                        hintText: 'Enter tutorial duration',
-                        prefixIcon: Icon(Icons.timer),
-                      ),
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter the duration';
-                        }
-                        if (int.tryParse(value) == null || int.parse(value) <= 0) {
-                          return 'Please enter a valid duration';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
-                ),
+            // Description
+            TextFormField(
+              controller: _descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Description',
+                hintText: 'Enter a brief description',
+                prefixIcon: Icon(Icons.description),
+                alignLabelWithHint: true,
+              ),
+              maxLines: 3,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a description';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            
+            // Tags
+            TextFormField(
+              controller: _tagsController,
+              decoration: const InputDecoration(
+                labelText: 'Tags',
+                hintText: 'Enter tags separated by commas',
+                prefixIcon: Icon(Icons.tag),
               ),
             ),
+            const SizedBox(height: 16),
             
-            const SizedBox(height: AppTheme.spacingLarge),
+            // Duration
+            TextFormField(
+              controller: _durationController,
+              decoration: const InputDecoration(
+                labelText: 'Duration (minutes)',
+                hintText: 'Estimated time to complete',
+                prefixIcon: Icon(Icons.timer),
+              ),
+              keyboardType: TextInputType.number,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter duration';
+                }
+                if (int.tryParse(value) == null || int.parse(value) <= 0) {
+                  return 'Please enter a valid duration';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 24),
             
-            // Tags and Settings
-            Card(
-              elevation: AppTheme.elevationMedium,
-              child: Padding(
-                padding: const EdgeInsets.all(AppTheme.paddingMedium),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Tags and Settings',
-                      style: TextStyle(
-                        fontSize: AppTheme.fontSizeLarge,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.spacingMedium),
-                    
-                    // Tags
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Tags',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Add tags to help users find this tutorial more easily.',
-                          style: TextStyle(
-                            color: AppTheme.textSecondaryColor,
-                            fontSize: AppTheme.fontSizeSmall,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        _buildTagsInput(),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: _tags.map((tag) {
-                            return Chip(
-                              label: Text(tag),
-                              deleteIcon: const Icon(Icons.close, size: 16),
-                              onDeleted: () => _removeTag(tag),
-                              backgroundColor: AppTheme.primaryLightColor.withOpacity(0.2),
-                              labelStyle: const TextStyle(
-                                color: AppTheme.primaryColor,
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                      ],
-                    ),
-                    
-                    const Divider(height: 48),
-                    
-                    // Premium switch
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.star,
-                          color: Colors.amber,
-                        ),
-                        const SizedBox(width: 16),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Premium Content',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                'Premium tutorials are only available to users with a subscription.',
-                                style: TextStyle(
-                                  color: AppTheme.textSecondaryColor,
-                                  fontSize: AppTheme.fontSizeSmall,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Switch(
-                          value: _isPremium,
-                          onChanged: (value) {
-                            setState(() {
-                              _isPremium = value;
-                            });
-                          },
-                          activeColor: AppTheme.primaryColor,
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Active status
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.visibility,
-                          color: AppTheme.successColor,
-                        ),
-                        const SizedBox(width: 16),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Active Status',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                'Inactive tutorials are not visible to users.',
-                                style: TextStyle(
-                                  color: AppTheme.textSecondaryColor,
-                                  fontSize: AppTheme.fontSizeSmall,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Switch(
-                          value: _isActive,
-                          onChanged: (value) {
-                            setState(() {
-                              _isActive = value;
-                            });
-                          },
-                          activeColor: AppTheme.primaryColor,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+            // Categories
+            const Text(
+              'Categories',
+              style: TextStyle(
+                fontSize: AppTheme.fontSizeMedium,
+                fontWeight: FontWeight.bold,
               ),
             ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: TutorialCategory.values.map((category) {
+                String label;
+                IconData icon;
+                
+                switch (category) {
+                  case TutorialCategory.cardio:
+                    label = 'Cardio';
+                    icon = Icons.directions_run;
+                    break;
+                  case TutorialCategory.strength:
+                    label = 'Strength';
+                    icon = Icons.fitness_center;
+                    break;
+                  case TutorialCategory.flexibility:
+                    label = 'Flexibility';
+                    icon = Icons.accessibility;
+                    break;
+                  case TutorialCategory.balance:
+                    label = 'Balance';
+                    icon = Icons.balance;
+                    break;
+                  case TutorialCategory.nutrition:
+                    label = 'Nutrition';
+                    icon = Icons.restaurant;
+                    break;
+                  case TutorialCategory.recovery:
+                    label = 'Recovery';
+                    icon = Icons.hotel;
+                    break;
+                  case TutorialCategory.technique:
+                    label = 'Technique';
+                    icon = Icons.sports_gymnastics;
+                    break;
+                  case TutorialCategory.program:
+                    label = 'Programs';
+                    icon = Icons.calendar_today;
+                    break;
+                }
+                
+                final isSelected = _selectedCategories.contains(category);
+                
+                return FilterChip(
+                  avatar: Icon(
+                    icon,
+                    color: isSelected ? Colors.white : AppTheme.primaryColor,
+                    size: 16,
+                  ),
+                  label: Text(label),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    setState(() {
+                      if (selected) {
+                        _selectedCategories.add(category);
+                      } else {
+                        _selectedCategories.remove(category);
+                      }
+                    });
+                  },
+                  selectedColor: AppTheme.primaryColor,
+                  showCheckmark: false,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 24),
             
-            const SizedBox(height: AppTheme.spacingLarge),
+            // Difficulty
+            const Text(
+              'Difficulty Level',
+              style: TextStyle(
+                fontSize: AppTheme.fontSizeMedium,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildDifficultySelector(),
+            const SizedBox(height: 24),
+            
+            // Media section
+            const Text(
+              'Media',
+              style: TextStyle(
+                fontSize: AppTheme.fontSizeLarge,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacingMedium),
+            
+            // Thumbnail
+            const Text(
+              'Thumbnail Image',
+              style: TextStyle(
+                fontSize: AppTheme.fontSizeMedium,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildThumbnailPicker(),
+            const SizedBox(height: 16),
+            
+            // Video URL
+            TextFormField(
+              controller: _videoUrlController,
+              decoration: const InputDecoration(
+                labelText: 'Video URL (optional)',
+                hintText: 'Enter URL to video content',
+                prefixIcon: Icon(Icons.video_library),
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Content
+            const Text(
+              'Tutorial Content',
+              style: TextStyle(
+                fontSize: AppTheme.fontSizeLarge,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Markdown Supported',
+                    style: TextStyle(
+                      fontSize: AppTheme.fontSizeSmall,
+                      color: AppTheme.textSecondaryColor,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _contentController,
+                    decoration: const InputDecoration(
+                      hintText: 'Write your tutorial content in Markdown format...',
+                      border: InputBorder.none,
+                    ),
+                    maxLines: 15,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter tutorial content';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Publishing options
+            const Text(
+              'Publishing Options',
+              style: TextStyle(
+                fontSize: AppTheme.fontSizeLarge,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacingMedium),
+            
+            // Premium toggle
+            SwitchListTile(
+              title: const Text('Premium Content'),
+              subtitle: const Text('Requires subscription or credits to access'),
+              value: _isPremium,
+              onChanged: (value) {
+                setState(() {
+                  _isPremium = value;
+                });
+              },
+              activeColor: AppTheme.accentColor,
+            ),
+            
+            // Published toggle
+            SwitchListTile(
+              title: const Text('Published'),
+              subtitle: const Text('Make this tutorial visible to users'),
+              value: _isPublished,
+              onChanged: (value) {
+                setState(() {
+                  _isPublished = value;
+                });
+              },
+              activeColor: AppTheme.primaryColor,
+            ),
+            
+            const SizedBox(height: 32),
             
             // Save button
             SizedBox(
@@ -876,134 +612,130 @@ class _TutorialCreateEditScreenState extends State<TutorialCreateEditScreen> {
                 child: const Text('Cancel'),
               ),
             ),
-            
-            if (widget.tutorial != null) ...[
-              const SizedBox(height: AppTheme.spacingLarge),
-              
-              // Additional info for editing
-              Container(
-                padding: const EdgeInsets.all(AppTheme.paddingMedium),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Additional Information',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Created on: ${DateFormat('MMMM d, yyyy').format(widget.tutorial!.createdAt)}',
-                      style: const TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontSize: AppTheme.fontSizeSmall,
-                      ),
-                    ),
-                    if (widget.tutorial!.updatedAt != null)
-                      Text(
-                        'Last updated: ${DateFormat('MMMM d, yyyy').format(widget.tutorial!.updatedAt!)}',
-                        style: const TextStyle(
-                          color: AppTheme.textSecondaryColor,
-                          fontSize: AppTheme.fontSizeSmall,
-                        ),
-                      ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Views: ${widget.tutorial!.viewCount}',
-                      style: const TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontSize: AppTheme.fontSizeSmall,
-                      ),
-                    ),
-                    if (widget.tutorial!.ratingCount > 0)
-                      Text(
-                        'Rating: ${widget.tutorial!.rating.toStringAsFixed(1)} (${widget.tutorial!.ratingCount} ${widget.tutorial!.ratingCount == 1 ? 'rating' : 'ratings'})',
-                        style: const TextStyle(
-                          color: AppTheme.textSecondaryColor,
-                          fontSize: AppTheme.fontSizeSmall,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
           ],
         ),
       ),
     );
   }
   
-  Widget _buildTagsInput() {
-    final tagController = TextEditingController();
-    
-    return Row(
+  Widget _buildDifficultySelector() {
+    return Column(
       children: [
-        Expanded(
-          child: TextField(
-            controller: tagController,
-            decoration: const InputDecoration(
-              hintText: 'Add a tag',
-              prefixIcon: Icon(Icons.tag),
-            ),
-            onSubmitted: (value) {
-              _addTag(value);
-              tagController.clear();
+        for (final difficulty in TutorialDifficulty.values)
+          RadioListTile<TutorialDifficulty>(
+            title: Text(_getDifficultyLabel(difficulty)),
+            subtitle: Text(_getDifficultyDescription(difficulty)),
+            value: difficulty,
+            groupValue: _difficulty,
+            onChanged: (value) {
+              if (value != null) {
+                setState(() {
+                  _difficulty = value;
+                });
+              }
             },
+            activeColor: _getDifficultyColor(difficulty),
+            contentPadding: EdgeInsets.zero,
           ),
-        ),
-        const SizedBox(width: 16),
-        ElevatedButton(
-          onPressed: () {
-            _addTag(tagController.text);
-            tagController.clear();
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primaryColor,
-          ),
-          child: const Text('Add'),
-        ),
       ],
     );
   }
   
-  String _getLevelText(TutorialLevel level) {
-    switch (level) {
-      case TutorialLevel.beginner:
+  Widget _buildThumbnailPicker() {
+    return InkWell(
+      onTap: _pickImage,
+      child: Container(
+        height: 160,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
+          border: Border.all(color: Colors.grey.shade300),
+          image: _thumbnailImage != null
+              ? DecorationImage(
+                  image: FileImage(_thumbnailImage!),
+                  fit: BoxFit.cover,
+                )
+              : _currentThumbnailUrl != null
+                  ? DecorationImage(
+                      image: NetworkImage(_currentThumbnailUrl!),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+        ),
+        child: _thumbnailImage == null && _currentThumbnailUrl == null
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(
+                    Icons.add_photo_alternate,
+                    size: 48,
+                    color: Colors.grey,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Upload Thumbnail Image',
+                    style: TextStyle(
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              )
+            : Align(
+                alignment: Alignment.bottomRight,
+                child: Container(
+                  margin: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(AppTheme.borderRadiusSmall),
+                  ),
+                  child: const Icon(
+                    Icons.edit,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+  
+  String _getDifficultyLabel(TutorialDifficulty difficulty) {
+    switch (difficulty) {
+      case TutorialDifficulty.beginner:
         return 'Beginner';
-      case TutorialLevel.intermediate:
+      case TutorialDifficulty.intermediate:
         return 'Intermediate';
-      case TutorialLevel.advanced:
+      case TutorialDifficulty.advanced:
         return 'Advanced';
-      case TutorialLevel.all:
-        return 'All Levels';
+      case TutorialDifficulty.expert:
+        return 'Expert';
     }
   }
   
-  String _getCategoryText(TutorialCategory category) {
-    switch (category) {
-      case TutorialCategory.strength:
-        return 'Strength';
-      case TutorialCategory.cardio:
-        return 'Cardio';
-      case TutorialCategory.flexibility:
-        return 'Flexibility';
-      case TutorialCategory.recovery:
-        return 'Recovery';
-      case TutorialCategory.nutrition:
-        return 'Nutrition';
-      case TutorialCategory.mindfulness:
-        return 'Mindfulness';
-      case TutorialCategory.equipment:
-        return 'Equipment';
-      case TutorialCategory.technique:
-        return 'Technique';
-      case TutorialCategory.other:
-        return 'Other';
+  String _getDifficultyDescription(TutorialDifficulty difficulty) {
+    switch (difficulty) {
+      case TutorialDifficulty.beginner:
+        return 'For those new to fitness or this specific activity';
+      case TutorialDifficulty.intermediate:
+        return 'For those with some experience and basic fitness';
+      case TutorialDifficulty.advanced:
+        return 'For experienced users looking for a challenge';
+      case TutorialDifficulty.expert:
+        return 'For highly trained individuals only';
+    }
+  }
+  
+  Color _getDifficultyColor(TutorialDifficulty difficulty) {
+    switch (difficulty) {
+      case TutorialDifficulty.beginner:
+        return Colors.green;
+      case TutorialDifficulty.intermediate:
+        return Colors.blue;
+      case TutorialDifficulty.advanced:
+        return Colors.orange;
+      case TutorialDifficulty.expert:
+        return Colors.red;
     }
   }
 }
