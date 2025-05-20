@@ -1,0 +1,717 @@
+# Firestore Database Integration Report for FitSAGA Flutter App
+
+## 1. Project Configuration
+- **Project ID**: saga-fitness
+- **Storage Bucket**: saga-fitness.appspot.com
+- **API Key**: AIzaSyD3MAuIYZ2dGq5hspUvxK4KeNIbVzw6EaQ
+- **Auth Domain**: saga-fitness.firebaseapp.com
+- **Messaging Sender ID**: 360667066098
+- **App ID**: 1:360667066098:web:93bef4a0c957968c67aa6b
+- **Measurement ID**: G-GCZRZ22EYL
+
+## 2. Schema Overview
+
+### users
+- **Fields**:
+  - uid (string): Primary identifier
+  - email (string): User's email address
+  - name (string): User's full name
+  - photoURL (string, optional): Profile image URL
+  - credits (number): Available credits
+  - role (string enum): 'user', 'trainer', or 'admin'
+  - memberSince (timestamp): Registration date
+  - lastActive (timestamp): Last activity timestamp
+  - height (number, optional): User height in cm
+  - weight (number, optional): User weight in kg
+  - birthday (timestamp, optional): Date of birth
+  - sex (string enum, optional): 'male', 'female', or 'other'
+  - observations (string, optional): Health notes
+  - fidelityScore (number, optional): Loyalty points
+  - onboardingCompleted (boolean): Onboarding status
+  - accessStatus (string enum, optional): 'green' or 'red'
+
+### instructors
+- **Fields**:
+  - uid (string): Primary identifier, matches with users collection
+  - fullName (string): Instructor's full name
+  - email (string): Email address
+  - dateOfBirth (timestamp): Date of birth
+  - telephone (string): Contact number
+  - workingSince (timestamp): Employment start date
+  - address (string): Physical address
+  - bankDetails (object): Payment details
+    - bankName (string): Name of the bank
+    - accountHolder (string): Name on account
+    - accountNumber (string): Bank account number
+    - iban (string, optional): International account number
+  - role (string): 'instructor'
+  - photoURL (string, optional): Profile image URL
+  - bio (string, optional): Instructor biography
+  - specialties (array, optional): Areas of expertise
+  - accessStatus (string enum): 'green' or 'red' for permission control
+
+### activities
+- **Fields**:
+  - id (string): Unique identifier
+  - type (string enum): Activity type ('ENTREMIENTO_PERSONAL', 'KICK_BOXING', 'SALE_FITNESS', 'CLASES_DERIGIDAS')
+  - name (string): Activity name
+  - description (string, optional): Activity description
+  - capacity (number): Maximum participants
+  - duration (number): Length in minutes
+  - creditValue (number): Credits required
+  - createdAt (timestamp): Creation timestamp
+  - updatedAt (timestamp): Last update timestamp
+
+### sessions
+- **Fields**:
+  - id (string): Unique identifier
+  - activityId (string): Reference to activity
+  - activityName (string): Activity name
+  - activityType (string enum): Activity type (same as activities)
+  - title (string, optional): Session title
+  - description (string, optional): Session description
+  - notes (string, optional): Additional notes
+  - startTime (timestamp): Session start time
+  - endTime (timestamp): Session end time
+  - capacity (number): Maximum participants
+  - enrolledCount (number): Current participants
+  - bookedCount (number, optional): Total bookings
+  - status (string enum): 'scheduled', 'in_progress', 'completed', 'cancelled'
+  - recurring (object, nullable): Recurring session information
+    - frequency (string enum): 'daily', 'weekly', 'monthly'
+    - repeatEvery (number): Frequency interval
+    - weekdays (array, optional): Days of week
+    - endDate (timestamp): End of recurrence
+    - parentSessionId (string, optional): Original session ID
+  - instructorId (string): Reference to instructor
+  - instructorName (string): Instructor name
+  - instructor (string, optional): Instructor details
+  - instructorPhotoURL (string, optional): Instructor image
+  - createdAt (timestamp): Creation timestamp
+  - updatedAt (timestamp): Last update timestamp
+
+### tutorials
+- **Fields**:
+  - id (string): Unique identifier
+  - title (string): Tutorial title
+  - category (string enum): 'exercise' or 'nutrition'
+  - description (string): Tutorial description
+  - thumbnailUrl (string, optional): Thumbnail image
+  - author (string): Author name
+  - duration (number): Total duration in minutes
+  - difficulty (string enum): 'beginner', 'intermediate', 'advanced'
+  - createdAt (timestamp): Creation timestamp
+  - days (array): Tutorial days
+    - id (string): Day identifier
+    - dayNumber (number): Sequence number
+    - title (string): Day title
+    - description (string): Day description
+    - exercises (array): Exercise details
+      - id (string): Exercise identifier
+      - name (string): Exercise name
+      - description (string): Exercise description
+      - videoUrl (string, optional): Video content URL
+      - thumbnailUrl (string, optional): Thumbnail image
+      - duration (number): Length in minutes
+      - difficulty (string enum): Same as tutorial
+      - equipment (array, optional): Required equipment
+      - muscleGroups (array, optional): Targeted muscles
+      - instructions (array): Step-by-step instructions
+  - goals (array, optional): Tutorial objectives
+  - requirements (array, optional): Prerequisites
+
+### forum_threads
+- **Fields**:
+  - id (string): Unique identifier
+  - title (string): Thread title
+  - content (string): Thread content
+  - authorId (string): Reference to user
+  - authorName (string, optional): Author name
+  - imageUrl (string, optional): Thread image
+  - category (string enum): 'question', 'discussion', 'general'
+  - status (string enum): 'open', 'closed', 'resolved'
+  - likes (number, optional): Like count
+  - replies (array): Thread responses
+    - id (string): Reply identifier
+    - content (string): Reply text
+    - authorId (string): Reference to user
+    - authorName (string, optional): Replier name
+    - likes (number, optional): Like count
+    - createdAt (timestamp): Creation timestamp
+    - updatedAt (timestamp): Last update timestamp
+  - replyCount (number): Number of replies
+  - createdAt (timestamp): Creation timestamp
+  - updatedAt (timestamp): Last update timestamp
+  - lastActivity (timestamp): Latest activity timestamp
+
+### clients
+- **Fields**:
+  - id (string): Unique identifier (Firebase UID)
+  - email (string): Login email
+  - name (string): Full name
+  - profileImage (string, optional): Profile photo URL
+  - dateOfBirth (timestamp): Birthday
+  - gender (string enum): 'male', 'female', 'other'
+  - height (number, optional): Height in cm
+  - weight (number, optional): Weight in kg
+  - address (string, optional): Physical address
+  - telephone (string, optional): Contact number
+  - role (string enum): 'client', 'instructor', 'admin'
+  - memberSince (timestamp): Registration date
+  - lastActive (timestamp): Last login timestamp
+  - accessStatus (string enum): 'active', 'suspended', 'inactive'
+  - fidelityScore (number): Loyalty program points
+  - subscriptionTier (string, optional): Current subscription level
+  - subscriptionExpiry (timestamp, optional): When subscription ends
+  - subscription (object, optional): Subscription details
+    - planId (string): Plan identifier
+    - startDate (timestamp): Start date
+    - endDate (timestamp): End date
+    - status (string enum): 'active', 'cancelled', 'expired'
+    - autoRenew (boolean): Renewal setting
+  - credits (object, optional): Credit information
+    - total (number): Available credits
+    - intervalCredits (number): Credits for interval-based plans
+    - lastRefilled (timestamp): Last credit refill date
+  - familyMembers (array, optional): Family plan members
+    - name (string): Member name
+    - email (string, optional): Member email
+    - phone (string, optional): Member phone
+  - subscriptionPlan (string, optional): Plan ID
+  - additionalCredits (number, optional): Extra credits
+  - observations (string, optional): Health notes
+  - fitnessGoals (array, optional): Selected fitness goals
+  - onboardingCompleted (boolean): Mobile app onboarding status
+  - notificationSettings (object, optional): Notification preferences
+    - email (boolean): Email notifications
+    - push (boolean): Push notifications
+    - sms (boolean): SMS notifications
+  - createdAt (timestamp): Creation timestamp
+  - updatedAt (timestamp): Last update timestamp
+
+### contracts
+- **Fields**:
+  - id (string): Unique identifier
+  - clientId (string): Reference to client
+  - clientName (string): Client name
+  - clientEmail (string): Client email
+  - status (string enum): 'draft', 'pending_signature', 'signed', 'expired'
+  - createdAt (timestamp): Creation timestamp
+  - signedAt (timestamp, optional): Signature timestamp
+  - pdfUrl (string): Contract PDF URL
+  - signedPdfUrl (string, optional): Signed contract PDF URL
+  - expiresAt (timestamp, optional): Expiration date
+
+### videoMetadata
+- **Fields**:
+  - name (string): Video name (e.g., "2023 cw003")
+  - activity (string): Activity name
+  - type (string): Activity type
+  - bodyPart (string): Target body part
+  - description (string): Video description
+  - thumbnailUrl (string): Thumbnail image URL
+  - thumbnailId (string): Thumbnail identifier
+  - path (string): Video file path
+  - plan_url (string): Related workout plan URL
+  - plan_id (string): Plan identifier
+  - day_id (string): Day identifier
+  - day_name (string): Day name
+  - thumbnailPath (string): Thumbnail storage path
+  - videoPath (string): Video storage path
+
+## 3. Flutter Model Mapping
+
+```dart
+// User Model
+class UserModel {
+  final String uid;
+  final String email;
+  final String name;
+  final String? photoURL;
+  final int credits;
+  final String role;
+  final DateTime memberSince;
+  final DateTime lastActive;
+  final int? height;
+  final int? weight;
+  final DateTime? birthday;
+  final String? sex;
+  final String? observations;
+  final int? fidelityScore;
+  final bool onboardingCompleted;
+  final String? accessStatus;
+  
+  // Constructor and serialization methods
+}
+
+// Instructor Model
+class InstructorModel {
+  final String uid;
+  final String fullName;
+  final String email;
+  final DateTime dateOfBirth;
+  final String telephone;
+  final DateTime workingSince;
+  final String address;
+  final BankDetailsModel bankDetails;
+  final String role;
+  final String? photoURL;
+  final String? bio;
+  final List<String>? specialties;
+  final String accessStatus;
+  
+  // Constructor and serialization methods
+}
+
+// Bank Details Model
+class BankDetailsModel {
+  final String bankName;
+  final String accountHolder;
+  final String accountNumber;
+  final String? iban;
+  
+  // Constructor and serialization methods
+}
+
+// Activity Model
+class ActivityModel {
+  final String id;
+  final String type;
+  final String name;
+  final String? description;
+  final int capacity;
+  final int duration;
+  final int creditValue;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  
+  // Constructor and serialization methods
+}
+
+// Session Model
+class SessionModel {
+  final String id;
+  final String activityId;
+  final String activityName;
+  final String activityType;
+  final String? title;
+  final String? description;
+  final String? notes;
+  final DateTime startTime;
+  final DateTime endTime;
+  final int capacity;
+  final int enrolledCount;
+  final int? bookedCount;
+  final String status;
+  final RecurringRuleModel? recurring;
+  final String instructorId;
+  final String instructorName;
+  final String? instructor;
+  final String? instructorPhotoURL;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  
+  // Constructor and serialization methods
+}
+
+// Recurring Rule Model
+class RecurringRuleModel {
+  final String frequency;
+  final int repeatEvery;
+  final List<String>? weekdays;
+  final DateTime endDate;
+  final String? parentSessionId;
+  
+  // Constructor and serialization methods
+}
+
+// Tutorial Model
+class TutorialModel {
+  final String id;
+  final String title;
+  final String category;
+  final String description;
+  final String? thumbnailUrl;
+  final String author;
+  final int duration;
+  final String difficulty;
+  final DateTime createdAt;
+  final List<TutorialDayModel> days;
+  final List<String>? goals;
+  final List<String>? requirements;
+  
+  // Constructor and serialization methods
+}
+
+// Tutorial Day Model
+class TutorialDayModel {
+  final String id;
+  final int dayNumber;
+  final String title;
+  final String description;
+  final List<ExerciseModel> exercises;
+  
+  // Constructor and serialization methods
+}
+
+// Exercise Model
+class ExerciseModel {
+  final String id;
+  final String name;
+  final String description;
+  final String? videoUrl;
+  final String? thumbnailUrl;
+  final int duration;
+  final String difficulty;
+  final List<String>? equipment;
+  final List<String>? muscleGroups;
+  final List<String> instructions;
+  
+  // Constructor and serialization methods
+}
+
+// Forum Thread Model
+class ForumThreadModel {
+  final String id;
+  final String title;
+  final String content;
+  final String authorId;
+  final String? authorName;
+  final String? imageUrl;
+  final String category;
+  final String status;
+  final int? likes;
+  final List<ForumReplyModel> replies;
+  final int replyCount;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime lastActivity;
+  
+  // Constructor and serialization methods
+}
+
+// Forum Reply Model
+class ForumReplyModel {
+  final String id;
+  final String content;
+  final String authorId;
+  final String? authorName;
+  final int? likes;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  
+  // Constructor and serialization methods
+}
+
+// Client Model
+class ClientModel {
+  final String id;
+  final String email;
+  final String name;
+  final String? profileImage;
+  final DateTime dateOfBirth;
+  final String gender;
+  final int? height;
+  final int? weight;
+  final String? address;
+  final String? telephone;
+  final String role;
+  final DateTime memberSince;
+  final DateTime lastActive;
+  final String accessStatus;
+  final int fidelityScore;
+  final String? subscriptionTier;
+  final DateTime? subscriptionExpiry;
+  final ClientSubscriptionModel? subscription;
+  final ClientCreditsModel? credits;
+  final List<FamilyMemberModel>? familyMembers;
+  final String? subscriptionPlan;
+  final int? additionalCredits;
+  final String? observations;
+  final List<String>? fitnessGoals;
+  final bool onboardingCompleted;
+  final NotificationSettingsModel? notificationSettings;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  
+  // Constructor and serialization methods
+}
+
+// Client Subscription Model
+class ClientSubscriptionModel {
+  final String planId;
+  final DateTime startDate;
+  final DateTime endDate;
+  final String status;
+  final bool autoRenew;
+  
+  // Constructor and serialization methods
+}
+
+// Client Credits Model
+class ClientCreditsModel {
+  final int total;
+  final int intervalCredits;
+  final DateTime lastRefilled;
+  
+  // Constructor and serialization methods
+}
+
+// Family Member Model
+class FamilyMemberModel {
+  final String name;
+  final String? email;
+  final String? phone;
+  
+  // Constructor and serialization methods
+}
+
+// Notification Settings Model
+class NotificationSettingsModel {
+  final bool email;
+  final bool push;
+  final bool sms;
+  
+  // Constructor and serialization methods
+}
+
+// Contract Model
+class ContractModel {
+  final String id;
+  final String clientId;
+  final String clientName;
+  final String clientEmail;
+  final String status;
+  final DateTime createdAt;
+  final DateTime? signedAt;
+  final String pdfUrl;
+  final String? signedPdfUrl;
+  final DateTime? expiresAt;
+  
+  // Constructor and serialization methods
+}
+
+// Video Metadata Model
+class VideoMetadataModel {
+  final String name;
+  final String activity;
+  final String type;
+  final String bodyPart;
+  final String description;
+  final String thumbnailUrl;
+  final String thumbnailId;
+  final String path;
+  final String planUrl;
+  final String planId;
+  final String dayId;
+  final String dayName;
+  final String thumbnailPath;
+  final String videoPath;
+  
+  // Constructor and serialization methods
+}
+```
+
+## 4. Integration Steps
+
+1. **Set up Flutter project and add dependencies**
+   ```yaml
+   dependencies:
+     flutter:
+       sdk: flutter
+     firebase_core: ^2.15.0
+     firebase_auth: ^4.7.2
+     cloud_firestore: ^4.8.4
+     firebase_storage: ^11.2.5
+     provider: ^6.0.5
+     get_it: ^7.6.0
+   ```
+
+2. **Configure platform-specific setup**
+   - **Android**: Add google-services.json to /android/app
+   - **iOS**: Generate and add GoogleService-Info.plist to iOS folder
+
+3. **Initialize Firebase in your app**
+   ```dart
+   import 'package:firebase_core/firebase_core.dart';
+   
+   Future<void> main() async {
+     WidgetsFlutterBinding.ensureInitialized();
+     await Firebase.initializeApp(
+       options: FirebaseOptions(
+         apiKey: 'AIzaSyD3MAuIYZ2dGq5hspUvxK4KeNIbVzw6EaQ',
+         appId: '1:360667066098:web:93bef4a0c957968c67aa6b',
+         messagingSenderId: '360667066098',
+         projectId: 'saga-fitness',
+         storageBucket: 'saga-fitness.appspot.com',
+       ),
+     );
+     runApp(MyApp());
+   }
+   ```
+
+4. **Create authentication service**
+   ```dart
+   class AuthService {
+     final FirebaseAuth _auth = FirebaseAuth.instance;
+     final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+     
+     // Get current user
+     User? get currentUser => _auth.currentUser;
+     
+     // Auth state changes stream
+     Stream<User?> get authStateChanges => _auth.authStateChanges();
+     
+     // Sign in with email and password
+     Future<UserCredential> signInWithEmailAndPassword(String email, String password) {
+       return _auth.signInWithEmailAndPassword(email: email, password: password);
+     }
+     
+     // Get user profile from Firestore
+     Future<UserModel?> getUserProfile() async {
+       if (currentUser == null) return null;
+       
+       DocumentSnapshot doc = await _firestore.collection('users').doc(currentUser!.uid).get();
+       if (doc.exists) {
+         return UserModel.fromFirestore(doc);
+       }
+       return null;
+     }
+     
+     // Sign out
+     Future<void> signOut() {
+       return _auth.signOut();
+     }
+   }
+   ```
+
+5. **Create Firestore service for each collection**
+   ```dart
+   class UserService {
+     final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+     final CollectionReference _usersCollection = FirebaseFirestore.instance.collection('users');
+     
+     // Get user by ID
+     Future<UserModel?> getUserById(String userId) async {
+       DocumentSnapshot doc = await _usersCollection.doc(userId).get();
+       if (doc.exists) {
+         return UserModel.fromFirestore(doc);
+       }
+       return null;
+     }
+     
+     // Stream of user data for real-time updates
+     Stream<UserModel?> streamUserById(String userId) {
+       return _usersCollection.doc(userId).snapshots().map((doc) {
+         if (doc.exists) {
+           return UserModel.fromFirestore(doc);
+         }
+         return null;
+       });
+     }
+   }
+   
+   // Create similar services for each collection
+   ```
+
+6. **Create a dependency injection container**
+   ```dart
+   final serviceLocator = GetIt.instance;
+   
+   void setupServiceLocator() {
+     // Services
+     serviceLocator.registerLazySingleton<AuthService>(() => AuthService());
+     serviceLocator.registerLazySingleton<UserService>(() => UserService());
+     serviceLocator.registerLazySingleton<ActivityService>(() => ActivityService());
+     serviceLocator.registerLazySingleton<SessionService>(() => SessionService());
+     serviceLocator.registerLazySingleton<TutorialService>(() => TutorialService());
+     serviceLocator.registerLazySingleton<ForumService>(() => ForumService());
+     serviceLocator.registerLazySingleton<ClientService>(() => ClientService());
+     serviceLocator.registerLazySingleton<ContractService>(() => ContractService());
+   }
+   ```
+
+7. **Create providers for state management**
+   ```dart
+   class UserProvider extends ChangeNotifier {
+     final AuthService _authService = serviceLocator<AuthService>();
+     final UserService _userService = serviceLocator<UserService>();
+     
+     UserModel? _user;
+     bool _loading = false;
+     
+     UserModel? get user => _user;
+     bool get loading => _loading;
+     
+     Future<void> loadUserProfile() async {
+       _loading = true;
+       notifyListeners();
+       
+       _user = await _authService.getUserProfile();
+       
+       _loading = false;
+       notifyListeners();
+     }
+   }
+   
+   // Create similar providers for other data
+   ```
+
+8. **Implement security rule validation in the app**
+   ```dart
+   class SecurityRuleValidator {
+     final AuthService _authService = serviceLocator<AuthService>();
+     final UserService _userService = serviceLocator<UserService>();
+     
+     Future<bool> canAccessInstructorFeatures() async {
+       if (_authService.currentUser == null) return false;
+       
+       UserModel? user = await _userService.getUserById(_authService.currentUser!.uid);
+       if (user == null) return false;
+       
+       if (user.role != 'instructor') return false;
+       
+       // Check instructor status
+       DocumentSnapshot instructorDoc = await FirebaseFirestore.instance
+           .collection('instructors')
+           .doc(user.uid)
+           .get();
+           
+       if (!instructorDoc.exists) return false;
+       
+       final data = instructorDoc.data() as Map<String, dynamic>;
+       return data['accessStatus'] == 'green';
+     }
+   }
+   ```
+
+## 5. Security & Validation Recommendations
+
+1. **Role-based access control**
+   - Always check user role before displaying admin or instructor-only features
+   - Validate `accessStatus` client-side before allowing instructors to access restricted features
+   - Prevent unauthorized operations even when UI controls are hidden
+
+2. **Data integrity validation**
+   - Validate all data before sending to Firestore, matching security rule requirements
+   - Apply the same validation logic on the client as in security rules
+
+3. **Security rule enforcement**
+   - Implement error handling for all Firestore operations to catch permission errors
+   - Create wrapper services that check permissions before attempting CRUD operations
+
+4. **Time-sensitive operations**
+   - For session bookings, verify session capacity and time locally before attempting to book
+   - Implement optimistic UI updates but always verify against server state
+
+5. **Authentication state persistence**
+   - Use `FirebaseAuth.instance.authStateChanges()` to react to authentication state changes
+   - Implement proper authentication state persistence for improved user experience
+
+6. **Error handling**
+   - Create custom error classes for different types of Firestore operation failures
+   - Provide user-friendly error messages while logging detailed errors for debugging
+
+7. **Privacy considerations**
+   - Only store essential user information
+   - Implement proper data access patterns to avoid exposing sensitive information

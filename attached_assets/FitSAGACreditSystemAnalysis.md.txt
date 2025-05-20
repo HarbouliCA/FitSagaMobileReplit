@@ -1,0 +1,341 @@
+# FitSAGA Credit System Analysis
+
+## 1. Credit Data Model
+
+### Where credits are stored
+Credits are primarily stored in the **clients** collection with the following structure:
+
+- **Simple credit model:**
+  - `credits`: Numeric total credit value
+  - `gymCredits`: Main credit balance for gym activities
+  - `intervalCredits`: Replenishing credits for certain subscription plans
+
+- **Complex credit model:**
+  ```typescript
+  interface ClientCredits {
+    total: number;
+    intervalCredits: number;
+    lastRefilled: Date;
+  }
+  ```
+
+### Key fields and relationships
+
+- **User → Credit Relationship:**
+  - Credits are directly attached to client documents
+  - Credit values can be numeric or "unlimited" for premium plans
+  
+- **Subscription → Credit Relationship:**
+  - `subscriptionPlan` or `subscriptionTier` field links to subscription plans
+  - Plans define credit allocations and refill policies
+  
+- **Credit audit trail:**
+  - `creditAdjustments` collection tracks all credit changes
+  - Fields include: clientId, previousGymCredits, previousIntervalCredits, newGymCredits, newIntervalCredits, reason, adjustedBy, adjustedAt
+
+## 2. Booking Workflow
+
+1. **Front-end booking request → API call**
+   - Client initiates booking through UI
+   - Request includes sessionId and client identification
+   - System validates available capacity first
+
+2. **Credit validation logic**
+   - System checks client's available credit balance
+   - For activity-specific bookings, it verifies the required credit amount against user's available balance
+   - Different handling based on credit type ("unlimited" vs. numeric)
+
+3. **Firestore writes/updates**
+   - If sufficient credits:
+     - Create booking document in `bookings` collection with fields: id, userId, sessionId, status, creditsUsed, bookedAt
+     - Deduct credits from client document
+     - Increment currentBookings/enrolledCount on the session document
+   - Transaction ensures atomicity across these operations
+
+4. **UI feedback**
+   - Success: Confirmation and updated credit display
+   - Failure: Error message about insufficient credits
+
+## 3. Credit Replenishment
+
+### Periodic reset (Automated)
+- **Scheduled cron job** (`/api/cron/reset-credits`):
+  - Runs on a schedule (likely monthly)
+  - Secured by CRON_SECRET environment variable
+  - Resets credits based on subscription plan:
+    - Premium plans: Set to "unlimited" with 4 interval credits
+    - Gold plans: 8 credits + 4 interval credits 
+    - Basic plans: 8 credits + 0 interval credits
+  - Updates `lastCreditReset` timestamp on client document
+
+### Manual adjustment (Admin)
+- **Admin credit adjustment** (`/api/clients/[id]/credits`):
+  - Admin-only PATCH endpoint
+  - Updates gymCredits and intervalCredits
+  - Creates audit record in creditAdjustments collection
+  - Requires reason for adjustment
+
+### Subscription changes
+- When subscription plan changes, credits are updated accordingly
+- System determines appropriate credit allocation based on new plan type
+
+## 4. UI & API Endpoints
+
+### Credit management endpoints
+- `PATCH /api/clients/[id]/credits`: Manual credit adjustment
+- `POST /api/cron/reset-credits`: Scheduled credit reset
+
+### User-facing components
+- Dashboard displays current credit balance
+- User profile shows current credits and subscription info
+- Booking forms show required credits and current balance
+- Error handling displays user-friendly messages when credits are insufficient
+
+### Admin interfaces
+- Admin can view and modify user credits
+- Credit adjustment interface includes reason logging
+- User management shows credit status (active vs. inactive based on credits > 0)
+
+## 5. Enforcement & Auditing
+
+### Security rules
+- Credit modifications restricted to admin roles
+- Booking operations validate credit availability
+- Credits cannot be negative (validated on client and server)
+
+### Credit tracking
+- All credit adjustments logged to `creditAdjustments` collection
+- Each booking records the number of credits used
+- Credit reset operations update `lastCreditReset` timestamp
+
+### Error handling
+- Sessions with active bookings cannot be deleted (preventing orphaned credits)
+- Credit operations use transactions to maintain consistency
+- Credit-related errors include specific messages:
+  - "Insufficient credits"
+  - "Cannot book session - no credits available"
+  - "Premium membership required"
+
+## 6. Recommendations for Flutter Implementation
+
+### Credit System Architecture
+1. **Centralized Credit Service**
+   - Create a dedicated `CreditService` class to manage all credit operations
+   - Implement transaction-based operations to maintain data consistency
+   - Use atomic operations for critical credit updates
+
+2. **Offline Credit Handling**
+   - Cache credit information for offline viewing
+   - Queue credit-consuming actions when offline
+   - Sync and validate when connection is restored
+
+3. **Credit Security Enhancements**
+   - Implement server-side validation for all credit operations
+   - Add rate limiting for booking operations
+   - Create rollback mechanisms for failed transactions
+
+4. **Performance Optimizations**
+   - Use batch operations for credit resets and updates
+   - Implement efficient caching for credit-related UI elements
+   - Minimize credit-check operations by grouping related queries
+
+### Flutter App Implementation
+
+#### Model Layer
+```dart
+// Credit model with proper serialization
+class UserCredit {
+  final int total;
+  final int intervalCredits;
+  final DateTime lastRefilled;
+  
+  // Serialization methods
+  factory UserCredit.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    
+    // Handle "unlimited" credits
+    final dynamic totalCredits = data['total'];
+    int total = -1; // -1 represents unlimited
+    
+    if (totalCredits is int) {
+      total = totalCredits;
+    } else if (totalCredits is String && totalCredits != 'unlimited') {
+      total = int.tryParse(totalCredits) ?? -1;
+    }
+    
+    return UserCredit(
+      total: total,
+      intervalCredits: data['intervalCredits'] ?? 0,
+      lastRefilled: (data['lastRefilled'] as Timestamp).toDate(),
+    );
+  }
+}
+
+// Booking model for session registration
+class Booking {
+  final String id;
+  final String userId;
+  final String sessionId;
+  final BookingStatus status;
+  final int creditsUsed;
+  final DateTime bookedAt;
+  
+  // Enum for booking status
+  enum BookingStatus { confirmed, cancelled, attended }
+}
+```
+
+#### Service Layer
+```dart
+class CreditService {
+  final FirebaseFirestore _firestore;
+  final AuthService _authService;
+  
+  // Book a session with proper credit validation
+  Future<BookingResult> bookSession(String sessionId, int requiredCredits) async {
+    final userId = _authService.currentUser?.uid;
+    if (userId == null) return BookingResult.error('Not authenticated');
+    
+    // Use transaction to ensure consistency
+    return _firestore.runTransaction((transaction) async {
+      // Get user credits
+      final userDoc = await transaction.get(_firestore.collection('clients').doc(userId));
+      final userCredits = userDoc.data()?['credits'] ?? 0;
+      
+      // Check if unlimited or sufficient
+      final isUnlimited = userCredits == 'unlimited';
+      final hasSufficientCredits = isUnlimited || userCredits >= requiredCredits;
+      
+      if (!hasSufficientCredits) {
+        return BookingResult.error('Insufficient credits');
+      }
+      
+      // Create booking
+      final bookingRef = _firestore.collection('bookings').doc();
+      transaction.set(bookingRef, {
+        'userId': userId,
+        'sessionId': sessionId,
+        'status': 'confirmed',
+        'creditsUsed': requiredCredits,
+        'bookedAt': FieldValue.serverTimestamp(),
+      });
+      
+      // Update user credits if not unlimited
+      if (!isUnlimited) {
+        transaction.update(userDoc.reference, {
+          'credits': userCredits - requiredCredits,
+        });
+      }
+      
+      // Update session booking count
+      final sessionRef = _firestore.collection('sessions').doc(sessionId);
+      transaction.update(sessionRef, {
+        'currentBookings': FieldValue.increment(1),
+      });
+      
+      return BookingResult.success(bookingRef.id);
+    });
+  }
+}
+```
+
+## 7. Flutter App UI Design
+
+### Credit Display Components
+
+1. **Credit Badge**
+   - Persistent display in app header or dashboard
+   - Shows current credits with visual indicator
+   - Animations for credit changes (increment/decrement)
+   - Color coding based on available credits (red when low)
+
+2. **Credit History View**
+   - Timeline of credit usage and replenishment
+   - Filterable by date range and activity type
+   - Detailed breakdown of each transaction
+   - Visual representations (charts/graphs) of credit usage patterns
+
+3. **Booking Flow with Credit Information**
+   - Clear indication of required credits for each session/activity
+   - Real-time validation during booking process
+   - Predictive indicators showing post-booking credit balance
+   - Confirmation dialog emphasizing credit impact
+
+### UI Mockups and Guidelines
+
+#### Dashboard Screen
+```
+┌────────────────────────────┐
+│ FitSAGA                [👤]│
+├────────────────────────────┤
+│ Credits: 8               🔄│ <- Credit display with refresh
+├────────────────────────────┤
+│ Upcoming Sessions          │
+│ ┌────────────────────────┐ │
+│ │ Yoga Class             │ │
+│ │ Today, 18:00           │ │
+│ │ Credits: 1             │ │ <- Credit cost indicator
+│ └────────────────────────┘ │
+│ ┌────────────────────────┐ │
+│ │ HIIT Training          │ │
+│ │ Tomorrow, 10:00        │ │
+│ │ Credits: 2             │ │ <- Credit cost indicator
+│ └────────────────────────┘ │
+│                            │
+│ Available Classes       ➡️ │
+│ [Schedule]  [Profile]  [🔍]│
+└────────────────────────────┘
+```
+
+#### Booking Confirmation Dialog
+```
+┌────────────────────────────┐
+│ Confirm Booking            │
+├────────────────────────────┤
+│ Kickboxing Class           │
+│ May 18, 2025 - 17:00       │
+│                            │
+│ Your credits: 8            │
+│ Required:    2             │
+│ Remaining:   6             │
+│                            │
+│ [Cancel]      [Confirm]    │
+└────────────────────────────┘
+```
+
+#### Credit Low Warning
+```
+┌────────────────────────────┐
+│ ⚠️ Low Credits             │
+├────────────────────────────┤
+│ You have 1 credit remaining│
+│                            │
+│ Your subscription will     │
+│ refresh on:                │
+│ May 31, 2025               │
+│                            │
+│ [View Plans]  [Dismiss]    │
+└────────────────────────────┘
+```
+
+### Interaction Guidelines
+
+1. **Credit Operations**
+   - All credit-consuming actions should require confirmation
+   - Provide instant feedback after credit transactions
+   - Display credit balance prominently throughout the app
+   - Show detailed credit requirements before booking
+
+2. **Error Handling**
+   - Friendly error messages for insufficient credits
+   - Clear path to subscription upgrades when needed
+   - Graceful degradation during network issues
+   - Retry mechanisms for failed credit operations
+
+3. **Accessibility Considerations**
+   - High-contrast modes for credit indicators
+   - Screen reader support for credit notifications
+   - Haptic feedback for successful/failed credit operations
+   - Scalable text for credit displays
+
+By implementing these recommendations, the Flutter app will provide a seamless and user-friendly credit experience while maintaining the security and business rules established in the web portal.

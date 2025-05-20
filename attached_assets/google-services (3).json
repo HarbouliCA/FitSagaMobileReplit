@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "360667066098",
+    "project_id": "saga-fitness",
+    "storage_bucket": "saga-fitness.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:360667066098:android:971b0615ac5882d267aa6b",
+        "android_client_info": {
+          "package_name": "com.fitsaga.fitsaga_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCvfH-loyKanakWeQhHCIBfeAIVF-aFW5o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:360667066098:android:920fb15e518a511067aa6b",
+        "android_client_info": {
+          "package_name": "com.saga.fitness"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCvfH-loyKanakWeQhHCIBfeAIVF-aFW5o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
