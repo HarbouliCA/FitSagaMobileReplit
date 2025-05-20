@@ -4,12 +4,8 @@ import 'screens/sessions/session_detail_screen.dart';
 import 'screens/sessions/create_session_screen.dart';
 import 'screens/tutorials/create_tutorial_screen.dart';
 
-void main() {
-  runApp(const SimpleFitSagaDemo());
-}
-
-class SimpleFitSagaDemo extends StatelessWidget {
-  const SimpleFitSagaDemo({Key? key}) : super(key: key);
+class IntegratedFitSagaApp extends StatelessWidget {
+  const IntegratedFitSagaApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -190,16 +186,16 @@ class RoleSelectionScreen extends StatelessWidget {
     
     switch (role) {
       case 'admin':
-        screen = const AdminDashboardDemo();
+        screen = const AdminDashboardScreen();
         break;
       case 'instructor':
-        screen = const InstructorDashboardDemo();
+        screen = const InstructorDashboardScreen();
         break;
       case 'client':
-        screen = const ClientHomeDemo();
+        screen = const ClientHomeScreen();
         break;
       default:
-        screen = const ClientHomeDemo();
+        screen = const ClientHomeScreen();
     }
     
     Navigator.push(
@@ -209,16 +205,15 @@ class RoleSelectionScreen extends StatelessWidget {
   }
 }
 
-// DEMO SCREENS FOR EACH ROLE
-
-class AdminDashboardDemo extends StatefulWidget {
-  const AdminDashboardDemo({Key? key}) : super(key: key);
+// Admin Dashboard Screen
+class AdminDashboardScreen extends StatefulWidget {
+  const AdminDashboardScreen({Key? key}) : super(key: key);
 
   @override
-  State<AdminDashboardDemo> createState() => _AdminDashboardDemoState();
+  State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
 }
 
-class _AdminDashboardDemoState extends State<AdminDashboardDemo> {
+class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedIndex = 0;
   
   @override
@@ -268,11 +263,11 @@ class _AdminDashboardDemoState extends State<AdminDashboardDemo> {
       case 0:
         return _buildAdminDashboard();
       case 1:
-        return _buildScheduleView();
+        return _buildCalendarView();
       case 2:
-        return _buildTutorialsView();
+        return const TutorialsViewDemo();
       case 3:
-        return _buildProfileView();
+        return const ProfileViewDemo(role: 'admin');
       default:
         return _buildAdminDashboard();
     }
@@ -404,19 +399,22 @@ class _AdminDashboardDemoState extends State<AdminDashboardDemo> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildQuickAction(
+              _buildActionButton(
+                context: context,
                 icon: Icons.add_circle,
                 label: 'New Session',
                 color: Colors.green,
                 onTap: () => _navigateToCreateSession(context),
               ),
-              _buildQuickAction(
+              _buildActionButton(
+                context: context,
                 icon: Icons.video_library,
                 label: 'New Tutorial',
                 color: Colors.blue,
                 onTap: () => _navigateToCreateTutorial(context),
               ),
-              _buildQuickAction(
+              _buildActionButton(
+                context: context,
                 icon: Icons.person_add,
                 label: 'Add User',
                 color: Colors.purple,
@@ -426,7 +424,8 @@ class _AdminDashboardDemoState extends State<AdminDashboardDemo> {
                   );
                 },
               ),
-              _buildQuickAction(
+              _buildActionButton(
+                context: context,
                 icon: Icons.settings,
                 label: 'Settings',
                 color: Colors.grey,
@@ -463,46 +462,75 @@ class _AdminDashboardDemoState extends State<AdminDashboardDemo> {
           
           // Session list
           _buildSessionItem(
+            context: context,
             title: 'Morning Yoga Flow',
             time: '9:00 AM - 10:00 AM',
             date: 'Today',
             instructor: 'Sara Johnson',
             spotsLeft: 7,
-            onTap: () => _openSessionDetails(context, 'Morning Yoga Flow', 'Yoga'),
+            category: 'Yoga',
           ),
           
           _buildSessionItem(
+            context: context,
             title: 'HIIT Circuit Training',
             time: '6:00 PM - 6:45 PM',
             date: 'Today',
             instructor: 'Mike Torres',
             spotsLeft: 0,
-            onTap: () => _openSessionDetails(context, 'HIIT Circuit Training', 'HIIT'),
+            category: 'HIIT',
           ),
           
           _buildSessionItem(
+            context: context,
             title: 'Strength Foundations',
             time: '5:00 PM - 6:00 PM',
             date: 'Tomorrow',
             instructor: 'David Clark',
             spotsLeft: 5,
-            onTap: () => _openSessionDetails(context, 'Strength Foundations', 'Strength'),
+            category: 'Strength',
           ),
         ],
       ),
     );
   }
   
-  Widget _buildScheduleView() {
-    return _buildCalendarView();
+  void _navigateToCreateSession(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateSessionScreen(
+          userRole: 'admin',
+          onSessionCreated: (sessionData) {
+            // In a real app, we would add the session to a state management system
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Session created successfully!')),
+            );
+          },
+        ),
+      ),
+    );
   }
   
-  Widget _buildTutorialsView() {
-    return const TutorialsViewDemo();
+  void _navigateToCreateTutorial(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateTutorialScreen(
+          userRole: 'admin',
+          onTutorialCreated: (tutorialData) {
+            // In a real app, we would add the tutorial to a state management system
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Tutorial created successfully!')),
+            );
+          },
+        ),
+      ),
+    );
   }
   
-  Widget _buildProfileView() {
-    return const ProfileViewDemo(role: 'admin');
+  Widget _buildCalendarView() {
+    return CalendarViewDemo();
   }
   
   Widget _buildStatCard({
@@ -583,45 +611,51 @@ class _AdminDashboardDemoState extends State<AdminDashboardDemo> {
     );
   }
   
-  Widget _buildQuickAction({
+  Widget _buildActionButton({
+    required BuildContext context,
     required IconData icon,
     required String label,
     required Color color,
+    required VoidCallback onTap,
   }) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            shape: BoxShape.circle,
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 24,
+            ),
           ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 24,
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
+        ],
+      ),
     );
   }
   
   Widget _buildSessionItem({
+    required BuildContext context,
     required String title,
     required String time,
     required String date,
     required String instructor,
     required int spotsLeft,
-    VoidCallback? onTap,
+    required String category,
   }) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -684,7 +718,7 @@ class _AdminDashboardDemoState extends State<AdminDashboardDemo> {
             ),
           ),
         ),
-        onTap: onTap,
+        onTap: () => _openSessionDetails(context, title, category),
       ),
     );
   }
@@ -727,9 +761,9 @@ class _AdminDashboardDemoState extends State<AdminDashboardDemo> {
       MaterialPageRoute(
         builder: (context) => SessionDetailScreen(
           session: session,
-          userRole: 'client',
-          userGymCredits: 10,
-          userIntervalCredits: 2,
+          userRole: 'admin',
+          userGymCredits: 0,
+          userIntervalCredits: 0,
         ),
       ),
     );
@@ -742,14 +776,15 @@ class _AdminDashboardDemoState extends State<AdminDashboardDemo> {
   }
 }
 
-class InstructorDashboardDemo extends StatefulWidget {
-  const InstructorDashboardDemo({Key? key}) : super(key: key);
+// Instructor Dashboard Screen
+class InstructorDashboardScreen extends StatefulWidget {
+  const InstructorDashboardScreen({Key? key}) : super(key: key);
 
   @override
-  State<InstructorDashboardDemo> createState() => _InstructorDashboardDemoState();
+  State<InstructorDashboardScreen> createState() => _InstructorDashboardScreenState();
 }
 
-class _InstructorDashboardDemoState extends State<InstructorDashboardDemo> {
+class _InstructorDashboardScreenState extends State<InstructorDashboardScreen> {
   int _selectedIndex = 0;
   
   @override
@@ -799,7 +834,7 @@ class _InstructorDashboardDemoState extends State<InstructorDashboardDemo> {
       case 0:
         return _buildInstructorDashboard();
       case 1:
-        return _buildScheduleView();
+        return CalendarViewDemo();
       case 2:
         return const TutorialsViewDemo();
       case 3:
@@ -934,25 +969,41 @@ class _InstructorDashboardDemoState extends State<InstructorDashboardDemo> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildQuickAction(
+              _buildActionButton(
+                context: context,
                 icon: Icons.add_circle,
                 label: 'New Session',
                 color: Colors.green,
+                onTap: () => _navigateToCreateSession(context),
               ),
-              _buildQuickAction(
+              _buildActionButton(
+                context: context,
                 icon: Icons.video_library,
                 label: 'New Tutorial',
                 color: Colors.blue,
+                onTap: () => _navigateToCreateTutorial(context),
               ),
-              _buildQuickAction(
+              _buildActionButton(
+                context: context,
                 icon: Icons.people,
                 label: 'My Students',
                 color: Colors.purple,
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Students feature coming soon')),
+                  );
+                },
               ),
-              _buildQuickAction(
+              _buildActionButton(
+                context: context,
                 icon: Icons.insights,
                 label: 'Analytics',
                 color: Colors.orange,
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Analytics feature coming soon')),
+                  );
+                },
               ),
             ],
           ),
@@ -996,39 +1047,74 @@ class _InstructorDashboardDemoState extends State<InstructorDashboardDemo> {
     );
   }
   
-  Widget _buildScheduleView() {
-    return _buildCalendarView();
+  void _navigateToCreateSession(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateSessionScreen(
+          userRole: 'instructor',
+          onSessionCreated: (sessionData) {
+            // In a real app, we would add the session to a state management system
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Session created successfully!')),
+            );
+          },
+        ),
+      ),
+    );
   }
   
-  Widget _buildQuickAction({
+  void _navigateToCreateTutorial(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateTutorialScreen(
+          userRole: 'instructor',
+          onTutorialCreated: (tutorialData) {
+            // In a real app, we would add the tutorial to a state management system
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Tutorial created successfully!')),
+            );
+          },
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildActionButton({
+    required BuildContext context,
     required IconData icon,
     required String label,
     required Color color,
+    required VoidCallback onTap,
   }) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            shape: BoxShape.circle,
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 24,
+            ),
           ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 24,
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
+        ],
+      ),
     );
   }
   
@@ -1224,14 +1310,15 @@ class _InstructorDashboardDemoState extends State<InstructorDashboardDemo> {
   }
 }
 
-class ClientHomeDemo extends StatefulWidget {
-  const ClientHomeDemo({Key? key}) : super(key: key);
+// Client Dashboard Screen
+class ClientHomeScreen extends StatefulWidget {
+  const ClientHomeScreen({Key? key}) : super(key: key);
 
   @override
-  State<ClientHomeDemo> createState() => _ClientHomeDemoState();
+  State<ClientHomeScreen> createState() => _ClientHomeScreenState();
 }
 
-class _ClientHomeDemoState extends State<ClientHomeDemo> {
+class _ClientHomeScreenState extends State<ClientHomeScreen> {
   int _selectedIndex = 0;
   
   @override
@@ -1274,13 +1361,13 @@ class _ClientHomeDemoState extends State<ClientHomeDemo> {
   Widget _buildBody() {
     switch (_selectedIndex) {
       case 0:
-        return _buildCalendarView();
+        return CalendarViewDemo();
       case 1:
         return const TutorialsViewDemo();
       case 2:
         return const ProfileViewDemo(role: 'client');
       default:
-        return _buildCalendarView();
+        return CalendarViewDemo();
     }
   }
   
@@ -1292,147 +1379,307 @@ class _ClientHomeDemoState extends State<ClientHomeDemo> {
 }
 
 // SHARED VIEWS
+class CalendarViewDemo extends StatelessWidget {
+  CalendarViewDemo({Key? key}) : super(key: key);
 
-Widget _buildCalendarView() {
   // Get the current date
   final now = DateTime.now();
-  
-  // Generate weekdays starting from Monday
-  final weekDays = List.generate(7, (index) {
-    final dayOfWeek = now.weekday;
-    final startOfWeek = now.subtract(Duration(days: dayOfWeek - 1));
-    return startOfWeek.add(Duration(days: index));
-  });
-  
-  return Column(
-    children: [
-      // Calendar header
-      Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: weekDays.map((day) {
-            final isSelected = day.day == now.day;
-            final isToday = day.day == now.day && day.month == now.month && day.year == now.year;
-            
-            return Container(
-              width: 40,
-              height: 60,
-              decoration: BoxDecoration(
-                color: isSelected 
-                    ? const Color(0xFF0D47A1).withOpacity(0.2) 
-                    : (isToday ? Colors.amber.shade200 : Colors.transparent),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    DateFormat('E').format(day).toLowerCase().substring(0, 2),
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    day.day.toString(),
-                    style: TextStyle(
-                      color: isSelected ? const Color(0xFF0D47A1) : Colors.black,
-                      fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal,
-                      fontSize: 18,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-        ),
-      ),
-      
-      // Filter chips
-      Container(
-        height: 50,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          children: [
-            _buildFilterChip('All Classes', true),
-            _buildFilterChip('HIIT', false),
-            _buildFilterChip('Yoga', false),
-            _buildFilterChip('Strength', false),
-            _buildFilterChip('Instructors', false),
-          ],
-        ),
-      ),
-      
-      // Session list or empty state
-      Expanded(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.event_busy,
-                size: 64,
-                color: Colors.grey[400],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No sessions scheduled',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[700],
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Try selecting another day',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                ),
+
+  @override
+  Widget build(BuildContext context) {
+    // Generate weekdays starting from Monday
+    final weekDays = List.generate(7, (index) {
+      final dayOfWeek = now.weekday;
+      final startOfWeek = now.subtract(Duration(days: dayOfWeek - 1));
+      return startOfWeek.add(Duration(days: index));
+    });
+    
+    return Column(
+      children: [
+        // Calendar header
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: weekDays.map((day) {
+              final isSelected = day.day == now.day;
+              final isToday = day.day == now.day && day.month == now.month && day.year == now.year;
+              
+              return Container(
+                width: 40,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: isSelected 
+                      ? const Color(0xFF0D47A1).withOpacity(0.2) 
+                      : (isToday ? Colors.amber.shade200 : Colors.transparent),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      DateFormat('E').format(day).toLowerCase().substring(0, 2),
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      day.day.toString(),
+                      style: TextStyle(
+                        color: isSelected ? const Color(0xFF0D47A1) : Colors.black,
+                        fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        
+        // Filter chips
+        Container(
+          height: 50,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              _buildFilterChip('All Classes', true),
+              _buildFilterChip('HIIT', false),
+              _buildFilterChip('Yoga', false),
+              _buildFilterChip('Strength', false),
+              _buildFilterChip('Instructors', false),
+            ],
+          ),
+        ),
+        
+        // Session list or empty state
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: () => _openSessionDetails(context, 'Morning Yoga Flow', 'Yoga'),
+                  child: _buildSessionCard(
+                    title: 'Morning Yoga Flow',
+                    time: '9:00 AM',
+                    instructor: 'Sara Johnson',
+                    spots: 7,
+                    total: 15,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: () => _openSessionDetails(context, 'HIIT Circuit Training', 'HIIT'),
+                  child: _buildSessionCard(
+                    title: 'HIIT Circuit Training',
+                    time: '6:00 PM',
+                    instructor: 'Mike Torres',
+                    spots: 0,
+                    total: 15,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: () => _openSessionDetails(context, 'Strength Foundations', 'Strength'),
+                  child: _buildSessionCard(
+                    title: 'Strength Foundations',
+                    time: '5:00 PM',
+                    instructor: 'David Clark',
+                    spots: 5,
+                    total: 15,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildFilterChip(String label, bool isSelected) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
+      child: FilterChip(
+        label: Text(label),
+        selected: isSelected,
+        onSelected: (value) {},
+        backgroundColor: Colors.grey[200],
+        selectedColor: const Color(0xFF0D47A1).withOpacity(0.2),
+        labelStyle: TextStyle(
+          color: isSelected ? const Color(0xFF0D47A1) : Colors.black87,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(
+            color: isSelected ? const Color(0xFF0D47A1) : Colors.transparent,
+            width: 1,
+          ),
         ),
       ),
-    ],
-  );
-}
-
-Widget _buildFilterChip(String label, bool isSelected) {
-  return Padding(
-    padding: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
-    child: FilterChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (value) {},
-      backgroundColor: Colors.grey[200],
-      selectedColor: const Color(0xFF0D47A1).withOpacity(0.2),
-      labelStyle: TextStyle(
-        color: isSelected ? const Color(0xFF0D47A1) : Colors.black87,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-      ),
+    );
+  }
+  
+  Widget _buildSessionCard({
+    required String title,
+    required String time,
+    required String instructor,
+    required int spots,
+    required int total,
+  }) {
+    final bool isFull = spots <= 0;
+    final Color statusColor = isFull ? Colors.red : Colors.green;
+    
+    return Card(
+      elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: isSelected ? const Color(0xFF0D47A1) : Colors.transparent,
-          width: 1,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.access_time, size: 16, color: Colors.grey),
+                const SizedBox(width: 8),
+                Text(
+                  time,
+                  style: TextStyle(
+                    color: Colors.grey[700],
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: statusColor.withOpacity(0.5)),
+                  ),
+                  child: Text(
+                    isFull ? 'Full' : '$spots spots',
+                    style: TextStyle(
+                      color: statusColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.person, size: 16, color: Colors.grey),
+                const SizedBox(width: 8),
+                Text(
+                  instructor,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: LinearProgressIndicator(
+                    value: (total - spots) / total,
+                    backgroundColor: Colors.grey[200],
+                    color: statusColor,
+                    minHeight: 6,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Text(
+                  '${total - spots}/$total',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
-    ),
-  );
+    );
+  }
+  
+  void _openSessionDetails(BuildContext context, String title, String category) {
+    // Create a session model with demo data
+    final session = SessionModel(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: title,
+      instructor: title.contains('Yoga') 
+          ? 'Sara Johnson' 
+          : (title.contains('HIIT') ? 'Mike Torres' : 'David Clark'),
+      dateTime: DateTime.now().add(const Duration(days: 1, hours: 10)),
+      duration: title.contains('HIIT') ? 45 : 60, // Duration in minutes
+      location: title.contains('Yoga') 
+          ? 'Studio A' 
+          : (title.contains('HIIT') ? 'Cardio Room' : 'Weight Room'),
+      category: category,
+      capacity: 15,
+      enrolled: title.contains('HIIT') ? 15 : (title.contains('Yoga') ? 8 : 10),
+      creditsRequired: title.contains('HIIT') ? 2 : 1,
+      description: 'This $title session is designed for all fitness levels. '
+          'You will ${title.contains('Yoga') 
+              ? 'improve flexibility and reduce stress through a series of poses and breathing exercises' 
+              : (title.contains('HIIT') 
+                  ? 'burn calories and improve cardiovascular health through high-intensity exercises' 
+                  : 'build strength and muscle tone through progressive resistance training')
+          }. Please bring ${title.contains('Yoga') 
+              ? 'a yoga mat and comfortable clothing' 
+              : (title.contains('HIIT') 
+                  ? 'water and a towel' 
+                  : 'appropriate workout attire')
+          }.',
+    );
+    
+    // Navigate to session detail screen
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SessionDetailScreen(
+          session: session,
+          userRole: 'client',
+          userGymCredits: 10,
+          userIntervalCredits: 2,
+        ),
+      ),
+    );
+  }
 }
 
 class TutorialsViewDemo extends StatelessWidget {
@@ -1594,12 +1841,12 @@ Widget _buildTutorialGrid(List<TutorialInfo> tutorials) {
     ),
     itemCount: tutorials.length,
     itemBuilder: (context, index) {
-      return _buildTutorialCard(tutorials[index]);
+      return _buildTutorialCard(tutorials[index], context);
     },
   );
 }
 
-Widget _buildTutorialCard(TutorialInfo tutorial) {
+Widget _buildTutorialCard(TutorialInfo tutorial, BuildContext context) {
   Color categoryColor;
   
   switch (tutorial.category.toLowerCase()) {
@@ -1884,23 +2131,24 @@ class ProfileViewDemo extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              children: [
-                const Icon(
+              children: const [
+                Icon(
                   Icons.credit_card,
                   color: Color(0xFF0D47A1),
                 ),
-                const SizedBox(width: 8),
-                const Text(
+                SizedBox(width: 8),
+                Text(
                   'Credits',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const Spacer(),
-                TextButton(
-                  onPressed: () {},
-                  child: const Text('View History'),
+                Spacer(),
+                Text('View History',
+                  style: TextStyle(
+                    color: Color(0xFF0D47A1),
+                  ),
                 ),
               ],
             ),
@@ -2006,13 +2254,13 @@ class ProfileViewDemo extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              children: [
-                const Icon(
+              children: const [
+                Icon(
                   Icons.account_circle,
                   color: Color(0xFF0D47A1),
                 ),
-                const SizedBox(width: 8),
-                const Text(
+                SizedBox(width: 8),
+                Text(
                   'Account Information',
                   style: TextStyle(
                     fontSize: 18,
@@ -2068,13 +2316,13 @@ class ProfileViewDemo extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              children: [
-                const Icon(
+              children: const [
+                Icon(
                   Icons.person,
                   color: Color(0xFF0D47A1),
                 ),
-                const SizedBox(width: 8),
-                const Text(
+                SizedBox(width: 8),
+                Text(
                   'Personal Information',
                   style: TextStyle(
                     fontSize: 18,

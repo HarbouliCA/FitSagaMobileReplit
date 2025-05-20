@@ -375,7 +375,7 @@ class _CreateTutorialScreenState extends State<CreateTutorialScreen> {
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: Colors.grey[400]!,
-                              style: BorderStyle.dashed,
+                              style: BorderStyle.solid,
                             ),
                           ),
                           child: const Column(

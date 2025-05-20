@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'simple_demo.dart';
+import 'integrated_app.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const SimpleFitSagaDemo());
+  runApp(const IntegratedFitSagaApp());
 }
