@@ -1,27 +1,29 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:equatable/equatable.dart';
 
-enum SessionType {
-  personal,
-  group,
-  workshop,
-  event,
+enum SessionStatus {
+  upcoming,
+  ongoing,
+  completed,
+  cancelled
 }
 
-class SessionModel {
+class SessionModel extends Equatable {
   final String id;
   final String title;
   final String description;
-  final SessionType type;
   final String instructorId;
   final String instructorName;
   final DateTime startTime;
-  final DateTime endTime;
-  final String location;
+  final int durationMinutes;
   final int maxParticipants;
   final List<String> participantIds;
-  final String? requirements;
-  final String? level;
-  final bool isActive;
+  final int creditCost;
+  final bool isRecurring;
+  final String? recurringRule; // RRULE format (e.g., "FREQ=WEEKLY;BYDAY=MO,WE,FR")
+  final String? parentRecurringSessionId;
+  final String? location;
+  final SessionStatus status;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -29,37 +31,79 @@ class SessionModel {
     required this.id,
     required this.title,
     required this.description,
-    required this.type,
     required this.instructorId,
     required this.instructorName,
     required this.startTime,
-    required this.endTime,
-    required this.location,
+    required this.durationMinutes,
     required this.maxParticipants,
     required this.participantIds,
-    this.requirements,
-    this.level,
-    required this.isActive,
+    required this.creditCost,
+    this.isRecurring = false,
+    this.recurringRule,
+    this.parentRecurringSessionId,
+    this.location,
+    required this.status,
     required this.createdAt,
     this.updatedAt,
   });
 
-  // Create a copy of this session with optional field updates
+  // Get end time
+  DateTime get endTime => startTime.add(Duration(minutes: durationMinutes));
+  
+  // Check if session is full
+  bool get isFull => participantIds.length >= maxParticipants;
+  
+  // Get remaining spots
+  int get remainingSpots => maxParticipants - participantIds.length;
+  
+  // Check if session has conflict with another session
+  bool hasConflict(SessionModel other) {
+    if (id == other.id) return false; // Same session
+    
+    // Check if instructor is the same
+    if (instructorId == other.instructorId) {
+      // Check time overlap
+      if (startTime.isBefore(other.endTime) && 
+          endTime.isAfter(other.startTime)) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  // Check if user is enrolled
+  bool isUserEnrolled(String userId) {
+    return participantIds.contains(userId);
+  }
+  
+  // Check if user can book (has spots and is not already booked)
+  bool canUserBook(String userId) {
+    return !isFull && !isUserEnrolled(userId) && status == SessionStatus.upcoming;
+  }
+  
+  // Check if user can cancel
+  bool canUserCancel(String userId) {
+    return isUserEnrolled(userId) && status == SessionStatus.upcoming;
+  }
+
+  // Create a copy with modified fields
   SessionModel copyWith({
     String? id,
     String? title,
     String? description,
-    SessionType? type,
     String? instructorId,
     String? instructorName,
     DateTime? startTime,
-    DateTime? endTime,
-    String? location,
+    int? durationMinutes,
     int? maxParticipants,
     List<String>? participantIds,
-    String? requirements,
-    String? level,
-    bool? isActive,
+    int? creditCost,
+    bool? isRecurring,
+    String? recurringRule,
+    String? parentRecurringSessionId,
+    String? location,
+    SessionStatus? status,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -67,31 +111,21 @@ class SessionModel {
       id: id ?? this.id,
       title: title ?? this.title,
       description: description ?? this.description,
-      type: type ?? this.type,
       instructorId: instructorId ?? this.instructorId,
       instructorName: instructorName ?? this.instructorName,
       startTime: startTime ?? this.startTime,
-      endTime: endTime ?? this.endTime,
-      location: location ?? this.location,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
       maxParticipants: maxParticipants ?? this.maxParticipants,
       participantIds: participantIds ?? this.participantIds,
-      requirements: requirements ?? this.requirements,
-      level: level ?? this.level,
-      isActive: isActive ?? this.isActive,
+      creditCost: creditCost ?? this.creditCost,
+      isRecurring: isRecurring ?? this.isRecurring,
+      recurringRule: recurringRule ?? this.recurringRule,
+      parentRecurringSessionId: parentRecurringSessionId ?? this.parentRecurringSessionId,
+      location: location ?? this.location,
+      status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
-  }
-
-  // Computed properties
-  bool get isFull => participantIds.length >= maxParticipants;
-  int get availableSpots => maxParticipants - participantIds.length;
-  bool get isPast => endTime.isBefore(DateTime.now());
-  int get durationInMinutes => endTime.difference(startTime).inMinutes;
-
-  // Check if a user is registered for this session
-  bool isUserRegistered(String userId) {
-    return participantIds.contains(userId);
   }
 
   // Factory method to create a SessionModel from Firestore document
@@ -102,17 +136,18 @@ class SessionModel {
       id: doc.id,
       title: data['title'] ?? '',
       description: data['description'] ?? '',
-      type: _sessionTypeFromString(data['type'] ?? 'group'),
       instructorId: data['instructorId'] ?? '',
       instructorName: data['instructorName'] ?? '',
       startTime: (data['startTime'] as Timestamp).toDate(),
-      endTime: (data['endTime'] as Timestamp).toDate(),
-      location: data['location'] ?? '',
+      durationMinutes: data['durationMinutes'] ?? 60,
       maxParticipants: data['maxParticipants'] ?? 10,
       participantIds: List<String>.from(data['participantIds'] ?? []),
-      requirements: data['requirements'],
-      level: data['level'],
-      isActive: data['isActive'] ?? true,
+      creditCost: data['creditCost'] ?? 1,
+      isRecurring: data['isRecurring'] ?? false,
+      recurringRule: data['recurringRule'],
+      parentRecurringSessionId: data['parentRecurringSessionId'],
+      location: data['location'],
+      status: _statusFromString(data['status'] ?? 'upcoming'),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: data['updatedAt'] != null 
           ? (data['updatedAt'] as Timestamp).toDate() 
@@ -125,54 +160,74 @@ class SessionModel {
     return {
       'title': title,
       'description': description,
-      'type': _sessionTypeToString(type),
       'instructorId': instructorId,
       'instructorName': instructorName,
       'startTime': Timestamp.fromDate(startTime),
-      'endTime': Timestamp.fromDate(endTime),
-      'location': location,
+      'durationMinutes': durationMinutes,
       'maxParticipants': maxParticipants,
       'participantIds': participantIds,
-      'requirements': requirements,
-      'level': level,
-      'isActive': isActive,
+      'creditCost': creditCost,
+      'isRecurring': isRecurring,
+      'recurringRule': recurringRule,
+      'parentRecurringSessionId': parentRecurringSessionId,
+      'location': location,
+      'status': _statusToString(status),
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
     };
   }
 
-  // Helper methods for type conversion
-  static SessionType _sessionTypeFromString(String type) {
-    switch (type.toLowerCase()) {
-      case 'personal':
-        return SessionType.personal;
-      case 'workshop':
-        return SessionType.workshop;
-      case 'event':
-        return SessionType.event;
-      case 'group':
+  // Helper methods for status conversion
+  static SessionStatus _statusFromString(String status) {
+    switch (status.toLowerCase()) {
+      case 'ongoing':
+        return SessionStatus.ongoing;
+      case 'completed':
+        return SessionStatus.completed;
+      case 'cancelled':
+        return SessionStatus.cancelled;
+      case 'upcoming':
       default:
-        return SessionType.group;
+        return SessionStatus.upcoming;
     }
   }
 
-  static String _sessionTypeToString(SessionType type) {
-    switch (type) {
-      case SessionType.personal:
-        return 'personal';
-      case SessionType.workshop:
-        return 'workshop';
-      case SessionType.event:
-        return 'event';
-      case SessionType.group:
-        return 'group';
+  static String _statusToString(SessionStatus status) {
+    switch (status) {
+      case SessionStatus.ongoing:
+        return 'ongoing';
+      case SessionStatus.completed:
+        return 'completed';
+      case SessionStatus.cancelled:
+        return 'cancelled';
+      case SessionStatus.upcoming:
+        return 'upcoming';
     }
   }
 
   @override
+  List<Object?> get props => [
+    id,
+    title,
+    description,
+    instructorId,
+    instructorName,
+    startTime,
+    durationMinutes,
+    maxParticipants,
+    participantIds,
+    creditCost,
+    isRecurring,
+    recurringRule,
+    parentRecurringSessionId,
+    location,
+    status,
+    createdAt,
+    updatedAt,
+  ];
+
+  @override
   String toString() {
-    return 'SessionModel(id: $id, title: $title, instructor: $instructorName, '
-        'startTime: $startTime, endTime: $endTime, '
-        'participants: ${participantIds.length}/$maxParticipants)';
+    return 'SessionModel(id: $id, title: $title, instructor: $instructorName, startTime: $startTime)';
   }
 }
