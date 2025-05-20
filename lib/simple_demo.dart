@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:fitsaga/theme/app_theme.dart';
 import 'package:intl/intl.dart';
+import 'screens/sessions/session_detail_screen.dart';
+import 'screens/sessions/create_session_screen.dart';
+import 'screens/tutorials/create_tutorial_screen.dart';
 
 void main() {
   runApp(const SimpleFitSagaDemo());
@@ -406,21 +408,33 @@ class _AdminDashboardDemoState extends State<AdminDashboardDemo> {
                 icon: Icons.add_circle,
                 label: 'New Session',
                 color: Colors.green,
+                onTap: () => _navigateToCreateSession(context),
               ),
               _buildQuickAction(
                 icon: Icons.video_library,
                 label: 'New Tutorial',
                 color: Colors.blue,
+                onTap: () => _navigateToCreateTutorial(context),
               ),
               _buildQuickAction(
                 icon: Icons.person_add,
                 label: 'Add User',
                 color: Colors.purple,
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Add user feature coming soon')),
+                  );
+                },
               ),
               _buildQuickAction(
                 icon: Icons.settings,
                 label: 'Settings',
                 color: Colors.grey,
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Settings feature coming soon')),
+                  );
+                },
               ),
             ],
           ),
@@ -454,6 +468,7 @@ class _AdminDashboardDemoState extends State<AdminDashboardDemo> {
             date: 'Today',
             instructor: 'Sara Johnson',
             spotsLeft: 7,
+            onTap: () => _openSessionDetails(context, 'Morning Yoga Flow', 'Yoga'),
           ),
           
           _buildSessionItem(
@@ -462,6 +477,7 @@ class _AdminDashboardDemoState extends State<AdminDashboardDemo> {
             date: 'Today',
             instructor: 'Mike Torres',
             spotsLeft: 0,
+            onTap: () => _openSessionDetails(context, 'HIIT Circuit Training', 'HIIT'),
           ),
           
           _buildSessionItem(
@@ -470,6 +486,7 @@ class _AdminDashboardDemoState extends State<AdminDashboardDemo> {
             date: 'Tomorrow',
             instructor: 'David Clark',
             spotsLeft: 5,
+            onTap: () => _openSessionDetails(context, 'Strength Foundations', 'Strength'),
           ),
         ],
       ),
@@ -604,6 +621,7 @@ class _AdminDashboardDemoState extends State<AdminDashboardDemo> {
     required String date,
     required String instructor,
     required int spotsLeft,
+    VoidCallback? onTap,
   }) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -666,7 +684,57 @@ class _AdminDashboardDemoState extends State<AdminDashboardDemo> {
             ),
           ),
         ),
-        onTap: () {},
+        onTap: onTap,
+      ),
+    );
+  }
+  
+  // Open session details
+  void _openSessionDetails(BuildContext context, String title, String category) {
+    // Import required classes
+    // ignore: unused_import
+    import 'package:fitsaga/screens/sessions/session_detail_screen.dart';
+    
+    // Create a session model with demo data
+    final session = SessionModel(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: title,
+      instructor: title.contains('Yoga') 
+          ? 'Sara Johnson' 
+          : (title.contains('HIIT') ? 'Mike Torres' : 'David Clark'),
+      dateTime: DateTime.now().add(const Duration(days: 1, hours: 10)),
+      duration: title.contains('HIIT') ? 45 : 60, // Duration in minutes
+      location: title.contains('Yoga') 
+          ? 'Studio A' 
+          : (title.contains('HIIT') ? 'Cardio Room' : 'Weight Room'),
+      category: category,
+      capacity: 15,
+      enrolled: title.contains('HIIT') ? 15 : (title.contains('Yoga') ? 8 : 10),
+      creditsRequired: title.contains('HIIT') ? 2 : 1,
+      description: 'This $title session is designed for all fitness levels. '
+          'You will ${title.contains('Yoga') 
+              ? 'improve flexibility and reduce stress through a series of poses and breathing exercises' 
+              : (title.contains('HIIT') 
+                  ? 'burn calories and improve cardiovascular health through high-intensity exercises' 
+                  : 'build strength and muscle tone through progressive resistance training')
+          }. Please bring ${title.contains('Yoga') 
+              ? 'a yoga mat and comfortable clothing' 
+              : (title.contains('HIIT') 
+                  ? 'water and a towel' 
+                  : 'appropriate workout attire')
+          }.',
+    );
+    
+    // Navigate to session detail screen
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SessionDetailScreen(
+          session: session,
+          userRole: 'client',
+          userGymCredits: 10,
+          userIntervalCredits: 2,
+        ),
       ),
     );
   }
