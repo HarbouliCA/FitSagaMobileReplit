@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'screens/sessions/session_detail_screen.dart';
 import 'screens/sessions/create_session_screen.dart';
-import 'screens/tutorials/create_tutorial_screen.dart';
+import 'screens/tutorials/enhanced_create_tutorial_screen.dart';
 
 class IntegratedFitSagaApp extends StatelessWidget {
   const IntegratedFitSagaApp({Key? key}) : super(key: key);
@@ -516,7 +516,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CreateTutorialScreen(
+        builder: (context) => EnhancedCreateTutorialScreen(
           userRole: 'admin',
           onTutorialCreated: (tutorialData) {
             // In a real app, we would add the tutorial to a state management system
@@ -1068,7 +1068,7 @@ class _InstructorDashboardScreenState extends State<InstructorDashboardScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CreateTutorialScreen(
+        builder: (context) => EnhancedCreateTutorialScreen(
           userRole: 'instructor',
           onTutorialCreated: (tutorialData) {
             // In a real app, we would add the tutorial to a state management system

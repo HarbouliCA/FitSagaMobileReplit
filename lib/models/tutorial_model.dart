@@ -1,249 +1,300 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-/// Class representing a complete tutorial program
-class Tutorial {
+class VideoTutorial {
   final String id;
-  final String title;
-  final String description;
-  final String imageUrl;
-  final List<String> categories;
-  final String difficulty;
-  final bool isFeatured;
-  final bool isPopular;
-  final int totalDurationMinutes;
-  final int daysCount;
-  final double? userProgress; // null if not started, 0.0-1.0 if in progress
-
-  Tutorial({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.imageUrl,
-    required this.categories,
-    required this.difficulty,
-    required this.isFeatured,
-    required this.isPopular,
-    required this.totalDurationMinutes,
-    required this.daysCount,
-    this.userProgress,
-  });
-
-  factory Tutorial.fromJson(Map<String, dynamic> json) {
-    return Tutorial(
-      id: json['id'] ?? '',
-      title: json['title'] ?? '',
-      description: json['description'] ?? '',
-      imageUrl: json['imageUrl'] ?? '',
-      categories: List<String>.from(json['categories'] ?? []),
-      difficulty: json['difficulty'] ?? 'Beginner',
-      isFeatured: json['isFeatured'] ?? false,
-      isPopular: json['isPopular'] ?? false,
-      totalDurationMinutes: json['totalDurationMinutes'] ?? 0,
-      daysCount: json['daysCount'] ?? 1,
-      userProgress: json['userProgress'],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'description': description,
-      'imageUrl': imageUrl,
-      'categories': categories,
-      'difficulty': difficulty,
-      'isFeatured': isFeatured,
-      'isPopular': isPopular,
-      'totalDurationMinutes': totalDurationMinutes,
-      'daysCount': daysCount,
-      'userProgress': userProgress,
-    };
-  }
-}
-
-/// Class representing a day within a tutorial program
-class TutorialDay {
-  final String id;
-  final String title;
-  final String subtitle;
-  final String description;
-  final int dayNumber;
-  final String difficulty;
-  final int estimatedMinutes;
-  final String imageUrl;
-  final bool isCompleted;
-  final bool isActive;
-  final List<Exercise> exercises;
-  final List<String> tags;
-
-  TutorialDay({
-    required this.id,
-    required this.title,
-    required this.subtitle,
-    required this.description,
-    required this.dayNumber,
-    required this.difficulty,
-    required this.estimatedMinutes,
-    required this.imageUrl,
-    this.isCompleted = false,
-    this.isActive = false,
-    required this.exercises,
-    required this.tags,
-  });
-
-  factory TutorialDay.fromJson(Map<String, dynamic> json) {
-    return TutorialDay(
-      id: json['id'] ?? '',
-      title: json['title'] ?? '',
-      subtitle: json['subtitle'] ?? '',
-      description: json['description'] ?? '',
-      dayNumber: json['dayNumber'] ?? 1,
-      difficulty: json['difficulty'] ?? 'Beginner',
-      estimatedMinutes: json['estimatedMinutes'] ?? 0,
-      imageUrl: json['imageUrl'] ?? '',
-      isCompleted: json['isCompleted'] ?? false,
-      isActive: json['isActive'] ?? false,
-      exercises: (json['exercises'] as List?)
-              ?.map((e) => Exercise.fromJson(e))
-              .toList() ??
-          [],
-      tags: List<String>.from(json['tags'] ?? []),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'subtitle': subtitle,
-      'description': description,
-      'dayNumber': dayNumber,
-      'difficulty': difficulty,
-      'estimatedMinutes': estimatedMinutes,
-      'imageUrl': imageUrl,
-      'isCompleted': isCompleted,
-      'isActive': isActive,
-      'exercises': exercises.map((e) => e.toJson()).toList(),
-      'tags': tags,
-    };
-  }
-}
-
-/// Class representing an exercise within a tutorial day
-class Exercise {
-  final String id;
-  final String name;
-  final String description;
-  final String imageUrl;
+  final String activity;
+  final String bodyPart;
+  final String dayId;
+  final String dayName;
+  final String lastUpdated;
+  final String planId;
+  final String thumbnailId;
+  final String thumbnailUrl;
+  final String type;
+  final String videoId;
   final String videoUrl;
-  final int sets;
-  final int? reps; // Either reps or duration is used, not both
-  final int? duration; // Duration in seconds
-  final int restSeconds;
-  final List<String> targetMuscles;
-  final Map<String, dynamic>? modifiers; // For exercise variations
-
-  Exercise({
+  
+  VideoTutorial({
     required this.id,
-    required this.name,
-    required this.description,
-    required this.imageUrl,
+    required this.activity,
+    required this.bodyPart,
+    required this.dayId,
+    required this.dayName,
+    required this.lastUpdated,
+    required this.planId,
+    required this.thumbnailId,
+    required this.thumbnailUrl,
+    required this.type,
+    required this.videoId,
     required this.videoUrl,
-    required this.sets,
-    this.reps,
-    this.duration,
-    required this.restSeconds,
-    required this.targetMuscles,
-    this.modifiers,
   });
-
-  factory Exercise.fromJson(Map<String, dynamic> json) {
-    return Exercise(
-      id: json['id'] ?? '',
-      name: json['name'] ?? '',
-      description: json['description'] ?? '',
-      imageUrl: json['imageUrl'] ?? '',
-      videoUrl: json['videoUrl'] ?? '',
-      sets: json['sets'] ?? 1,
-      reps: json['reps'],
-      duration: json['duration'],
-      restSeconds: json['restSeconds'] ?? 30,
-      targetMuscles: List<String>.from(json['targetMuscles'] ?? []),
-      modifiers: json['modifiers'],
+  
+  factory VideoTutorial.fromMap(Map<String, dynamic> map, String documentId) {
+    return VideoTutorial(
+      id: documentId,
+      activity: map['activity'] ?? '',
+      bodyPart: map['bodypart'] ?? '',
+      dayId: map['dayId'] ?? '',
+      dayName: map['dayName'] ?? '',
+      lastUpdated: map['lastUpdated'] ?? '',
+      planId: map['planId'] ?? '',
+      thumbnailId: map['thumbnailId'] ?? '',
+      thumbnailUrl: map['thumbnailUrl'] ?? '',
+      type: map['type'] ?? '',
+      videoId: map['videoId'] ?? '',
+      videoUrl: map['videoUrl'] ?? '',
     );
   }
-
-  Map<String, dynamic> toJson() {
+  
+  Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'name': name,
-      'description': description,
-      'imageUrl': imageUrl,
+      'activity': activity,
+      'bodypart': bodyPart,
+      'dayId': dayId,
+      'dayName': dayName,
+      'lastUpdated': lastUpdated,
+      'planId': planId,
+      'thumbnailId': thumbnailId,
+      'thumbnailUrl': thumbnailUrl,
+      'type': type,
+      'videoId': videoId,
       'videoUrl': videoUrl,
-      'sets': sets,
-      'reps': reps,
-      'duration': duration,
-      'restSeconds': restSeconds,
-      'targetMuscles': targetMuscles,
-      'modifiers': modifiers,
     };
   }
-
-  bool get isTimeBased => duration != null;
 }
 
-/// Class representing a user's progress for a specific tutorial
-class TutorialProgress {
-  final String userId;
-  final String tutorialId;
-  final Map<String, bool> completedDays;
-  final int lastCompletedDay;
-  final DateTime startedAt;
-  final DateTime? completedAt;
-  final DateTime lastUpdatedAt;
-
-  TutorialProgress({
-    required this.userId,
-    required this.tutorialId,
-    required this.completedDays,
-    required this.lastCompletedDay,
-    required this.startedAt,
-    this.completedAt,
-    required this.lastUpdatedAt,
+class TutorialPlan {
+  final String planId;
+  final String name;
+  final List<TutorialDay> days;
+  
+  TutorialPlan({
+    required this.planId,
+    required this.name,
+    required this.days,
   });
+}
 
-  factory TutorialProgress.fromJson(Map<String, dynamic> json) {
-    return TutorialProgress(
-      userId: json['userId'] ?? '',
-      tutorialId: json['tutorialId'] ?? '',
-      completedDays: Map<String, bool>.from(json['completedDays'] ?? {}),
-      lastCompletedDay: json['lastCompletedDay'] ?? 0,
-      startedAt: (json['startedAt'] as Timestamp).toDate(),
-      completedAt: json['completedAt'] != null
-          ? (json['completedAt'] as Timestamp).toDate()
-          : null,
-      lastUpdatedAt: (json['lastUpdatedAt'] as Timestamp).toDate(),
-    );
-  }
+class TutorialDay {
+  final String dayId;
+  final String dayName;
+  final List<VideoTutorial> videos;
+  
+  TutorialDay({
+    required this.dayId,
+    required this.dayName,
+    required this.videos,
+  });
+}
 
-  Map<String, dynamic> toJson() {
-    return {
-      'userId': userId,
-      'tutorialId': tutorialId,
-      'completedDays': completedDays,
-      'lastCompletedDay': lastCompletedDay,
-      'startedAt': Timestamp.fromDate(startedAt),
-      'completedAt': completedAt != null ? Timestamp.fromDate(completedAt!) : null,
-      'lastUpdatedAt': Timestamp.fromDate(lastUpdatedAt),
-    };
-  }
+// Mock function to get all available tutorials from Firebase
+List<VideoTutorial> getMockTutorials() {
+  return [
+    VideoTutorial(
+      id: '10011090_18687781_2023_bc001.mp4',
+      activity: 'Press de banca - Barra',
+      bodyPart: 'Pecho, Tríceps, Hombros parte delantera',
+      dayId: '18687781',
+      dayName: 'día 1',
+      lastUpdated: '27 mars 2025 à 13:47:45 UTC+1',
+      planId: '10011090',
+      thumbnailId: '3167082263',
+      thumbnailUrl: 'https://sagafit.blob.core.windows.net/sagathumbnails/10011090/d%C3%ADa%201/images/3167082263.png',
+      type: 'strength',
+      videoId: '2023_bc001.mp4',
+      videoUrl: 'https://sagafit.blob.core.windows.net/sagafitvideos/10011090/día 1/2023_bc001.mp4',
+    ),
+    VideoTutorial(
+      id: '10011090_18687781_2023_cm005.mp4',
+      activity: 'Cinta de correr 8 km/h ~ 5 mph',
+      bodyPart: 'Sistema cardiovascular, Piernas',
+      dayId: '18687781',
+      dayName: 'día 1',
+      lastUpdated: '27 mars 2025 à 13:47:45 UTC+1',
+      planId: '10011090',
+      thumbnailId: '3167082247',
+      thumbnailUrl: 'https://sagafit.blob.core.windows.net/sagathumbnails/10011090/d%C3%ADa%201/images/3167082247.png',
+      type: 'cardio',
+      videoId: '2023_cm005.mp4',
+      videoUrl: 'https://sagafit.blob.core.windows.net/sagafitvideos/10011090/día 1/2023_cm005.mp4',
+    ),
+    VideoTutorial(
+      id: '10011090_18687781_2023_cw003.mp4',
+      activity: 'Jumping jacks',
+      bodyPart: 'Sistema cardiovascular, Cuerpo completo',
+      dayId: '18687781',
+      dayName: 'día 1',
+      lastUpdated: '27 mars 2025 à 13:47:45 UTC+1',
+      planId: '10011090',
+      thumbnailId: '3167082253',
+      thumbnailUrl: 'https://sagafit.blob.core.windows.net/sagathumbnails/10011090/d%C3%ADa%201/images/3167082253.png',
+      type: 'cardio',
+      videoId: '2023_cw003.mp4',
+      videoUrl: 'https://sagafit.blob.core.windows.net/sagafitvideos/10011090/día 1/2023_cw003.mp4',
+    ),
+    VideoTutorial(
+      id: '10011090_18687781_2023_gt001.mp4',
+      activity: 'Extension de codo - Polea',
+      bodyPart: 'Tríceps',
+      dayId: '18687781',
+      dayName: 'día 1',
+      lastUpdated: '27 mars 2025 à 13:47:45 UTC+1',
+      planId: '10011090',
+      thumbnailId: '3167082251',
+      thumbnailUrl: 'https://sagafit.blob.core.windows.net/sagathumbnails/10011090/d%C3%ADa%201/images/3167082251.png',
+      type: 'strength',
+      videoId: '2023_gt001.mp4',
+      videoUrl: 'https://sagafit.blob.core.windows.net/sagafitvideos/10011090/día 1/2023_gt001.mp4',
+    ),
+    VideoTutorial(
+      id: '10011090_18687781_2023_oa041.mp4',
+      activity: 'Curl de bíceps - Polea',
+      bodyPart: 'Bíceps',
+      dayId: '18687781',
+      dayName: 'día 1',
+      lastUpdated: '27 mars 2025 à 13:47:45 UTC+1',
+      planId: '10011090',
+      thumbnailId: '3167082252',
+      thumbnailUrl: 'https://sagafit.blob.core.windows.net/sagathumbnails/10011090/d%C3%ADa%201/images/3167082252.png',
+      type: 'strength',
+      videoId: '2023_oa041.mp4',
+      videoUrl: 'https://sagafit.blob.core.windows.net/sagafitvideos/10011090/día 1/2023_oa041.mp4',
+    ),
+    VideoTutorial(
+      id: '10011090_18687781_2023_ozp032.mp4',
+      activity: 'Saltos - Caja',
+      bodyPart: 'Cuádriceps, Glúteos, Corvas, Zona lumbar',
+      dayId: '18687781',
+      dayName: 'día 1',
+      lastUpdated: '27 mars 2025 à 13:47:45 UTC+1',
+      planId: '10011090',
+      thumbnailId: '3167082258',
+      thumbnailUrl: 'https://sagafit.blob.core.windows.net/sagathumbnails/10011090/d%C3%ADa%201/images/3167082258.png',
+      type: 'strength',
+      videoId: '2023_ozp032.mp4',
+      videoUrl: 'https://sagafit.blob.core.windows.net/sagafitvideos/10011090/día 1/2023_ozp032.mp4',
+    ),
+    VideoTutorial(
+      id: '10011090_18687782_2023_ds001.mp4',
+      activity: 'Elevaciones laterales de pie - mancuernas',
+      bodyPart: 'Hombros',
+      dayId: '18687782',
+      dayName: 'día 2',
+      lastUpdated: '27 mars 2025 à 13:47:45 UTC+1',
+      planId: '10011090',
+      thumbnailId: '3167082271',
+      thumbnailUrl: 'https://sagafit.blob.core.windows.net/sagathumbnails/10011090/d%C3%ADa%202/images/3167082271.png',
+      type: 'strength',
+      videoId: '2023_ds001.mp4',
+      videoUrl: 'https://sagafit.blob.core.windows.net/sagafitvideos/10011090/día 2/2023_ds001.mp4',
+    ),
+    VideoTutorial(
+      id: '10011090_18687782_2023_gb002.mp4',
+      activity: 'Jalon al pecho',
+      bodyPart: 'Dorsales, Bíceps, Espalda',
+      dayId: '18687782',
+      dayName: 'día 2',
+      lastUpdated: '27 mars 2025 à 13:47:45 UTC+1',
+      planId: '10011090',
+      thumbnailId: '3167082274',
+      thumbnailUrl: 'https://sagafit.blob.core.windows.net/sagathumbnails/10011090/d%C3%ADa%202/images/3167082274.png',
+      type: 'strength',
+      videoId: '2023_gb002.mp4',
+      videoUrl: 'https://sagafit.blob.core.windows.net/sagafitvideos/10011090/día 2/2023_gb002.mp4',
+    ),
+    VideoTutorial(
+      id: '10031897_18739877_2023_cm001.mp4',
+      activity: 'Máquina de remos, Intensidad baja',
+      bodyPart: 'Sistema cardiovascular, Cuerpo completo',
+      dayId: '18739877',
+      dayName: 'día 1',
+      lastUpdated: '27 mars 2025 à 13:47:49 UTC+1',
+      planId: '10031897',
+      thumbnailId: '3177842282',
+      thumbnailUrl: 'https://sagafit.blob.core.windows.net/sagathumbnails/10031897/d%C3%ADa%201/images/3177842282.png',
+      type: 'cardio',
+      videoId: '2023_cm001.mp4',
+      videoUrl: 'https://sagafit.blob.core.windows.net/sagafitvideos/10031897/día 1/2023_cm001.mp4',
+    ),
+    VideoTutorial(
+      id: '10031897_18739877_2023_cm002.mp4',
+      activity: 'Entrenador elíptico',
+      bodyPart: 'Sistema cardiovascular, Cuerpo completo',
+      dayId: '18739877',
+      dayName: 'día 1',
+      lastUpdated: '27 mars 2025 à 13:47:49 UTC+1',
+      planId: '10031897',
+      thumbnailId: '3177842285',
+      thumbnailUrl: 'https://sagafit.blob.core.windows.net/sagathumbnails/10031897/d%C3%ADa%201/images/3177842285.png',
+      type: 'cardio',
+      videoId: '2023_cm002.mp4',
+      videoUrl: 'https://sagafit.blob.core.windows.net/sagafitvideos/10031897/día 1/2023_cm002.mp4',
+    ),
+  ];
+}
 
-  double getProgressPercentage(int totalDays) {
-    if (totalDays <= 0) return 0.0;
-    return lastCompletedDay / totalDays;
+// Get unique muscle groups from all videos
+Set<String> getAllBodyParts() {
+  final List<VideoTutorial> allVideos = getMockTutorials();
+  final Set<String> bodyParts = {};
+  
+  for (final video in allVideos) {
+    // Split by commas and add individual body parts
+    final parts = video.bodyPart.split(', ');
+    bodyParts.addAll(parts);
   }
+  
+  return bodyParts;
+}
 
-  bool isCompleted(int totalDays) {
-    return lastCompletedDay >= totalDays;
+// Get all unique types (cardio, strength, etc.)
+Set<String> getAllExerciseTypes() {
+  final List<VideoTutorial> allVideos = getMockTutorials();
+  return allVideos.map((video) => video.type).toSet();
+}
+
+// Organize videos into plan/day structure
+List<TutorialPlan> organizeTutorialsByPlan() {
+  final List<VideoTutorial> allVideos = getMockTutorials();
+  
+  // Group videos by planId
+  final Map<String, Map<String, List<VideoTutorial>>> planMap = {};
+  
+  for (final video in allVideos) {
+    // Initialize plan if doesn't exist
+    if (!planMap.containsKey(video.planId)) {
+      planMap[video.planId] = {};
+    }
+    
+    // Initialize day if doesn't exist
+    if (!planMap[video.planId]!.containsKey(video.dayId)) {
+      planMap[video.planId]![video.dayId] = [];
+    }
+    
+    // Add video to appropriate day
+    planMap[video.planId]![video.dayId]!.add(video);
   }
+  
+  // Convert to TutorialPlan objects
+  final List<TutorialPlan> plans = [];
+  
+  planMap.forEach((planId, daysMap) {
+    final List<TutorialDay> days = [];
+    
+    daysMap.forEach((dayId, videos) {
+      final String dayName = videos.first.dayName;
+      
+      days.add(TutorialDay(
+        dayId: dayId,
+        dayName: dayName,
+        videos: videos,
+      ));
+    });
+    
+    plans.add(TutorialPlan(
+      planId: planId,
+      name: 'Plan $planId',
+      days: days,
+    ));
+  });
+  
+  return plans;
 }
