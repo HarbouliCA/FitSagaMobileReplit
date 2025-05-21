@@ -5,7 +5,7 @@ import 'package:fitsaga/providers/auth_provider.dart';
 import 'package:fitsaga/theme/app_theme.dart';
 import 'package:fitsaga/config/constants.dart';
 import 'package:fitsaga/widgets/common/loading_indicator.dart';
-import 'package:fitsaga/widgets/common/error_widget.dart';
+// Replaced with inline error display
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -107,7 +107,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   padding: const EdgeInsets.all(AppTheme.paddingRegular),
                   margin: const EdgeInsets.only(bottom: AppTheme.spacingLarge),
                   decoration: BoxDecoration(
-                    color: AppTheme.errorColor.withOpacity(0.1),
+                    color: AppTheme.errorColor.withValues(color: AppTheme.errorColor, opacity: 0.1),
                     borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
                     border: Border.all(
                       color: AppTheme.errorColor,

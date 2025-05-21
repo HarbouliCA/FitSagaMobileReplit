@@ -38,7 +38,7 @@ class CreditBadge extends StatelessWidget {
               vertical: 4,
             ),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(color: Colors.white, opacity: 0.2),
               borderRadius: BorderRadius.circular(AppTheme.borderRadiusLarge),
             ),
             child: Row(
