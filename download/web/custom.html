@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FitSAGA - Gym Management App</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f9f9f9;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      max-width: 500px;
+      width: 100%;
+      padding: 40px 20px;
+    }
+    
+    .logo-container {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    
+    .logo {
+      width: 80px;
+      height: 80px;
+      background-color: #4A58C0;
+      border-radius: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 0 auto 16px;
+    }
+    
+    .logo svg {
+      width: 40px;
+      height: 40px;
+      fill: white;
+    }
+    
+    .app-title {
+      color: #4A58C0;
+      font-size: 28px;
+      font-weight: bold;
+      margin: 0;
+    }
+    
+    .app-subtitle {
+      color: #666;
+      font-size: 14px;
+      margin: 4px 0 0;
+    }
+    
+    .role-selection {
+      width: 100%;
+      max-width: 300px;
+      margin-top: 40px;
+    }
+    
+    .role-title {
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 24px;
+    }
+    
+    .role-btn {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      margin-bottom: 16px;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+    
+    .role-btn:hover {
+      opacity: 0.9;
+    }
+    
+    .role-btn-admin {
+      background-color: #E53935;
+    }
+    
+    .role-btn-instructor {
+      background-color: #4CAF50;
+    }
+    
+    .role-btn-client {
+      background-color: #2196F3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo-container">
+      <div class="logo">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+          <path d="M12 5C10.3431 5 9 6.34315 9 8C9 9.65685 10.3431 11 12 11C13.6569 11 15 9.65685 15 8C15 6.34315 13.6569 5 12 5ZM7 15C7 13.8954 7.89543 13 9 13H15C16.1046 13 17 13.8954 17 15V17H7V15Z" fill="white"/>
+        </svg>
+      </div>
+      <h1 class="app-title">FitSAGA</h1>
+      <p class="app-subtitle">Gym Management App</p>
+    </div>
+    
+    <div class="role-selection">
+      <h2 class="role-title">Select Your Role</h2>
+      
+      <button class="role-btn role-btn-admin" onclick="selectRole('admin')">
+        Admin
+      </button>
+      
+      <button class="role-btn role-btn-instructor" onclick="selectRole('instructor')">
+        Instructor
+      </button>
+      
+      <button class="role-btn role-btn-client" onclick="selectRole('client')">
+        Client
+      </button>
+    </div>
+  </div>
+
+  <script>
+    function selectRole(role) {
+      console.log(`Selected role: ${role}`);
+      alert(`You selected the ${role} role`);
+      // In a real app, this would navigate to the appropriate dashboard
+    }
+  </script>
+</body>
+</html>

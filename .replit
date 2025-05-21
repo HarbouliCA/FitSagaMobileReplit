@@ -1,11 +1,11 @@
-modules = ["flutter", "flutter/3.19.3"]
+modules = ["flutter", "flutter/3.19.3", "python-3.11"]
 
 [nix]
 channel = "stable-24_05"
 packages = ["flutter"]
 
 [workflows]
-runButton = "FlutterApp"
+runButton = "Project"
 
 [[workflows.workflow]]
 name = "Project"
@@ -14,15 +14,15 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "FlutterApp"
+args = "SimpleWebServer"
 
 [[workflows.workflow]]
-name = "FlutterApp"
+name = "SimpleWebServer"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "flutter run -d web-server --web-renderer html --web-hostname=0.0.0.0 --web-port=5000"
+args = "cd download && python3 -m http.server 5000"
 waitForPort = 5000
 
 [deployment]
