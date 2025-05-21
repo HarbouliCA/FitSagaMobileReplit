@@ -1,4 +1,4 @@
-modules = ["flutter", "flutter/3.19.3", "python-3.11"]
+modules = ["flutter", "flutter/3.19.3", "python-3.11", "nodejs-20"]
 
 [nix]
 channel = "stable-24_05"
