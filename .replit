@@ -5,7 +5,7 @@ channel = "stable-24_05"
 packages = ["flutter"]
 
 [workflows]
-runButton = "Project"
+runButton = "FlutterApp"
 
 [[workflows.workflow]]
 name = "Project"
