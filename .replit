@@ -22,7 +22,7 @@ args = "FitSAGAApp"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "FitSAGAMobile"
+args = "FitSAGAWeb"
 
 [[workflows.workflow]]
 name = "SimpleWebServer"
@@ -43,13 +43,12 @@ args = "cd download/fitsaga-app && npm run web -- --port 5000"
 waitForPort = 5000
 
 [[workflows.workflow]]
-name = "FitSAGAMobile"
+name = "FitSAGAWeb"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd download/fitsaga-app && npx expo start --tunnel"
-waitForPort = 8081
+args = "cd download/fitsaga-app && npm test"
 
 [deployment]
 run = ["sh", "-c", "flutter pub get && flutter run -d web-server --web-port 5000 --web-hostname 0.0.0.0"]
