@@ -48,8 +48,8 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd download/fitsaga-app && npm start"
-waitForPort = 19000
+args = "cd download/fitsaga-app && npx expo start --tunnel"
+waitForPort = 8081
 
 [deployment]
 run = ["sh", "-c", "flutter pub get && flutter run -d web-server --web-port 5000 --web-hostname 0.0.0.0"]
