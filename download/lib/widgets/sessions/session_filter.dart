@@ -111,7 +111,7 @@ class _SessionFilterState extends State<SessionFilter> {
                   Padding(
                     padding: const EdgeInsets.only(right: AppTheme.paddingSmall),
                     child: ActionChip(
-                      backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                      backgroundColor: AppTheme.primaryColor.withValues(color: AppTheme.primaryColor, opacity: 0.1),
                       labelStyle: const TextStyle(
                         color: AppTheme.primaryColor,
                         fontWeight: FontWeight.bold,
@@ -135,7 +135,7 @@ class _SessionFilterState extends State<SessionFilter> {
                 Padding(
                   padding: const EdgeInsets.only(left: AppTheme.paddingSmall),
                   child: ActionChip(
-                    backgroundColor: Colors.grey.withOpacity(0.1),
+                    backgroundColor: Colors.grey.withValues(color: Colors.grey, opacity: 0.1),
                     labelStyle: const TextStyle(
                       color: AppTheme.textColor,
                     ),
@@ -184,8 +184,8 @@ class _SessionFilterState extends State<SessionFilter> {
       padding: const EdgeInsets.only(right: AppTheme.paddingSmall),
       child: FilterChip(
         selected: isSelected,
-        selectedColor: AppTheme.primaryColor.withOpacity(0.2),
-        backgroundColor: Colors.grey.withOpacity(0.1),
+        selectedColor: AppTheme.primaryColor.withValues(color: AppTheme.primaryColor, opacity: 0.2),
+        backgroundColor: Colors.grey.withValues(color: Colors.grey, opacity: 0.1),
         checkmarkColor: AppTheme.primaryColor,
         labelStyle: TextStyle(
           color: isSelected ? AppTheme.primaryColor : AppTheme.textColor,
@@ -221,8 +221,8 @@ class _SessionFilterState extends State<SessionFilter> {
       padding: const EdgeInsets.only(right: AppTheme.paddingSmall),
       child: FilterChip(
         selected: isSelected,
-        selectedColor: AppTheme.primaryColor.withOpacity(0.2),
-        backgroundColor: Colors.grey.withOpacity(0.1),
+        selectedColor: AppTheme.primaryColor.withValues(color: AppTheme.primaryColor, opacity: 0.2),
+        backgroundColor: Colors.grey.withValues(color: Colors.grey, opacity: 0.1),
         checkmarkColor: AppTheme.primaryColor,
         labelStyle: TextStyle(
           color: isSelected ? AppTheme.primaryColor : AppTheme.textColor,

@@ -85,7 +85,7 @@ class _TutorialVideoScreenState extends State<TutorialVideoScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: _getDifficultyColor(exercise.difficulty).withOpacity(0.1),
+                          color: _getDifficultyColor(exercise.difficulty).withValues(color: _getDifficultyColor(exercise.difficulty), opacity: 0.1),
                           borderRadius: BorderRadius.circular(AppTheme.borderRadiusSmall),
                         ),
                         child: Text(
@@ -179,7 +179,7 @@ class _TutorialVideoScreenState extends State<TutorialVideoScreen> {
                       runSpacing: 8,
                       children: exercise.muscleGroups!.map((muscle) => Chip(
                         label: Text(muscle),
-                        backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                        backgroundColor: AppTheme.primaryColor.withValues(color: AppTheme.primaryColor, opacity: 0.1),
                         labelStyle: TextStyle(
                           color: AppTheme.primaryColor,
                         ),

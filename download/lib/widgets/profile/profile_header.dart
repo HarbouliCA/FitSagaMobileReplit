@@ -25,7 +25,7 @@ class ProfileHeader extends StatelessWidget {
         color: AppTheme.primaryColor,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(color: Colors.black, opacity: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -106,7 +106,7 @@ class ProfileHeader extends StatelessWidget {
             user.email,
             style: TextStyle(
               fontSize: AppTheme.fontSizeRegular,
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withValues(color: Colors.white, opacity: 0.8),
             ),
             textAlign: TextAlign.center,
           ),
@@ -120,7 +120,7 @@ class ProfileHeader extends StatelessWidget {
               vertical: 4,
             ),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(color: Colors.white, opacity: 0.2),
               borderRadius: BorderRadius.circular(AppTheme.borderRadiusLarge),
             ),
             child: Text(
@@ -139,7 +139,7 @@ class ProfileHeader extends StatelessWidget {
             'Member since ${DateFormatter.formatDate(user.memberSince)}',
             style: TextStyle(
               fontSize: AppTheme.fontSizeSmall,
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withValues(color: Colors.white, opacity: 0.8),
             ),
             textAlign: TextAlign.center,
           ),

@@ -51,7 +51,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             vertical: 6,
           ),
           decoration: BoxDecoration(
-            color: creditProvider.getCreditStatusColor().withOpacity(0.2),
+            color: creditProvider.getCreditStatusColor().withValues(color: creditProvider.getCreditStatusColor(), opacity: 0.2),
             borderRadius: BorderRadius.circular(AppTheme.borderRadiusRound),
             border: Border.all(
               color: creditProvider.getCreditStatusColor(),
@@ -201,7 +201,7 @@ class _SearchAppBarState extends State<SearchAppBar> {
             vertical: 6,
           ),
           decoration: BoxDecoration(
-            color: creditProvider.getCreditStatusColor().withOpacity(0.2),
+            color: creditProvider.getCreditStatusColor().withValues(color: creditProvider.getCreditStatusColor(), opacity: 0.2),
             borderRadius: BorderRadius.circular(AppTheme.borderRadiusRound),
             border: Border.all(
               color: creditProvider.getCreditStatusColor(),

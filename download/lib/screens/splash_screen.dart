@@ -59,7 +59,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Colors.black.withValues(color: Colors.black, opacity: 0.2),
                     blurRadius: 10,
                     spreadRadius: 2,
                     offset: const Offset(0, 4),
@@ -95,7 +95,7 @@ class _SplashScreenState extends State<SplashScreen> {
               'Fitness Made Simple',
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white.withValues(color: Colors.white, opacity: 0.8),
                 letterSpacing: 0.5,
               ),
             ),

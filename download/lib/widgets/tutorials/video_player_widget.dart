@@ -247,7 +247,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
                                     max: _controller.value.duration.inMilliseconds
                                         .toDouble(),
                                     activeColor: AppTheme.primaryColor,
-                                    inactiveColor: Colors.white.withOpacity(0.3),
+                                    inactiveColor: Colors.white.withValues(color: Colors.white, opacity: 0.3),
                                     onChanged: (value) {
                                       setState(() {
                                         _controller.seekTo(

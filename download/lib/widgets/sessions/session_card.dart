@@ -86,7 +86,7 @@ class SessionCard extends StatelessWidget {
             // Session header with activity type and date
             Container(
               decoration: BoxDecoration(
-                color: tagColor.withOpacity(0.1),
+                color: tagColor.withValues(color: tagColor, opacity: 0.1),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(AppTheme.borderRadiusRegular),
                   topRight: Radius.circular(AppTheme.borderRadiusRegular),
@@ -258,7 +258,7 @@ class SessionCard extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          color: AppTheme.primaryColor.withValues(color: AppTheme.primaryColor, opacity: 0.1),
                           borderRadius: BorderRadius.circular(
                             AppTheme.borderRadiusSmall
                           ),
@@ -386,7 +386,7 @@ class CompactSessionCard extends StatelessWidget {
                   Container(
                     width: 2,
                     height: 8,
-                    color: AppTheme.textLightColor.withOpacity(0.5),
+                    color: AppTheme.textLightColor.withValues(color: AppTheme.textLightColor, opacity: 0.5),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -413,7 +413,7 @@ class CompactSessionCard extends StatelessWidget {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: tagColor.withOpacity(0.1),
+                        color: tagColor.withValues(color: tagColor, opacity: 0.1),
                         borderRadius: BorderRadius.circular(
                           AppTheme.borderRadiusSmall
                         ),

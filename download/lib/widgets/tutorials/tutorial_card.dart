@@ -129,7 +129,7 @@ class TutorialCard extends StatelessWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.7),
+                      color: Colors.black.withValues(color: Colors.black, opacity: 0.7),
                       borderRadius: BorderRadius.circular(AppTheme.borderRadiusSmall),
                     ),
                     child: Row(
@@ -314,8 +314,8 @@ class FeaturedTutorialCard extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: tutorial.category == 'exercise' 
-                                ? AppTheme.exerciseColor.withOpacity(0.1) 
-                                : AppTheme.nutritionColor.withOpacity(0.1),
+                                ? AppTheme.exerciseColor.withValues(color: AppTheme.exerciseColor, opacity: 0.1) 
+                                : AppTheme.nutritionColor.withValues(color: AppTheme.nutritionColor, opacity: 0.1),
                             borderRadius: BorderRadius.circular(AppTheme.borderRadiusSmall),
                           ),
                           child: Text(
@@ -336,7 +336,7 @@ class FeaturedTutorialCard extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.grey.withOpacity(0.1),
+                            color: Colors.grey.withValues(color: Colors.grey, opacity: 0.1),
                             borderRadius: BorderRadius.circular(AppTheme.borderRadiusSmall),
                           ),
                           child: Text(

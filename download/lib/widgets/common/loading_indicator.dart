@@ -84,7 +84,7 @@ class FullScreenLoadingIndicator extends StatelessWidget {
       child: GestureDetector(
         onTap: dismissible ? onDismiss : null,
         child: Container(
-          color: Colors.black.withOpacity(0.5),
+          color: Colors.black.withValues(color: Colors.black, opacity: 0.5),
           child: Center(
             child: Container(
               width: 200,
@@ -94,7 +94,7 @@ class FullScreenLoadingIndicator extends StatelessWidget {
                 borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Colors.black.withValues(color: Colors.black, opacity: 0.2),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -125,7 +125,7 @@ class FullScreenLoadingIndicator extends StatelessWidget {
                       'Tap anywhere to dismiss',
                       style: TextStyle(
                         fontSize: AppTheme.fontSizeSmall,
-                        color: AppTheme.textLightColor.withOpacity(0.7),
+                        color: AppTheme.textLightColor.withValues(color: AppTheme.textLightColor, opacity: 0.7),
                         fontStyle: FontStyle.italic,
                       ),
                     ),

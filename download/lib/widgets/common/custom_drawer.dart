@@ -164,7 +164,7 @@ class CustomDrawer extends StatelessWidget {
             if (user != null) ...[
               CircleAvatar(
                 radius: 30,
-                backgroundColor: Colors.white.withOpacity(0.2),
+                backgroundColor: Colors.white.withValues(color: Colors.white, opacity: 0.2),
                 child: Text(
                   user.name != null && user.name!.isNotEmpty
                       ? user.name![0].toUpperCase()
@@ -188,7 +188,7 @@ class CustomDrawer extends StatelessWidget {
               Text(
                 user.email,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withValues(color: Colors.white, opacity: 0.8),
                   fontSize: AppTheme.fontSizeSmall,
                 ),
               ),
@@ -200,7 +200,7 @@ class CustomDrawer extends StatelessWidget {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(color: Colors.white, opacity: 0.2),
                     borderRadius: BorderRadius.circular(AppTheme.borderRadiusRound),
                   ),
                   child: Text(
@@ -236,7 +236,7 @@ class CustomDrawer extends StatelessWidget {
               Text(
                 'Login to access all features',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withValues(color: Colors.white, opacity: 0.8),
                   fontSize: AppTheme.fontSizeSmall,
                 ),
               ),

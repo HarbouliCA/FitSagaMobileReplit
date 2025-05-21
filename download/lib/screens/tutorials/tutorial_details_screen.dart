@@ -280,8 +280,8 @@ class TutorialDetailsScreen extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.black.withOpacity(0.1),
-                Colors.black.withOpacity(0.5),
+                Colors.black.withValues(color: Colors.black, opacity: 0.1),
+                Colors.black.withValues(color: Colors.black, opacity: 0.5),
               ],
             ),
           ),
@@ -385,7 +385,7 @@ class TutorialDetailsScreen extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withOpacity(0.1),
+            color: AppTheme.primaryColor.withValues(color: AppTheme.primaryColor, opacity: 0.1),
             shape: BoxShape.circle,
           ),
           child: Center(
@@ -477,7 +477,7 @@ class TutorialDetailsScreen extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withOpacity(0.1),
+            color: AppTheme.primaryColor.withValues(color: AppTheme.primaryColor, opacity: 0.1),
             borderRadius: BorderRadius.circular(AppTheme.borderRadiusSmall),
           ),
           child: Icon(

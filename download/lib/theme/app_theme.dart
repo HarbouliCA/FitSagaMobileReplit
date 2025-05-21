@@ -317,10 +317,10 @@ class AppTheme {
         }),
         trackColor: MaterialStateProperty.resolveWith<Color>((states) {
           if (states.contains(MaterialState.disabled)) {
-            return textLightColor.withOpacity(0.5);
+            return textLightColor.withValues(color: textLightColor, opacity: 0.5);
           }
           if (states.contains(MaterialState.selected)) {
-            return primaryColor.withOpacity(0.5);
+            return primaryColor.withValues(color: primaryColor, opacity: 0.5);
           }
           return textLightColor;
         }),
