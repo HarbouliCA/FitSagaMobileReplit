@@ -140,7 +140,7 @@ class TutorialFilter extends StatelessWidget {
                 icon: const Icon(Icons.clear),
                 label: const Text('Clear Filters'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                  backgroundColor: AppTheme.primaryColor.withValues(color: AppTheme.primaryColor, opacity: 0.1),
                   foregroundColor: AppTheme.primaryColor,
                   elevation: 0,
                 ),
@@ -158,8 +158,8 @@ class TutorialFilter extends StatelessWidget {
       padding: const EdgeInsets.only(right: AppTheme.paddingSmall),
       child: FilterChip(
         selected: isSelected,
-        selectedColor: AppTheme.primaryColor.withOpacity(0.2),
-        backgroundColor: Colors.grey.withOpacity(0.1),
+        selectedColor: AppTheme.primaryColor.withValues(color: AppTheme.primaryColor, opacity: 0.2),
+        backgroundColor: Colors.grey.withValues(color: Colors.grey, opacity: 0.1),
         checkmarkColor: AppTheme.primaryColor,
         labelStyle: TextStyle(
           color: isSelected ? AppTheme.primaryColor : AppTheme.textColor,
@@ -185,8 +185,8 @@ class TutorialFilter extends StatelessWidget {
       padding: const EdgeInsets.only(right: AppTheme.paddingSmall),
       child: FilterChip(
         selected: isSelected,
-        selectedColor: AppTheme.primaryColor.withOpacity(0.2),
-        backgroundColor: Colors.grey.withOpacity(0.1),
+        selectedColor: AppTheme.primaryColor.withValues(color: AppTheme.primaryColor, opacity: 0.2),
+        backgroundColor: Colors.grey.withValues(color: Colors.grey, opacity: 0.1),
         checkmarkColor: AppTheme.primaryColor,
         labelStyle: TextStyle(
           color: isSelected ? AppTheme.primaryColor : AppTheme.textColor,

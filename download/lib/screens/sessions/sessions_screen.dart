@@ -377,7 +377,7 @@ class _SessionsScreenState extends State<SessionsScreen> with SingleTickerProvid
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
+                    color: statusColor.withValues(color: statusColor, opacity: 0.1),
                     borderRadius: BorderRadius.circular(AppTheme.borderRadiusSmall),
                   ),
                   child: Row(
