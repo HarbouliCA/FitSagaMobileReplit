@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 import 'package:fitsaga/providers/auth_provider.dart';
 import 'package:fitsaga/theme/app_theme.dart';

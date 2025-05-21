@@ -299,4 +299,9 @@ class AuthProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
   }
+  
+  /// Private method to clear any existing error message
+  void _clearError() {
+    _error = null;
+  }
 }
