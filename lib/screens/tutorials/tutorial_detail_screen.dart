@@ -1,98 +1,250 @@
 import 'package:flutter/material.dart';
-import 'package:fitsaga/models/auth_model.dart';
-import 'package:fitsaga/theme/app_theme.dart';
-import 'package:fitsaga/screens/tutorials/tutorials_screen.dart';
+import '../../models/tutorial_model.dart';
 
 class TutorialDetailScreen extends StatefulWidget {
-  final Tutorial tutorial;
-  final User user;
+  final String tutorialId;
   
   const TutorialDetailScreen({
     Key? key,
-    required this.tutorial,
-    required this.user,
+    required this.tutorialId,
   }) : super(key: key);
-
+  
   @override
   State<TutorialDetailScreen> createState() => _TutorialDetailScreenState();
 }
 
 class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
-  bool _isPlaying = false;
-  double _progress = 0.0;
-  bool _isFullScreen = false;
-  bool _isMuted = false;
+  bool _isLoading = true;
+  String? _errorMessage;
+  TutorialProgram? _tutorial;
+  int _selectedVideoIndex = 0;
   
+  @override
+  void initState() {
+    super.initState();
+    _loadTutorial();
+  }
+  
+  // Load tutorial data from Firebase
+  Future<void> _loadTutorial() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    
+    try {
+      // In a real app, this would fetch from Firebase
+      // final firestore = FirebaseFirestore.instance;
+      // final doc = await firestore.collection('tutorials').doc(widget.tutorialId).get();
+      // if (doc.exists) {
+      //   _tutorial = await TutorialProgram.fromFirestore(doc, firestore);
+      // } else {
+      //   _errorMessage = 'Tutorial not found';
+      // }
+      
+      // For demo, create a mock tutorial
+      await Future.delayed(const Duration(seconds: 1));
+      _tutorial = TutorialProgram(
+        id: 'mock-tutorial-1',
+        title: 'Full Body Strength Training',
+        description: 'A comprehensive strength training program targeting all major muscle groups.',
+        category: 'Strength',
+        difficulty: 'Intermediate',
+        videos: VideoTutorial.getMockTutorials()
+            .where((v) => v.type == 'strength')
+            .toList(),
+        creatorId: 'instructor-1',
+        creatorName: 'David Clark',
+        createdAt: DateTime.now(),
+      );
+      
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load tutorial: ${e.toString()}';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _isFullScreen 
-          ? null 
-          : AppBar(
-              title: Text(widget.tutorial.title),
-              actions: [
-                if (widget.user.role != UserRole.client)
-                  IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Edit tutorial feature coming soon'),
-                        ),
-                      );
-                    },
-                  ),
-              ],
-            ),
-      body: _isFullScreen
-          ? _buildFullScreenVideoPlayer()
-          : _buildTutorialDetail(),
+      appBar: AppBar(
+        title: Text(_tutorial?.title ?? 'Tutorial Details'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Share feature coming soon')),
+              );
+            },
+          ),
+        ],
+      ),
+      body: _isLoading 
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? Center(child: Text(_errorMessage!))
+              : _buildTutorialDetails(),
     );
   }
   
-  Widget _buildTutorialDetail() {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Video player
+  Widget _buildTutorialDetails() {
+    if (_tutorial == null) {
+      return const Center(child: Text('Tutorial not found'));
+    }
+    
+    final tutorial = _tutorial!;
+    final selectedVideo = tutorial.videos.isNotEmpty ? tutorial.videos[_selectedVideoIndex] : null;
+    
+    return Column(
+      children: [
+        // Video player area
+        if (selectedVideo != null) ...[
           AspectRatio(
             aspectRatio: 16 / 9,
             child: Stack(
-              fit: StackFit.expand,
+              alignment: Alignment.center,
               children: [
-                // Video thumbnail
-                Image.network(
-                  widget.tutorial.thumbnailUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Colors.black,
-                      child: const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          color: Colors.white,
-                          size: 48,
-                        ),
-                      ),
-                    );
+                // Video thumbnail or placeholder
+                Container(
+                  color: Colors.black,
+                  child: Center(
+                    child: Icon(
+                      selectedVideo.type == 'cardio'
+                          ? Icons.directions_run
+                          : Icons.fitness_center,
+                      color: Colors.white,
+                      size: 50,
+                    ),
+                  ),
+                ),
+                
+                // Play button overlay
+                IconButton(
+                  icon: const Icon(
+                    Icons.play_circle_fill,
+                    color: Colors.white,
+                    size: 64,
+                  ),
+                  onPressed: () {
+                    // In a real app, this would play the video
+                    _showVideoDialog(selectedVideo);
                   },
                 ),
                 
-                // Play button and controls overlay
-                _buildVideoControls(),
+                // Video title overlay
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    color: Colors.black.withOpacity(0.5),
+                    child: Text(
+                      selectedVideo.activity,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
           
-          Padding(
+          // Video selection tabs
+          SizedBox(
+            height: 70,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.all(8),
+              itemCount: tutorial.videos.length,
+              itemBuilder: (context, index) {
+                final video = tutorial.videos[index];
+                final isSelected = index == _selectedVideoIndex;
+                
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedVideoIndex = index;
+                    });
+                  },
+                  child: Container(
+                    width: 100,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: isSelected ? Colors.blue : Colors.transparent,
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Thumbnail background
+                        Container(
+                          color: video.type == 'cardio'
+                              ? Colors.red.withOpacity(0.2)
+                              : Colors.blue.withOpacity(0.2),
+                          child: Center(
+                            child: Icon(
+                              video.type == 'cardio'
+                                  ? Icons.directions_run
+                                  : Icons.fitness_center,
+                              color: video.type == 'cardio'
+                                  ? Colors.red
+                                  : Colors.blue,
+                            ),
+                          ),
+                        ),
+                        
+                        // Number badge for ordering
+                        Positioned(
+                          top: 4,
+                          left: 4,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.6),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              '${index + 1}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+        
+        // Tutorial details
+        Expanded(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Title and metadata
+                // Title and creator
                 Text(
-                  widget.tutorial.title,
+                  tutorial.title,
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -101,69 +253,28 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
                 
                 const SizedBox(height: 8),
                 
-                // Metadata row
+                Text(
+                  'Created by ${tutorial.creatorName}',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                  ),
+                ),
+                
+                const SizedBox(height: 16),
+                
+                // Category and difficulty badges
                 Row(
                   children: [
-                    // Category tag
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _getCategoryColor().withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: _getCategoryColor().withOpacity(0.5),
-                        ),
-                      ),
-                      child: Text(
-                        widget.tutorial.category,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: _getCategoryColor(),
-                        ),
-                      ),
+                    _buildBadge(
+                      tutorial.category,
+                      Colors.blue,
                     ),
                     
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 8),
                     
-                    // Duration
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.timer,
-                          size: 16,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _formatDuration(widget.tutorial.durationSeconds),
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(width: 16),
-                    
-                    // Release date
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.calendar_today,
-                          size: 16,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _formatDate(widget.tutorial.publishedDate),
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
+                    _buildBadge(
+                      tutorial.difficulty,
+                      _getDifficultyColor(tutorial.difficulty),
                     ),
                   ],
                 ),
@@ -181,239 +292,23 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
                 
                 const SizedBox(height: 8),
                 
-                Text(
-                  widget.tutorial.description,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[800],
-                    height: 1.5,
-                  ),
-                ),
+                Text(tutorial.description),
                 
                 const SizedBox(height: 24),
                 
-                // Instructor info
+                // Video list
                 const Text(
-                  'Instructor',
+                  'Exercises',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 30,
-                      backgroundColor: Colors.grey[300],
-                      child: Text(
-                        widget.tutorial.instructorName.substring(0, 1),
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    
-                    const SizedBox(width: 16),
-                    
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.tutorial.instructorName,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Certified Personal Trainer',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    OutlinedButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('View instructor profile feature coming soon'),
-                          ),
-                        );
-                      },
-                      child: const Text('View Profile'),
-                    ),
-                  ],
-                ),
-                
-                const SizedBox(height: 24),
-                
-                // Related tutorials
-                const Text(
-                  'Related Tutorials',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                
-                const SizedBox(height: 12),
-                
-                SizedBox(
-                  height: 220,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _getRelatedTutorials().length,
-                    itemBuilder: (context, index) {
-                      final tutorial = _getRelatedTutorials()[index];
-                      return _buildRelatedTutorialCard(tutorial);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildVideoControls() {
-    return Stack(
-      children: [
-        // Background gradient for controls visibility
-        Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withOpacity(0.3),
-                  Colors.black.withOpacity(0.0),
-                  Colors.black.withOpacity(0.5),
-                ],
-              ),
-            ),
-          ),
-        ),
-        
-        // Play/pause button
-        Center(
-          child: GestureDetector(
-            onTap: () {
-              setState(() {
-                _isPlaying = !_isPlaying;
-                if (_isPlaying) {
-                  // Start progress animation (in a real app, this would be tied to video playback)
-                  _startFakeProgressTimer();
-                }
-              });
-            },
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                _isPlaying ? Icons.pause : Icons.play_arrow,
-                color: Colors.white,
-                size: 48,
-              ),
-            ),
-          ),
-        ),
-        
-        // Bottom controls
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                // Current time
-                Text(
-                  _formatDuration((widget.tutorial.durationSeconds * _progress).toInt()),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                  ),
-                ),
-                
-                // Progress bar
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: SliderTheme(
-                      data: SliderThemeData(
-                        trackHeight: 2,
-                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-                        trackShape: const RoundedRectSliderTrackShape(),
-                        activeTrackColor: AppTheme.primaryColor,
-                        inactiveTrackColor: Colors.white.withOpacity(0.3),
-                        thumbColor: AppTheme.primaryColor,
-                        overlayColor: AppTheme.primaryColor.withOpacity(0.2),
-                      ),
-                      child: Slider(
-                        value: _progress,
-                        onChanged: (value) {
-                          setState(() {
-                            _progress = value;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-                
-                // Total time
-                Text(
-                  _formatDuration(widget.tutorial.durationSeconds),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                  ),
-                ),
-                
-                // Mute button
-                IconButton(
-                  iconSize: 20,
-                  padding: EdgeInsets.zero,
-                  color: Colors.white,
-                  icon: Icon(_isMuted ? Icons.volume_off : Icons.volume_up),
-                  onPressed: () {
-                    setState(() {
-                      _isMuted = !_isMuted;
-                    });
-                  },
-                ),
-                
-                // Fullscreen button
-                IconButton(
-                  iconSize: 20,
-                  padding: EdgeInsets.zero,
-                  color: Colors.white,
-                  icon: const Icon(Icons.fullscreen),
-                  onPressed: () {
-                    setState(() {
-                      _isFullScreen = true;
-                    });
-                  },
-                ),
+                for (int i = 0; i < tutorial.videos.length; i++)
+                  _buildVideoItem(tutorial.videos[i], i),
               ],
             ),
           ),
@@ -422,208 +317,177 @@ class _TutorialDetailScreenState extends State<TutorialDetailScreen> {
     );
   }
   
-  Widget _buildFullScreenVideoPlayer() {
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _isFullScreen = false;
-        });
-      },
-      child: Container(
-        color: Colors.black,
-        child: Stack(
+  Widget _buildVideoItem(VideoTutorial video, int index) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        leading: Stack(
+          alignment: Alignment.center,
           children: [
-            Center(
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Image.network(
-                  widget.tutorial.thumbnailUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Colors.black,
-                      child: const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          color: Colors.white,
-                          size: 48,
-                        ),
-                      ),
-                    );
-                  },
-                ),
+            // Thumbnail background
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: video.type == 'cardio'
+                    ? Colors.red.withOpacity(0.2)
+                    : Colors.blue.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                video.type == 'cardio'
+                    ? Icons.directions_run
+                    : Icons.fitness_center,
+                color: video.type == 'cardio'
+                    ? Colors.red
+                    : Colors.blue,
+                size: 30,
               ),
             ),
-            _buildVideoControls(),
+            
+            // Play icon
+            const Icon(
+              Icons.play_circle_outline,
+              color: Colors.white,
+              size: 30,
+            ),
+            
+            // Number badge
             Positioned(
-              top: 16,
-              left: 16,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () {
-                  setState(() {
-                    _isFullScreen = false;
-                  });
-                },
+              top: 0,
+              left: 0,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(8),
+                    bottomRight: Radius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  '${index + 1}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-  
-  Widget _buildRelatedTutorialCard(Tutorial tutorial) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => TutorialDetailScreen(
-              tutorial: tutorial,
-              user: widget.user,
-            ),
+        title: Text(
+          video.activity,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
           ),
-        );
-      },
-      child: Container(
-        width: 160,
-        margin: const EdgeInsets.only(right: 12),
-        child: Column(
+        ),
+        subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Thumbnail
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.network(
-                      tutorial.thumbnailUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: Colors.grey[300],
-                          child: const Center(
-                            child: Icon(
-                              Icons.broken_image,
-                              color: Colors.white,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    
-                    // Duration badge
-                    Positioned(
-                      bottom: 4,
-                      right: 4,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.7),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                        child: Text(
-                          _formatDuration(tutorial.durationSeconds),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            
-            const SizedBox(height: 8),
-            
-            // Title
-            Text(
-              tutorial.title,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            
+            Text(video.bodyPart),
             const SizedBox(height: 4),
-            
-            // Instructor
             Text(
-              tutorial.instructorName,
+              '${video.dayName} • Plan ${video.planId}',
               style: TextStyle(
-                color: Colors.grey[600],
                 fontSize: 12,
+                color: Colors.grey[600],
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
+        ),
+        trailing: IconButton(
+          icon: const Icon(Icons.play_circle_fill),
+          onPressed: () {
+            setState(() {
+              _selectedVideoIndex = index;
+            });
+          },
+        ),
+        onTap: () {
+          setState(() {
+            _selectedVideoIndex = index;
+          });
+        },
+      ),
+    );
+  }
+  
+  void _showVideoDialog(VideoTutorial video) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(video.activity),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.videocam_off,
+              size: 64,
+              color: Colors.grey,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'In a real app, this would play the video from Firebase storage.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Video URL: ${video.videoUrl}',
+              style: const TextStyle(
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CLOSE'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildBadge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: color.withOpacity(0.5),
+        ),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
         ),
       ),
     );
   }
   
-  void _startFakeProgressTimer() {
-    // For demo purposes only - simulates video progress
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (mounted && _isPlaying) {
-        setState(() {
-          _progress += 0.005;
-          if (_progress >= 1.0) {
-            _progress = 0.0;
-            _isPlaying = false;
-          } else {
-            _startFakeProgressTimer();
-          }
-        });
-      }
-    });
-  }
-  
-  String _formatDuration(int seconds) {
-    final minutes = seconds ~/ 60;
-    final remainingSeconds = seconds % 60;
-    return '$minutes:${remainingSeconds.toString().padLeft(2, '0')}';
-  }
-  
-  String _formatDate(DateTime date) {
-    final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
-  }
-  
-  Color _getCategoryColor() {
-    switch (widget.tutorial.category.toLowerCase()) {
-      case 'cardio':
-        return Colors.red;
-      case 'strength':
-        return Colors.blue;
-      case 'flexibility':
+  Color _getDifficultyColor(String difficulty) {
+    switch (difficulty.toLowerCase()) {
+      case 'beginner':
         return Colors.green;
+      case 'intermediate':
+        return Colors.orange;
+      case 'advanced':
+        return Colors.red;
       default:
         return Colors.grey;
     }
-  }
-  
-  List<Tutorial> _getRelatedTutorials() {
-    // In a real app, this would fetch related tutorials from the backend
-    // For demo purposes, we'll just filter tutorials with the same category
-    return demoTutorials
-        .where((tutorial) => 
-            tutorial.category == widget.tutorial.category && 
-            tutorial.id != widget.tutorial.id)
-        .toList();
   }
 }
