@@ -1,106 +1,409 @@
-// Credit system utility functions for FitSAGA app based on correct business rules
-const creditUtils = {
-  // Calculate remaining credits for each type
-  getRemainingCredits: (total, used) => Math.max(0, total - used),
-  
-  // Check if user has enough credits of the specific type
-  hasEnoughCredits: (availableCredits, cost) => availableCredits >= cost,
-  
-  // Process gym access booking
-  processGymBooking: (gymCredits, cost) => {
-    if (gymCredits >= cost) {
-      return { 
-        success: true,
-        remainingGymCredits: gymCredits - cost,
-        message: "Gym access booked successfully" 
-      };
+/**
+ * Tests for the Credit System in FitSAGA app
+ * Tests credit allocation, deduction, and refill functionality
+ */
+
+// Define credit types and operations
+const CREDIT_TYPES = {
+  GYM: 'gym',
+  INTERVAL: 'interval'
+};
+
+const CREDIT_OPERATIONS = {
+  ADD: 'add',
+  DEDUCT: 'deduct',
+  REFILL: 'refill'
+};
+
+// Mock user data with credits
+let userData = {
+  'client-1': {
+    id: 'client-1',
+    name: 'John Doe',
+    email: 'john@example.com',
+    membershipType: 'premium',
+    credits: {
+      gymCredits: 10,
+      intervalCredits: 5,
+      lastRefilled: new Date('2025-05-01'),
+      nextRefillDate: new Date('2025-06-01')
     }
-    return { 
-      success: false, 
-      remainingGymCredits: gymCredits,
-      message: "Insufficient gym credits" 
-    };
   },
-  
-  // Process group session booking
-  processGroupSessionBooking: (intervalCredits, cost) => {
-    if (intervalCredits >= cost) {
-      return { 
-        success: true,
-        remainingIntervalCredits: intervalCredits - cost,
-        message: "Group session booked successfully" 
-      };
+  'client-2': {
+    id: 'client-2',
+    name: 'Jane Smith',
+    email: 'jane@example.com',
+    membershipType: 'standard',
+    credits: {
+      gymCredits: 5,
+      intervalCredits: 2,
+      lastRefilled: new Date('2025-05-05'),
+      nextRefillDate: new Date('2025-06-05')
     }
-    return { 
-      success: false, 
-      remainingIntervalCredits: intervalCredits,
-      message: "Insufficient interval credits" 
-    };
-  },
-  
-  // Admin add credits
-  adminAddCredits: (currentCredits, amountToAdd, creditType) => {
-    if (creditType === 'gym') {
-      return {
-        gymCredits: currentCredits.gymCredits + amountToAdd,
-        intervalCredits: currentCredits.intervalCredits
-      };
-    } else if (creditType === 'interval') {
-      return {
-        gymCredits: currentCredits.gymCredits,
-        intervalCredits: currentCredits.intervalCredits + amountToAdd
-      };
-    }
-    return currentCredits; // No change if invalid type
   }
 };
 
-// Basic unit tests for credit system
-console.log("Running FitSAGA Credit System Tests (Updated):");
+// Mock membership plans with refill amounts
+const membershipPlans = {
+  'standard': {
+    monthlyGymCredits: 5,
+    monthlyIntervalCredits: 2,
+    price: 29.99
+  },
+  'premium': {
+    monthlyGymCredits: 10,
+    monthlyIntervalCredits: 5,
+    price: 49.99
+  },
+  'unlimited': {
+    monthlyGymCredits: 30,
+    monthlyIntervalCredits: 15,
+    price: 99.99
+  }
+};
 
-// Test hasEnoughCredits
-console.log("\nTest: hasEnoughCredits");
-console.log("5 credits, 2 cost = can book:", 
-  creditUtils.hasEnoughCredits(5, 2) === true ? "PASS" : "FAIL");
-console.log("5 credits, 5 cost = can book:", 
-  creditUtils.hasEnoughCredits(5, 5) === true ? "PASS" : "FAIL");
-console.log("5 credits, 6 cost = cannot book:", 
-  creditUtils.hasEnoughCredits(5, 6) === false ? "PASS" : "FAIL");
+// Credit transaction history
+let creditTransactions = [
+  {
+    userId: 'client-1',
+    creditType: CREDIT_TYPES.GYM,
+    amount: 10,
+    operation: CREDIT_OPERATIONS.REFILL,
+    timestamp: new Date('2025-05-01'),
+    reason: 'Monthly refill',
+    adminId: null
+  },
+  {
+    userId: 'client-1',
+    creditType: CREDIT_TYPES.INTERVAL,
+    amount: 5,
+    operation: CREDIT_OPERATIONS.REFILL,
+    timestamp: new Date('2025-05-01'),
+    reason: 'Monthly refill',
+    adminId: null
+  },
+  {
+    userId: 'client-2',
+    creditType: CREDIT_TYPES.GYM,
+    amount: 5,
+    operation: CREDIT_OPERATIONS.REFILL,
+    timestamp: new Date('2025-05-05'),
+    reason: 'Monthly refill',
+    adminId: null
+  },
+  {
+    userId: 'client-2',
+    creditType: CREDIT_TYPES.INTERVAL,
+    amount: 2,
+    operation: CREDIT_OPERATIONS.REFILL,
+    timestamp: new Date('2025-05-05'),
+    reason: 'Monthly refill',
+    adminId: null
+  }
+];
 
-// Test gym bookings
-console.log("\nTest: processGymBooking");
-const gymResult1 = creditUtils.processGymBooking(10, 2);
-console.log("10 gym credits, 2 cost = successful booking:", 
-  gymResult1.success === true && gymResult1.remainingGymCredits === 8 ? "PASS" : "FAIL");
+// Credit system utilities
+const creditUtils = {
+  // Get user's current credit balance
+  getUserCredits: (userId) => {
+    const user = userData[userId];
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    return {
+      gymCredits: user.credits.gymCredits,
+      intervalCredits: user.credits.intervalCredits,
+      lastRefilled: user.credits.lastRefilled,
+      nextRefillDate: user.credits.nextRefillDate
+    };
+  },
+  
+  // Add credits to user account (admin operation)
+  addCredits: (userId, creditType, amount, adminId, reason = 'Manual addition') => {
+    const user = userData[userId];
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    if (amount <= 0) {
+      throw new Error('Credit amount must be positive');
+    }
+    
+    // Update user credits
+    if (creditType === CREDIT_TYPES.GYM) {
+      user.credits.gymCredits += amount;
+    } else if (creditType === CREDIT_TYPES.INTERVAL) {
+      user.credits.intervalCredits += amount;
+    } else {
+      throw new Error('Invalid credit type');
+    }
+    
+    // Record transaction
+    const transaction = {
+      userId,
+      creditType,
+      amount,
+      operation: CREDIT_OPERATIONS.ADD,
+      timestamp: new Date(),
+      reason,
+      adminId
+    };
+    
+    creditTransactions.push(transaction);
+    
+    return {
+      success: true,
+      updatedCredits: creditUtils.getUserCredits(userId),
+      transaction
+    };
+  },
+  
+  // Deduct credits from user account (used when booking sessions)
+  deductCredits: (userId, creditType, amount, reason = 'Session booking') => {
+    const user = userData[userId];
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    if (amount <= 0) {
+      throw new Error('Credit amount must be positive');
+    }
+    
+    // Check if user has enough credits
+    let hasEnoughCredits = false;
+    
+    if (creditType === CREDIT_TYPES.GYM) {
+      hasEnoughCredits = user.credits.gymCredits >= amount;
+    } else if (creditType === CREDIT_TYPES.INTERVAL) {
+      hasEnoughCredits = user.credits.intervalCredits >= amount;
+    } else {
+      throw new Error('Invalid credit type');
+    }
+    
+    if (!hasEnoughCredits) {
+      throw new Error(`Insufficient ${creditType} credits`);
+    }
+    
+    // Deduct credits
+    if (creditType === CREDIT_TYPES.GYM) {
+      user.credits.gymCredits -= amount;
+    } else if (creditType === CREDIT_TYPES.INTERVAL) {
+      user.credits.intervalCredits -= amount;
+    }
+    
+    // Record transaction
+    const transaction = {
+      userId,
+      creditType,
+      amount,
+      operation: CREDIT_OPERATIONS.DEDUCT,
+      timestamp: new Date(),
+      reason,
+      adminId: null
+    };
+    
+    creditTransactions.push(transaction);
+    
+    return {
+      success: true,
+      updatedCredits: creditUtils.getUserCredits(userId),
+      transaction
+    };
+  },
+  
+  // Refill credits based on membership plan
+  refillCredits: (userId) => {
+    const user = userData[userId];
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    const plan = membershipPlans[user.membershipType];
+    if (!plan) {
+      throw new Error('Invalid membership plan');
+    }
+    
+    // Add credits based on membership plan
+    user.credits.gymCredits += plan.monthlyGymCredits;
+    user.credits.intervalCredits += plan.monthlyIntervalCredits;
+    
+    // Update refill dates
+    const now = new Date();
+    user.credits.lastRefilled = now;
+    
+    // Set next refill date to one month from now
+    const nextRefill = new Date(now);
+    nextRefill.setMonth(nextRefill.getMonth() + 1);
+    user.credits.nextRefillDate = nextRefill;
+    
+    // Record transactions
+    const gymTransaction = {
+      userId,
+      creditType: CREDIT_TYPES.GYM,
+      amount: plan.monthlyGymCredits,
+      operation: CREDIT_OPERATIONS.REFILL,
+      timestamp: now,
+      reason: 'Monthly refill',
+      adminId: null
+    };
+    
+    const intervalTransaction = {
+      userId,
+      creditType: CREDIT_TYPES.INTERVAL,
+      amount: plan.monthlyIntervalCredits,
+      operation: CREDIT_OPERATIONS.REFILL,
+      timestamp: now,
+      reason: 'Monthly refill',
+      adminId: null
+    };
+    
+    creditTransactions.push(gymTransaction, intervalTransaction);
+    
+    return {
+      success: true,
+      updatedCredits: creditUtils.getUserCredits(userId),
+      transactions: [gymTransaction, intervalTransaction]
+    };
+  },
+  
+  // Get user's credit transaction history
+  getUserTransactions: (userId, options = {}) => {
+    const { creditType, operation, limit = 10 } = options;
+    
+    // Filter transactions by user ID
+    let filteredTransactions = creditTransactions.filter(
+      transaction => transaction.userId === userId
+    );
+    
+    // Additional filtering
+    if (creditType) {
+      filteredTransactions = filteredTransactions.filter(
+        transaction => transaction.creditType === creditType
+      );
+    }
+    
+    if (operation) {
+      filteredTransactions = filteredTransactions.filter(
+        transaction => transaction.operation === operation
+      );
+    }
+    
+    // Sort by timestamp (newest first)
+    filteredTransactions.sort((a, b) => b.timestamp - a.timestamp);
+    
+    // Apply limit
+    return filteredTransactions.slice(0, limit);
+  },
+  
+  // Check if user needs to use gym vs interval credits
+  getCreditTypeForActivity: (activityType) => {
+    // Group activities requiring interval credits
+    const intervalActivities = ['yoga', 'hiit', 'pilates', 'cycling', 'zumba', 'boxing'];
+    
+    // Gym credits for general gym access and other activities
+    return intervalActivities.includes(activityType) ? 
+      CREDIT_TYPES.INTERVAL : CREDIT_TYPES.GYM;
+  },
+  
+  // Calculate credit cost based on activity and duration
+  calculateCreditCost: (activityType, durationMinutes) => {
+    const creditType = creditUtils.getCreditTypeForActivity(activityType);
+    
+    let cost = 1; // Base cost
+    
+    // Adjust cost based on duration
+    if (durationMinutes > 60) {
+      cost = Math.ceil(durationMinutes / 60);
+    }
+    
+    // Premium activities may cost more
+    const premiumActivities = ['yoga', 'pilates', 'personal-training'];
+    if (premiumActivities.includes(activityType)) {
+      cost += 1;
+    }
+    
+    return {
+      creditType,
+      cost
+    };
+  }
+};
 
-const gymResult2 = creditUtils.processGymBooking(5, 10);
-console.log("5 gym credits, 10 cost = failed booking:", 
-  gymResult2.success === false && gymResult2.remainingGymCredits === 5 ? "PASS" : "FAIL");
+// Run Credit System Tests
+console.log("Running FitSAGA Credit System Tests:");
 
-// Test group session bookings
-console.log("\nTest: processGroupSessionBooking");
-const sessionResult1 = creditUtils.processGroupSessionBooking(8, 3);
-console.log("8 interval credits, 3 cost = successful booking:", 
-  sessionResult1.success === true && sessionResult1.remainingIntervalCredits === 5 ? "PASS" : "FAIL");
+// Test credit balance retrieval
+console.log("\nTest: Credit Balance");
+const userId = 'client-1';
+const userCredits = creditUtils.getUserCredits(userId);
 
-const sessionResult2 = creditUtils.processGroupSessionBooking(2, 5);
-console.log("2 interval credits, 5 cost = failed booking:", 
-  sessionResult2.success === false && sessionResult2.remainingIntervalCredits === 2 ? "PASS" : "FAIL");
+console.log("Get user credits:", 
+  userCredits.gymCredits === 10 && userCredits.intervalCredits === 5 ? "PASS" : "FAIL");
 
-// Test admin add credits
-console.log("\nTest: adminAddCredits");
-const currentCredits = { gymCredits: 5, intervalCredits: 8 };
+// Test credit deduction
+console.log("\nTest: Credit Deduction");
+const deductResult = creditUtils.deductCredits(userId, CREDIT_TYPES.GYM, 2, 'Open gym access');
 
-const updatedGymCredits = creditUtils.adminAddCredits(currentCredits, 10, 'gym');
-console.log("Add 10 gym credits:", 
-  updatedGymCredits.gymCredits === 15 && updatedGymCredits.intervalCredits === 8 ? "PASS" : "FAIL");
+console.log("Deduct gym credits:", deductResult.success === true ? "PASS" : "FAIL");
+console.log("Verify gym credits reduced:", 
+  deductResult.updatedCredits.gymCredits === 8 ? "PASS" : "FAIL");
+console.log("Verify interval credits unchanged:", 
+  deductResult.updatedCredits.intervalCredits === 5 ? "PASS" : "FAIL");
 
-const updatedIntervalCredits = creditUtils.adminAddCredits(currentCredits, 5, 'interval');
-console.log("Add 5 interval credits:", 
-  updatedIntervalCredits.gymCredits === 5 && updatedIntervalCredits.intervalCredits === 13 ? "PASS" : "FAIL");
+// Test credit addition (admin operation)
+console.log("\nTest: Credit Addition");
+const addResult = creditUtils.addCredits(userId, CREDIT_TYPES.INTERVAL, 3, 'admin-1', 'Bonus credits');
 
-const invalidTypeUpdate = creditUtils.adminAddCredits(currentCredits, 3, 'invalid');
-console.log("Invalid credit type - no change:", 
-  invalidTypeUpdate.gymCredits === 5 && invalidTypeUpdate.intervalCredits === 8 ? "PASS" : "FAIL");
+console.log("Add interval credits:", addResult.success === true ? "PASS" : "FAIL");
+console.log("Verify interval credits increased:", 
+  addResult.updatedCredits.intervalCredits === 8 ? "PASS" : "FAIL");
+console.log("Verify gym credits unchanged:", 
+  addResult.updatedCredits.gymCredits === 8 ? "PASS" : "FAIL");
 
-console.log("\nAll tests completed!");
+// Test insufficient credits
+console.log("\nTest: Insufficient Credits");
+try {
+  creditUtils.deductCredits(userId, CREDIT_TYPES.GYM, 50, 'Personal training');
+  console.log("Insufficient credits check: FAIL - should have thrown an error");
+} catch (error) {
+  console.log("Insufficient credits check:", 
+    error.message === 'Insufficient gym credits' ? "PASS" : "FAIL");
+}
+
+// Test credit transaction history
+console.log("\nTest: Transaction History");
+const transactions = creditUtils.getUserTransactions(userId, { limit: 10 });
+
+// At this point we should have at least 4 transactions:
+// 1. Initial refill (gym credits)
+// 2. Initial refill (interval credits)
+// 3. Deduction of gym credits
+// 4. Addition of interval credits
+console.log("Get transaction history:", transactions.length >= 4 ? "PASS" : "FAIL");
+console.log("Transaction ordering (newest first):", 
+  transactions[0].timestamp > transactions[1].timestamp ? "PASS" : "FAIL");
+
+// Test membership refill
+console.log("\nTest: Membership Refill");
+const refillResult = creditUtils.refillCredits(userId);
+
+console.log("Monthly credit refill:", refillResult.success === true ? "PASS" : "FAIL");
+console.log("Verify gym credits refilled:", 
+  refillResult.updatedCredits.gymCredits === 18 ? "PASS" : "FAIL"); // 8 + 10 (premium plan)
+console.log("Verify interval credits refilled:", 
+  refillResult.updatedCredits.intervalCredits === 13 ? "PASS" : "FAIL"); // 8 + 5 (premium plan)
+console.log("Verify next refill date updated:", 
+  refillResult.updatedCredits.nextRefillDate > refillResult.updatedCredits.lastRefilled ? "PASS" : "FAIL");
+
+// Test credit cost calculation
+console.log("\nTest: Credit Cost Calculation");
+const yogaCost = creditUtils.calculateCreditCost('yoga', 60);
+console.log("Yoga credit type:", yogaCost.creditType === CREDIT_TYPES.INTERVAL ? "PASS" : "FAIL");
+console.log("Yoga credit cost:", yogaCost.cost === 2 ? "PASS" : "FAIL"); // Base 1 + 1 for premium
+
+const gymCost = creditUtils.calculateCreditCost('open-gym', 120);
+console.log("Gym credit type:", gymCost.creditType === CREDIT_TYPES.GYM ? "PASS" : "FAIL");
+console.log("Gym credit cost (2 hours):", gymCost.cost === 2 ? "PASS" : "FAIL");
+
+console.log("\nAll credit system tests completed!");

@@ -331,18 +331,28 @@ console.log("Initial credits - Gym:", initialCredits.gymCredits, "Interval:", in
 // Book a yoga session (uses interval credits)
 try {
   const yogaSession = sessionUtils.getSessionById('session-1');
+  console.log("Yoga session credit cost:", yogaSession.creditCost);
+  console.log("Initial interval credits:", initialCredits.intervalCredits);
+  
+  // Make a deep copy of initial credits for comparison after booking
+  const initialCreditsCopy = {
+    gymCredits: initialCredits.gymCredits,
+    intervalCredits: initialCredits.intervalCredits
+  };
   
   const bookingResult = sessionUtils.bookSession(userId, 'session-1');
+  console.log("Remaining interval credits:", bookingResult.remainingCredits.intervalCredits);
   
   console.log("Book interval session:", bookingResult.success === true ? "PASS" : "FAIL");
   
   // Check if the correct number of credits was deducted
-  const expectedRemainingCredits = initialCredits.intervalCredits - yogaSession.creditCost;
+  const expectedRemainingCredits = initialCreditsCopy.intervalCredits - yogaSession.creditCost;
+  console.log("Expected remaining credits:", expectedRemainingCredits);
   
   console.log("Verify interval credits deducted:", 
     bookingResult.remainingCredits.intervalCredits === expectedRemainingCredits ? "PASS" : "FAIL");
   console.log("Verify gym credits unchanged:", 
-    bookingResult.remainingCredits.gymCredits === initialCredits.gymCredits ? "PASS" : "FAIL");
+    bookingResult.remainingCredits.gymCredits === initialCreditsCopy.gymCredits ? "PASS" : "FAIL");
 } catch (error) {
   console.log("Book session error:", error.message);
 }

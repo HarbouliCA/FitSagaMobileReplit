@@ -1,100 +1,136 @@
 /**
  * Tests for the Tutorial System in FitSAGA app
- * Tests tutorial browsing, filtering, progress tracking and video playback
+ * Tests tutorial filtering, progress tracking, and video playback
  */
 
 // Mock tutorial data
 const tutorialData = [
   {
     id: 'tutorial-1',
-    title: 'Beginner Yoga Series',
-    description: 'Perfect introduction to yoga fundamentals',
-    category: 'yoga',
+    title: 'Proper Squat Form',
+    description: 'Learn the correct form for squats to prevent injury',
+    category: 'strength',
     difficulty: 'beginner',
-    instructor: 'Jane Smith',
-    thumbnailUrl: 'https://example.com/thumbnails/yoga-beginner.jpg',
-    totalDays: 7,
-    days: [
-      {
-        dayNumber: 1,
-        title: 'Introduction and Basics',
-        description: 'Learn the fundamental positions and breathing techniques',
-        exercises: [
-          {
-            id: 'exercise-1-1',
-            title: 'Breathing Techniques',
-            description: 'Learn proper breathing for yoga practice',
-            duration: 180, // seconds
-            thumbnailUrl: 'https://example.com/thumbnails/breathing.jpg',
-            videoUrl: 'https://storage.example.com/videos/breathing.mp4',
-          },
-          {
-            id: 'exercise-1-2',
-            title: 'Basic Poses',
-            description: 'Introduction to fundamental yoga poses',
-            duration: 300, // seconds
-            thumbnailUrl: 'https://example.com/thumbnails/basic-poses.jpg',
-            videoUrl: 'https://storage.example.com/videos/basic-poses.mp4',
-          }
-        ]
-      },
-      {
-        dayNumber: 2,
-        title: 'Balance and Flexibility',
-        description: 'Improve your balance and flexibility',
-        exercises: [
-          {
-            id: 'exercise-2-1',
-            title: 'Balance Poses',
-            description: 'Simple balance poses for beginners',
-            duration: 240, // seconds
-            thumbnailUrl: 'https://example.com/thumbnails/balance.jpg',
-            videoUrl: 'https://storage.example.com/videos/balance.mp4',
-          }
-        ]
-      }
+    duration: 8, // minutes
+    instructorId: 'instructor-1',
+    instructorName: 'Jane Smith',
+    thumbnailUrl: 'https://example.com/thumbnails/squat.jpg',
+    videoUrl: 'https://storage.example.com/tutorials/squat-form.mp4',
+    createdAt: new Date('2025-01-15'),
+    tags: ['squat', 'form', 'technique', 'strength'],
+    equipment: ['none'],
+    muscleGroups: ['quadriceps', 'glutes', 'hamstrings'],
+    steps: [
+      { step: 1, title: 'Starting Position', timestamp: 0 },
+      { step: 2, title: 'Descent Phase', timestamp: 120 },
+      { step: 3, title: 'Bottom Position', timestamp: 210 },
+      { step: 4, title: 'Ascent Phase', timestamp: 290 },
+      { step: 5, title: 'Common Mistakes', timestamp: 380 }
     ]
   },
   {
     id: 'tutorial-2',
-    title: 'HIIT Fundamentals',
-    description: 'High-intensity interval training basics',
+    title: 'Advanced Yoga Flow',
+    description: 'A challenging yoga flow for experienced practitioners',
+    category: 'yoga',
+    difficulty: 'advanced',
+    duration: 15, // minutes
+    instructorId: 'instructor-2',
+    instructorName: 'Mike Johnson',
+    thumbnailUrl: 'https://example.com/thumbnails/yoga.jpg',
+    videoUrl: 'https://storage.example.com/tutorials/advanced-yoga.mp4',
+    createdAt: new Date('2025-02-20'),
+    tags: ['yoga', 'flow', 'flexibility', 'balance'],
+    equipment: ['yoga mat'],
+    muscleGroups: ['core', 'arms', 'legs', 'back'],
+    steps: [
+      { step: 1, title: 'Warm-up', timestamp: 0 },
+      { step: 2, title: 'Standing Sequence', timestamp: 180 },
+      { step: 3, title: 'Balance Poses', timestamp: 360 },
+      { step: 4, title: 'Floor Sequence', timestamp: 540 },
+      { step: 5, title: 'Final Relaxation', timestamp: 780 }
+    ]
+  },
+  {
+    id: 'tutorial-3',
+    title: 'HIIT Workout Introduction',
+    description: 'Get started with high-intensity interval training',
     category: 'cardio',
-    difficulty: 'intermediate',
-    instructor: 'Mike Johnson',
+    difficulty: 'beginner',
+    duration: 10, // minutes
+    instructorId: 'instructor-1',
+    instructorName: 'Jane Smith',
     thumbnailUrl: 'https://example.com/thumbnails/hiit.jpg',
-    totalDays: 5,
-    days: [
-      {
-        dayNumber: 1,
-        title: 'HIIT Basics',
-        description: 'Introduction to HIIT principles',
-        exercises: [
-          {
-            id: 'exercise-3-1',
-            title: 'Warm-up Routine',
-            description: 'Essential warm-up for HIIT workouts',
-            duration: 180, // seconds
-            thumbnailUrl: 'https://example.com/thumbnails/warmup.jpg',
-            videoUrl: 'https://storage.example.com/videos/warmup.mp4',
-          }
-        ]
-      }
+    videoUrl: 'https://storage.example.com/tutorials/hiit-intro.mp4',
+    createdAt: new Date('2025-03-05'),
+    tags: ['hiit', 'cardio', 'workout', 'interval'],
+    equipment: ['none'],
+    muscleGroups: ['full body'],
+    steps: [
+      { step: 1, title: 'What is HIIT?', timestamp: 0 },
+      { step: 2, title: 'Warm-up Exercises', timestamp: 120 },
+      { step: 3, title: 'Work/Rest Intervals', timestamp: 240 },
+      { step: 4, title: 'Sample HIIT Circuit', timestamp: 360 },
+      { step: 5, title: 'Cool Down', timestamp: 480 }
     ]
   }
 ];
 
-// User progress data
-let userProgress = {
-  'tutorial-1': {
-    lastAccessedDay: 1,
-    completedExercises: {
-      'exercise-1-1': {
-        completed: true,
-        lastWatched: '2025-05-20T14:30:00Z',
-        watchProgress: 180 // seconds
-      }
+// Mock user progress data
+let userProgressData = {
+  'client-1': [
+    {
+      tutorialId: 'tutorial-1',
+      watched: true,
+      completedAt: new Date('2025-05-10'),
+      progress: 100, // percentage
+      currentTimestamp: 480, // seconds
+      lastWatched: new Date('2025-05-10')
+    },
+    {
+      tutorialId: 'tutorial-3',
+      watched: false,
+      completedAt: null,
+      progress: 60, // percentage
+      currentTimestamp: 290, // seconds
+      lastWatched: new Date('2025-05-15')
     }
+  ]
+};
+
+// Mock user data
+const userData = {
+  'client-1': {
+    id: 'client-1',
+    name: 'John Doe',
+    email: 'john@example.com',
+    role: 'client',
+    preferences: {
+      favoriteTutorialCategories: ['strength', 'cardio'],
+      favoriteInstructors: ['instructor-1']
+    }
+  }
+};
+
+// Mock video player
+const videoPlayer = {
+  play: (videoUrl, startTime = 0) => {
+    console.log(`Playing video: ${videoUrl} from ${startTime} seconds`);
+    return { playing: true, url: videoUrl, currentTime: startTime };
+  },
+  
+  pause: () => {
+    console.log('Video paused');
+    return { playing: false };
+  },
+  
+  seekTo: (timestamp) => {
+    console.log(`Seeking to timestamp: ${timestamp} seconds`);
+    return { currentTime: timestamp };
+  },
+  
+  getCurrentTime: () => {
+    return 300; // Mock current time (5 minutes)
   }
 };
 
@@ -103,6 +139,15 @@ const tutorialUtils = {
   // Get all tutorials
   getAllTutorials: () => {
     return [...tutorialData];
+  },
+  
+  // Get tutorial by ID
+  getTutorialById: (tutorialId) => {
+    const tutorial = tutorialData.find(t => t.id === tutorialId);
+    if (!tutorial) {
+      throw new Error('Tutorial not found');
+    }
+    return tutorial;
   },
   
   // Filter tutorials by criteria
@@ -117,128 +162,107 @@ const tutorialUtils = {
       filtered = filtered.filter(tutorial => tutorial.difficulty === filters.difficulty);
     }
     
-    if (filters.searchTerm) {
-      const term = filters.searchTerm.toLowerCase();
+    if (filters.instructorId) {
+      filtered = filtered.filter(tutorial => tutorial.instructorId === filters.instructorId);
+    }
+    
+    if (filters.equipment) {
       filtered = filtered.filter(tutorial => 
-        tutorial.title.toLowerCase().includes(term) || 
-        tutorial.description.toLowerCase().includes(term)
+        tutorial.equipment.some(eq => filters.equipment.includes(eq))
       );
+    }
+    
+    if (filters.muscleGroups) {
+      filtered = filtered.filter(tutorial => 
+        tutorial.muscleGroups.some(mg => filters.muscleGroups.includes(mg))
+      );
+    }
+    
+    if (filters.maxDuration) {
+      filtered = filtered.filter(tutorial => tutorial.duration <= filters.maxDuration);
     }
     
     return filtered;
   },
   
-  // Get tutorial details by ID
-  getTutorialById: (tutorialId) => {
-    const tutorial = tutorialData.find(t => t.id === tutorialId);
-    if (!tutorial) {
-      throw new Error('Tutorial not found');
-    }
-    return tutorial;
+  // Get user progress for all tutorials
+  getUserProgress: (userId) => {
+    return userProgressData[userId] || [];
   },
   
-  // Get specific day from tutorial
-  getTutorialDay: (tutorialId, dayNumber) => {
-    const tutorial = tutorialUtils.getTutorialById(tutorialId);
-    const day = tutorial.days.find(d => d.dayNumber === dayNumber);
-    if (!day) {
-      throw new Error('Tutorial day not found');
-    }
-    return day;
+  // Get user progress for a specific tutorial
+  getTutorialProgress: (userId, tutorialId) => {
+    const userProgress = userProgressData[userId] || [];
+    return userProgress.find(p => p.tutorialId === tutorialId) || {
+      tutorialId,
+      watched: false,
+      completedAt: null,
+      progress: 0,
+      currentTimestamp: 0,
+      lastWatched: null
+    };
   },
   
-  // Get user progress for a tutorial
-  getUserProgress: (userId, tutorialId) => {
-    return userProgress[tutorialId] || { lastAccessedDay: 1, completedExercises: {} };
-  },
-  
-  // Mark exercise as completed
-  markExerciseCompleted: (userId, tutorialId, exerciseId, completed = true) => {
-    // Initialize progress if it doesn't exist
-    if (!userProgress[tutorialId]) {
-      userProgress[tutorialId] = {
-        lastAccessedDay: 1,
-        completedExercises: {}
-      };
+  // Update tutorial progress
+  updateTutorialProgress: (userId, tutorialId, progressData) => {
+    // Get user progress array, or create if it doesn't exist
+    if (!userProgressData[userId]) {
+      userProgressData[userId] = [];
     }
     
-    // Update exercise completion status
-    userProgress[tutorialId].completedExercises[exerciseId] = {
-      completed,
-      lastWatched: new Date().toISOString(),
-      watchProgress: completed ? 999 : 0 // If completed, set to a large value
+    // Find existing progress entry
+    const progressIndex = userProgressData[userId].findIndex(
+      p => p.tutorialId === tutorialId
+    );
+    
+    const now = new Date();
+    const newProgress = {
+      tutorialId,
+      watched: progressData.progress >= 90, // Mark as watched if progress >= 90%
+      completedAt: progressData.progress >= 90 ? now : null,
+      progress: progressData.progress,
+      currentTimestamp: progressData.currentTimestamp,
+      lastWatched: now
     };
     
-    return userProgress[tutorialId];
+    // Update or add progress entry
+    if (progressIndex !== -1) {
+      userProgressData[userId][progressIndex] = newProgress;
+    } else {
+      userProgressData[userId].push(newProgress);
+    }
+    
+    return newProgress;
   },
   
-  // Update exercise watch progress
-  updateWatchProgress: (userId, tutorialId, exerciseId, secondsWatched, duration) => {
-    // Initialize progress if it doesn't exist
-    if (!userProgress[tutorialId]) {
-      userProgress[tutorialId] = {
-        lastAccessedDay: 1,
-        completedExercises: {}
-      };
-    }
-    
-    if (!userProgress[tutorialId].completedExercises[exerciseId]) {
-      userProgress[tutorialId].completedExercises[exerciseId] = {
-        completed: false,
-        lastWatched: new Date().toISOString(),
-        watchProgress: 0
-      };
-    }
-    
-    // Update watch progress
-    userProgress[tutorialId].completedExercises[exerciseId].watchProgress = secondsWatched;
-    userProgress[tutorialId].completedExercises[exerciseId].lastWatched = new Date().toISOString();
-    
-    // Auto-mark as completed if watched more than 90% of the video
-    if (duration && secondsWatched >= duration * 0.9) {
-      userProgress[tutorialId].completedExercises[exerciseId].completed = true;
-    }
-    
-    return userProgress[tutorialId].completedExercises[exerciseId];
-  },
-  
-  // Calculate tutorial completion percentage
-  calculateTutorialCompletion: (userId, tutorialId) => {
+  // Play tutorial video
+  playTutorial: (tutorialId, startTime = 0) => {
     const tutorial = tutorialUtils.getTutorialById(tutorialId);
-    const progress = tutorialUtils.getUserProgress(userId, tutorialId);
-    
-    // Count total exercises
-    let totalExercises = 0;
-    tutorial.days.forEach(day => {
-      totalExercises += day.exercises.length;
-    });
-    
-    // Count completed exercises
-    let completedExercises = 0;
-    Object.values(progress.completedExercises).forEach(exercise => {
-      if (exercise.completed) {
-        completedExercises++;
-      }
-    });
-    
-    // Calculate percentage
-    return totalExercises > 0 ? Math.round((completedExercises / totalExercises) * 100) : 0;
+    return videoPlayer.play(tutorial.videoUrl, startTime);
   },
   
-  // Play video (mock function)
-  playVideo: (videoUrl, startPosition = 0) => {
-    return {
-      url: videoUrl,
-      startPosition,
-      isPlaying: true,
-      duration: 300, // Default duration
-      currentPosition: startPosition,
-      // Mock player controls
-      play: () => true,
-      pause: () => true,
-      stop: () => true,
-      seekTo: (position) => position
-    };
+  // Get recommended tutorials for user
+  getRecommendedTutorials: (userId) => {
+    const user = userData[userId];
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    // Get user preferences
+    const preferences = user.preferences || {};
+    
+    // Create filters based on preferences
+    const filters = {};
+    
+    if (preferences.favoriteTutorialCategories?.length > 0) {
+      // Filter by any of user's favorite categories
+      return tutorialData.filter(tutorial => 
+        preferences.favoriteTutorialCategories.includes(tutorial.category)
+      );
+    }
+    
+    // If no specific preferences, return all tutorials
+    return tutorialData;
   }
 };
 
@@ -249,72 +273,65 @@ console.log("Running FitSAGA Tutorial System Tests:");
 console.log("\nTest: Tutorial Filtering");
 const yogaTutorials = tutorialUtils.filterTutorials({ category: 'yoga' });
 console.log("Filter by yoga category:", 
-  yogaTutorials.length === 1 && yogaTutorials[0].id === 'tutorial-1' ? "PASS" : "FAIL");
+  yogaTutorials.length === 1 && yogaTutorials[0].id === 'tutorial-2' ? "PASS" : "FAIL");
 
 const beginnerTutorials = tutorialUtils.filterTutorials({ difficulty: 'beginner' });
 console.log("Filter by beginner difficulty:", 
-  beginnerTutorials.length === 1 && beginnerTutorials[0].id === 'tutorial-1' ? "PASS" : "FAIL");
+  beginnerTutorials.length === 2 && 
+  beginnerTutorials.some(t => t.id === 'tutorial-1') && 
+  beginnerTutorials.some(t => t.id === 'tutorial-3') ? "PASS" : "FAIL");
 
-const searchResults = tutorialUtils.filterTutorials({ searchTerm: 'yoga' });
-console.log("Search for 'yoga':", 
-  searchResults.length === 1 && searchResults[0].id === 'tutorial-1' ? "PASS" : "FAIL");
+const shortTutorials = tutorialUtils.filterTutorials({ maxDuration: 10 });
+console.log("Filter by max duration (10 min):", 
+  shortTutorials.length === 2 && 
+  shortTutorials.some(t => t.id === 'tutorial-1') && 
+  shortTutorials.some(t => t.id === 'tutorial-3') ? "PASS" : "FAIL");
 
-// Test tutorial details retrieval
-console.log("\nTest: Tutorial Details");
-try {
-  const tutorial = tutorialUtils.getTutorialById('tutorial-1');
-  console.log("Get tutorial by ID:", 
-    tutorial.id === 'tutorial-1' && tutorial.title === 'Beginner Yoga Series' ? "PASS" : "FAIL");
-  
-  const day = tutorialUtils.getTutorialDay('tutorial-1', 1);
-  console.log("Get tutorial day:", 
-    day.dayNumber === 1 && day.exercises.length === 2 ? "PASS" : "FAIL");
-} catch (error) {
-  console.log("Tutorial details retrieval: FAIL -", error.message);
-}
-
-// Test progress tracking
+// Test user progress tracking
 console.log("\nTest: Progress Tracking");
-const userId = 'test-user';
+const userId = 'client-1';
 
-// Initial progress check
-const initialProgress = tutorialUtils.getUserProgress(userId, 'tutorial-1');
-console.log("Get initial progress:", 
-  initialProgress && initialProgress.completedExercises['exercise-1-1']?.completed === true ? "PASS" : "FAIL");
+// Get initial progress
+const initialProgress = tutorialUtils.getUserProgress(userId);
+console.log("Get user progress:", initialProgress.length === 2 ? "PASS" : "FAIL");
 
-// Mark exercise as completed
-const updatedProgress = tutorialUtils.markExerciseCompleted(userId, 'tutorial-1', 'exercise-1-2', true);
-console.log("Mark exercise as completed:", 
-  updatedProgress.completedExercises['exercise-1-2']?.completed === true ? "PASS" : "FAIL");
+// Get progress for a specific tutorial
+const squat1Progress = tutorialUtils.getTutorialProgress(userId, 'tutorial-1');
+console.log("Get tutorial progress:", 
+  squat1Progress.tutorialId === 'tutorial-1' && squat1Progress.progress === 100 ? "PASS" : "FAIL");
 
-// Calculate completion percentage
-const completionPercentage = tutorialUtils.calculateTutorialCompletion(userId, 'tutorial-1');
-console.log("Calculate completion percentage:", 
-  completionPercentage === 67 ? "PASS" : "FAIL"); // 2 out of 3 exercises = 67%
+// Update tutorial progress
+const updatedProgress = tutorialUtils.updateTutorialProgress(userId, 'tutorial-2', {
+  progress: 45,
+  currentTimestamp: 320
+});
 
-// Test watch progress
-console.log("\nTest: Video Watch Progress");
-const watchProgress = tutorialUtils.updateWatchProgress(userId, 'tutorial-2', 'exercise-3-1', 100, 180);
-console.log("Update watch progress:", 
-  watchProgress.watchProgress === 100 && watchProgress.completed === false ? "PASS" : "FAIL");
+console.log("Update tutorial progress:", 
+  updatedProgress.progress === 45 && updatedProgress.currentTimestamp === 320 ? "PASS" : "FAIL");
 
-// Auto-complete when watched 90%
-const autoCompleteProgress = tutorialUtils.updateWatchProgress(userId, 'tutorial-2', 'exercise-3-1', 170, 180);
-console.log("Auto-complete at 90% watched:", 
-  autoCompleteProgress.completed === true ? "PASS" : "FAIL");
+// Check if progress was saved
+const savedProgress = tutorialUtils.getTutorialProgress(userId, 'tutorial-2');
+console.log("Verify progress saved:", 
+  savedProgress.progress === 45 && savedProgress.currentTimestamp === 320 ? "PASS" : "FAIL");
 
 // Test video playback
 console.log("\nTest: Video Playback");
-const videoPlayer = tutorialUtils.playVideo('https://storage.example.com/videos/basic-poses.mp4', 30);
-console.log("Video playback:", 
-  videoPlayer.url === 'https://storage.example.com/videos/basic-poses.mp4' && 
-  videoPlayer.isPlaying === true &&
-  videoPlayer.startPosition === 30 ? "PASS" : "FAIL");
+const playbackResult = tutorialUtils.playTutorial('tutorial-1');
+console.log("Play tutorial video:", 
+  playbackResult.playing === true && 
+  playbackResult.url === tutorialUtils.getTutorialById('tutorial-1').videoUrl ? "PASS" : "FAIL");
 
 // Test resume from last position
-const lastPosition = userProgress['tutorial-1'].completedExercises['exercise-1-1'].watchProgress;
-const resumedVideo = tutorialUtils.playVideo('https://storage.example.com/videos/breathing.mp4', lastPosition);
-console.log("Resume video from last position:", 
-  resumedVideo.startPosition === lastPosition ? "PASS" : "FAIL");
+const resumeResult = tutorialUtils.playTutorial('tutorial-3', squat1Progress.currentTimestamp);
+console.log("Resume tutorial from last position:", 
+  resumeResult.currentTime === squat1Progress.currentTimestamp ? "PASS" : "FAIL");
+
+// Test recommendations
+console.log("\nTest: Tutorial Recommendations");
+const recommendations = tutorialUtils.getRecommendedTutorials(userId);
+console.log("Get personalized recommendations:", 
+  recommendations.length === 2 &&
+  recommendations.some(t => t.category === 'strength') && 
+  recommendations.some(t => t.category === 'cardio') ? "PASS" : "FAIL");
 
 console.log("\nAll tutorial system tests completed!");
