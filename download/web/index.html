@@ -29,17 +29,26 @@
 <body>
   <script>
     window.addEventListener('load', function(ev) {
-      // Download main.dart.js
-      _flutter.loader.loadEntrypoint({
-        serviceWorker: {
-          serviceWorkerVersion: serviceWorkerVersion,
-        },
-        onEntrypointLoaded: function(engineInitializer) {
-          engineInitializer.initializeEngine().then(function(appRunner) {
-            appRunner.runApp();
-          });
-        }
-      });
+      // Custom initialization for our standalone web app
+      if (typeof _flutter === 'undefined') {
+        // Fallback to direct script loading if Flutter loader isn't available
+        var script = document.createElement('script');
+        script.src = 'main.dart.js';
+        script.type = 'text/javascript';
+        document.body.appendChild(script);
+      } else {
+        // Regular Flutter initialization
+        _flutter.loader.loadEntrypoint({
+          serviceWorker: {
+            serviceWorkerVersion: serviceWorkerVersion,
+          },
+          onEntrypointLoaded: function(engineInitializer) {
+            engineInitializer.initializeEngine().then(function(appRunner) {
+              appRunner.runApp();
+            });
+          }
+        });
+      }
     });
   </script>
 </body>
