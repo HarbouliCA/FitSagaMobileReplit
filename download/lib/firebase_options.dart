@@ -59,11 +59,11 @@ class DefaultFirebaseOptions {
 
   /// Firebase configuration options for the Web platform
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyCvfH-loyKanakWeQhHCIBfeAIVF-aFW5o', // Using the same API key
-    appId: '1:360667066098:web:xxxxxxxxxxxxxxx', // Placeholder - need actual Web appId
+    apiKey: 'AIzaSyCvfH-loyKanakWeQhHCIBfeAIVF-aFW5o',
+    appId: '1:360667066098:web:e4f8a5d23c9f2b0567aa6b',
     messagingSenderId: '360667066098',
     projectId: 'saga-fitness',
     storageBucket: 'saga-fitness.firebasestorage.app',
-    // authDomain: 'saga-fitness.firebaseapp.com',
+    authDomain: 'saga-fitness.firebaseapp.com',
   );
 }
