@@ -1,0 +1,240 @@
+/**
+ * Test fixtures for session data
+ */
+
+export const mockSessions = [
+  {
+    id: 'session-1',
+    title: 'Morning Yoga',
+    activityType: 'yoga',
+    description: 'Start your day with an energizing yoga flow to improve flexibility and mindfulness.',
+    instructorId: 'instructor-user-1',
+    instructorName: 'Jane Smith',
+    startTime: new Date('2025-05-22T08:00:00.000Z'),
+    endTime: new Date('2025-05-22T09:00:00.000Z'),
+    duration: 60, // minutes
+    capacity: 20,
+    enrolledCount: 12,
+    creditCost: 2,
+    location: 'Studio A',
+    status: 'scheduled',
+    createdAt: new Date('2025-05-01T10:00:00.000Z'),
+    lastUpdated: new Date('2025-05-01T10:00:00.000Z')
+  },
+  {
+    id: 'session-2',
+    title: 'HIIT Training',
+    activityType: 'hiit',
+    description: 'High-intensity interval training to maximize calorie burn and improve cardiovascular health.',
+    instructorId: 'instructor-user-1',
+    instructorName: 'Jane Smith',
+    startTime: new Date('2025-05-22T17:00:00.000Z'),
+    endTime: new Date('2025-05-22T18:00:00.000Z'),
+    duration: 60, // minutes
+    capacity: 15,
+    enrolledCount: 10,
+    creditCost: 3,
+    location: 'Gym Floor',
+    status: 'scheduled',
+    createdAt: new Date('2025-05-01T11:30:00.000Z'),
+    lastUpdated: new Date('2025-05-01T11:30:00.000Z')
+  },
+  {
+    id: 'session-3',
+    title: 'Strength Training Basics',
+    activityType: 'strength',
+    description: 'Learn proper form and technique for fundamental strength training exercises.',
+    instructorId: 'instructor-user-2',
+    instructorName: 'Mike Johnson',
+    startTime: new Date('2025-05-23T10:00:00.000Z'),
+    endTime: new Date('2025-05-23T11:30:00.000Z'),
+    duration: 90, // minutes
+    capacity: 12,
+    enrolledCount: 8,
+    creditCost: 3,
+    location: 'Weight Room',
+    status: 'scheduled',
+    createdAt: new Date('2025-05-02T09:15:00.000Z'),
+    lastUpdated: new Date('2025-05-02T09:15:00.000Z')
+  },
+  {
+    id: 'session-4',
+    title: 'Restorative Yoga',
+    activityType: 'yoga',
+    description: 'Gentle yoga focused on deep relaxation and recovery.',
+    instructorId: 'instructor-user-1',
+    instructorName: 'Jane Smith',
+    startTime: new Date('2025-05-23T19:00:00.000Z'),
+    endTime: new Date('2025-05-23T20:00:00.000Z'),
+    duration: 60, // minutes
+    capacity: 20,
+    enrolledCount: 20, // Full
+    creditCost: 2,
+    location: 'Studio B',
+    status: 'scheduled',
+    createdAt: new Date('2025-05-02T14:00:00.000Z'),
+    lastUpdated: new Date('2025-05-02T14:00:00.000Z')
+  },
+  {
+    id: 'session-5',
+    title: 'Spin Class',
+    activityType: 'cardio',
+    description: 'High-energy indoor cycling workout to music.',
+    instructorId: 'instructor-user-3',
+    instructorName: 'Sarah Williams',
+    startTime: new Date('2025-05-22T12:00:00.000Z'),
+    endTime: new Date('2025-05-22T13:00:00.000Z'),
+    duration: 60, // minutes
+    capacity: 18,
+    enrolledCount: 14,
+    creditCost: 2,
+    location: 'Cycling Studio',
+    status: 'scheduled',
+    createdAt: new Date('2025-05-03T08:30:00.000Z'),
+    lastUpdated: new Date('2025-05-03T08:30:00.000Z')
+  },
+  {
+    id: 'session-6',
+    title: 'Private Personal Training',
+    activityType: 'personal',
+    description: 'One-on-one personalized training session.',
+    instructorId: 'instructor-user-2',
+    instructorName: 'Mike Johnson',
+    startTime: new Date('2025-05-24T14:00:00.000Z'),
+    endTime: new Date('2025-05-24T15:00:00.000Z'),
+    duration: 60, // minutes
+    capacity: 1,
+    enrolledCount: 0,
+    creditCost: 5,
+    location: 'Personal Training Area',
+    status: 'scheduled',
+    createdAt: new Date('2025-05-03T16:45:00.000Z'),
+    lastUpdated: new Date('2025-05-03T16:45:00.000Z')
+  },
+  {
+    id: 'session-7',
+    title: 'Morning Run Club',
+    activityType: 'cardio',
+    description: 'Group running session with varying pace groups.',
+    instructorId: 'instructor-user-3',
+    instructorName: 'Sarah Williams',
+    startTime: new Date('2025-05-25T07:00:00.000Z'),
+    endTime: new Date('2025-05-25T08:00:00.000Z'),
+    duration: 60, // minutes
+    capacity: 25,
+    enrolledCount: 12,
+    creditCost: 1,
+    location: 'Outdoor Track',
+    status: 'scheduled',
+    createdAt: new Date('2025-05-04T09:00:00.000Z'),
+    lastUpdated: new Date('2025-05-04T09:00:00.000Z')
+  },
+  {
+    id: 'session-cancelled',
+    title: 'Advanced Pilates',
+    activityType: 'pilates',
+    description: 'Advanced pilates class focusing on core strength and stability.',
+    instructorId: 'instructor-user-1',
+    instructorName: 'Jane Smith',
+    startTime: new Date('2025-05-24T09:00:00.000Z'),
+    endTime: new Date('2025-05-24T10:00:00.000Z'),
+    duration: 60, // minutes
+    capacity: 15,
+    enrolledCount: 5,
+    creditCost: 2,
+    location: 'Studio A',
+    status: 'cancelled',
+    cancellationReason: 'Instructor unavailable due to illness',
+    createdAt: new Date('2025-05-05T11:30:00.000Z'),
+    lastUpdated: new Date('2025-05-22T07:30:00.000Z')
+  },
+  {
+    id: 'session-completed',
+    title: 'Boxing Fundamentals',
+    activityType: 'boxing',
+    description: 'Learn basic boxing techniques and footwork.',
+    instructorId: 'instructor-user-2',
+    instructorName: 'Mike Johnson',
+    startTime: new Date('2025-05-20T18:00:00.000Z'),
+    endTime: new Date('2025-05-20T19:30:00.000Z'),
+    duration: 90, // minutes
+    capacity: 12,
+    enrolledCount: 10,
+    creditCost: 3,
+    location: 'Boxing Ring',
+    status: 'completed',
+    attendanceCount: 8,
+    createdAt: new Date('2025-05-01T13:45:00.000Z'),
+    lastUpdated: new Date('2025-05-20T19:45:00.000Z')
+  }
+];
+
+export const mockBookings = [
+  {
+    id: 'booking-1',
+    userId: 'client-user-1',
+    userName: 'John Doe',
+    sessionId: 'session-1',
+    sessionTitle: 'Morning Yoga',
+    startTime: new Date('2025-05-22T08:00:00.000Z'),
+    endTime: new Date('2025-05-22T09:00:00.000Z'),
+    location: 'Studio A',
+    instructorName: 'Jane Smith',
+    creditsCost: 2,
+    creditsType: 'gymCredits',
+    bookingDate: new Date('2025-05-20T14:30:00.000Z'),
+    status: 'confirmed',
+    attended: null
+  },
+  {
+    id: 'booking-2',
+    userId: 'client-user-1',
+    userName: 'John Doe',
+    sessionId: 'session-3',
+    sessionTitle: 'Strength Training Basics',
+    startTime: new Date('2025-05-23T10:00:00.000Z'),
+    endTime: new Date('2025-05-23T11:30:00.000Z'),
+    location: 'Weight Room',
+    instructorName: 'Mike Johnson',
+    creditsCost: 3,
+    creditsType: 'intervalCredits',
+    bookingDate: new Date('2025-05-20T15:00:00.000Z'),
+    status: 'confirmed',
+    attended: null
+  },
+  {
+    id: 'booking-3',
+    userId: 'client-user-1',
+    userName: 'John Doe',
+    sessionId: 'session-completed',
+    sessionTitle: 'Boxing Fundamentals',
+    startTime: new Date('2025-05-20T18:00:00.000Z'),
+    endTime: new Date('2025-05-20T19:30:00.000Z'),
+    location: 'Boxing Ring',
+    instructorName: 'Mike Johnson',
+    creditsCost: 3,
+    creditsType: 'gymCredits',
+    bookingDate: new Date('2025-05-18T12:15:00.000Z'),
+    status: 'completed',
+    attended: true
+  },
+  {
+    id: 'booking-cancelled',
+    userId: 'client-user-1',
+    userName: 'John Doe',
+    sessionId: 'session-cancelled',
+    sessionTitle: 'Advanced Pilates',
+    startTime: new Date('2025-05-24T09:00:00.000Z'),
+    endTime: new Date('2025-05-24T10:00:00.000Z'),
+    location: 'Studio A',
+    instructorName: 'Jane Smith',
+    creditsCost: 2,
+    creditsType: 'gymCredits',
+    bookingDate: new Date('2025-05-19T08:30:00.000Z'),
+    status: 'cancelled',
+    cancellationReason: 'Session cancelled by instructor',
+    cancellationDate: new Date('2025-05-22T07:30:00.000Z'),
+    attended: null,
+    refunded: true
+  }
+];
