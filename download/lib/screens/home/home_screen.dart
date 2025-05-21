@@ -372,7 +372,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Container(
           padding: const EdgeInsets.all(AppTheme.paddingSmall),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(color: color, opacity: 0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(
@@ -553,7 +553,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: LinearProgressIndicator(
                   value: participants / maxParticipants,
                   minHeight: 5,
-                  backgroundColor: AppTheme.primaryLightColor.withOpacity(0.3),
+                  backgroundColor: AppTheme.primaryLightColor.withValues(color: AppTheme.primaryLightColor, opacity: 0.3),
                   valueColor: const AlwaysStoppedAnimation<Color>(
                       AppTheme.primaryColor),
                 ),
@@ -1032,7 +1032,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(AppTheme.paddingRegular),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    color: AppTheme.primaryColor.withValues(color: AppTheme.primaryColor, opacity: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -1329,7 +1329,7 @@ class _HomeScreenState extends State<HomeScreen> {
       width: 200,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
-        color: color.withOpacity(0.1),
+        color: color.withValues(color: color, opacity: 0.1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
