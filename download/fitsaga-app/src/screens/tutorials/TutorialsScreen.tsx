@@ -1,381 +1,376 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, TouchableOpacity } from 'react-native';
-import { Text, Searchbar, Chip, ActivityIndicator, Button } from 'react-native-paper';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+  SafeAreaView,
+  FlatList,
+  TextInput
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useSelector, useDispatch } from 'react-redux';
 
-import { RootState } from '../../redux/store';
-import { 
-  fetchTutorials, 
-  fetchUserTutorialProgress,
-  setFilter, 
-  clearFilter 
-} from '../../redux/features/tutorialsSlice';
-import TutorialCard from '../../components/tutorials/TutorialCard';
-import { theme, spacing } from '../../theme';
-
-const TutorialsScreen: React.FC = () => {
-  const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  
+const TutorialsScreen = () => {
   const navigation = useNavigation();
-  const dispatch = useDispatch();
-  
-  const { user } = useSelector((state: RootState) => state.auth);
-  const { 
-    tutorials, 
-    loading, 
-    error,
-    userProgress,
-    filter 
-  } = useSelector((state: RootState) => state.tutorials);
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Get filtered tutorials
-  const getFilteredTutorials = () => {
-    let result = [...tutorials];
-    
-    // Apply category filter
-    if (filter.category) {
-      result = result.filter(tutorial => tutorial.category === filter.category);
-    }
-    
-    // Apply difficulty filter
-    if (filter.difficulty) {
-      result = result.filter(tutorial => tutorial.difficulty === filter.difficulty);
-    }
-    
-    // Apply search query
-    if (searchQuery.trim() !== '') {
-      const query = searchQuery.toLowerCase().trim();
-      result = result.filter(tutorial => 
-        tutorial.title.toLowerCase().includes(query) ||
-        tutorial.description.toLowerCase().includes(query) ||
-        tutorial.author.toLowerCase().includes(query)
-      );
-    }
-    
-    return result;
-  };
+  // Mock data for categories
+  const categories = [
+    { id: 'all', name: 'All' },
+    { id: 'strength', name: 'Strength' },
+    { id: 'cardio', name: 'Cardio' },
+    { id: 'flexibility', name: 'Flexibility' },
+    { id: 'hiit', name: 'HIIT' },
+    { id: 'yoga', name: 'Yoga' },
+  ];
 
-  // Calculate progress for a tutorial
-  const calculateProgress = (tutorialId: string) => {
-    const progress = userProgress[tutorialId];
-    
-    if (!progress) return 0;
-    
-    if (progress.completed) return 1;
-    
-    const tutorial = tutorials.find(t => t.id === tutorialId);
-    if (!tutorial) return 0;
-    
-    let completedExercisesCount = 0;
-    let totalExercisesCount = 0;
-    
-    tutorial.days.forEach(day => {
-      day.exercises.forEach(exercise => {
-        totalExercisesCount++;
-        if (progress.completedExercises[exercise.id]) {
-          completedExercisesCount++;
-        }
-      });
-    });
-    
-    return totalExercisesCount > 0 ? completedExercisesCount / totalExercisesCount : 0;
-  };
+  // Mock data for tutorial videos
+  const tutorials = [
+    {
+      id: 1,
+      title: 'Full Body Workout',
+      category: 'strength',
+      duration: '25 min',
+      level: 'Beginner',
+      instructor: 'Alex Johnson',
+      thumbnail: 'https://images.unsplash.com/photo-1599058917765-a780eda07a3e?q=80&w=2069',
+      progress: 0.75,
+    },
+    {
+      id: 2,
+      title: 'HIIT Cardio Burn',
+      category: 'hiit',
+      duration: '30 min',
+      level: 'Intermediate',
+      instructor: 'Sarah Miller',
+      thumbnail: 'https://images.unsplash.com/photo-1549576490-b0b4831ef60a?q=80&w=2070',
+      progress: 0.4,
+    },
+    {
+      id: 3,
+      title: 'Stretching Routine',
+      category: 'flexibility',
+      duration: '15 min',
+      level: 'All Levels',
+      instructor: 'Michael Torres',
+      thumbnail: 'https://images.unsplash.com/photo-1570691079236-4bca6c45d440?q=80&w=2070',
+      progress: 1.0,
+    },
+    {
+      id: 4,
+      title: 'Cardio Kickboxing',
+      category: 'cardio',
+      duration: '45 min',
+      level: 'Advanced',
+      instructor: 'Jessica Wong',
+      thumbnail: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=2020',
+      progress: 0.2,
+    },
+    {
+      id: 5,
+      title: 'Yoga Flow',
+      category: 'yoga',
+      duration: '20 min',
+      level: 'Beginner',
+      instructor: 'Emma Phillips',
+      thumbnail: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?q=80&w=2022',
+      progress: 0,
+    },
+    {
+      id: 6,
+      title: 'Strength Training',
+      category: 'strength',
+      duration: '35 min',
+      level: 'Intermediate',
+      instructor: 'David Kim',
+      thumbnail: 'https://images.unsplash.com/photo-1574680178050-55c6a6a96e0a?q=80&w=2069',
+      progress: 0.6,
+    },
+  ];
 
-  // Load tutorials and user progress
-  const loadData = async () => {
-    setRefreshing(true);
-    
-    await dispatch(fetchTutorials());
-    
-    if (user) {
-      await dispatch(fetchUserTutorialProgress(user.uid));
-    }
-    
-    setRefreshing(false);
-  };
+  // Filter tutorials based on selected category and search query
+  const filteredTutorials = tutorials.filter(tutorial => {
+    const matchesCategory = selectedCategory === 'all' || tutorial.category === selectedCategory;
+    const matchesSearch = tutorial.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          tutorial.instructor.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
-  // Handle category filter
-  const handleCategoryFilter = (category: string | null) => {
-    dispatch(setFilter({ category }));
-  };
-
-  // Handle difficulty filter
-  const handleDifficultyFilter = (difficulty: string | null) => {
-    dispatch(setFilter({ difficulty }));
-  };
-
-  // Handle search
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-  };
-
-  // Handle clear filters
-  const handleClearFilters = () => {
-    dispatch(clearFilter());
-    setSearchQuery('');
-  };
-
-  // Navigate to tutorial details
-  const handleTutorialPress = (tutorialId: string) => {
+  const handleTutorialPress = (tutorialId) => {
+    // Navigate to tutorial detail screen
     navigation.navigate('TutorialDetail', { tutorialId });
   };
 
-  // Initial data load
-  useEffect(() => {
-    loadData();
-  }, [user]);
-
-  // Render category filters
-  const renderCategoryFilters = () => {
-    const categories = [
-      { key: 'exercise', label: 'Exercise' },
-      { key: 'nutrition', label: 'Nutrition' },
-    ];
-    
+  const renderProgressBar = (progress) => {
     return (
-      <View style={styles.filterRow}>
-        <Text style={styles.filterLabel}>Category:</Text>
-        <View style={styles.chipContainer}>
-          {categories.map(category => (
-            <Chip
-              key={category.key}
-              selected={filter.category === category.key}
-              onPress={() => handleCategoryFilter(
-                filter.category === category.key ? null : category.key
-              )}
-              style={[
-                styles.filterChip,
-                filter.category === category.key && styles.selectedChip,
-              ]}
-              textStyle={filter.category === category.key ? styles.selectedChipText : undefined}
-            >
-              {category.label}
-            </Chip>
-          ))}
-        </View>
+      <View style={styles.progressBarContainer}>
+        <View style={[styles.progressBar, { width: `${progress * 100}%` }]} />
       </View>
     );
   };
-
-  // Render difficulty filters
-  const renderDifficultyFilters = () => {
-    const difficulties = [
-      { key: 'beginner', label: 'Beginner' },
-      { key: 'intermediate', label: 'Intermediate' },
-      { key: 'advanced', label: 'Advanced' },
-    ];
-    
-    return (
-      <View style={styles.filterRow}>
-        <Text style={styles.filterLabel}>Difficulty:</Text>
-        <View style={styles.chipContainer}>
-          {difficulties.map(difficulty => (
-            <Chip
-              key={difficulty.key}
-              selected={filter.difficulty === difficulty.key}
-              onPress={() => handleDifficultyFilter(
-                filter.difficulty === difficulty.key ? null : difficulty.key
-              )}
-              style={[
-                styles.filterChip,
-                filter.difficulty === difficulty.key && styles.selectedChip,
-              ]}
-              textStyle={filter.difficulty === difficulty.key ? styles.selectedChipText : undefined}
-            >
-              {difficulty.label}
-            </Chip>
-          ))}
-        </View>
-      </View>
-    );
-  };
-
-  // Render empty state
-  const renderEmptyState = () => {
-    if (loading && !refreshing) {
-      return (
-        <View style={styles.emptyContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={styles.emptyText}>Loading tutorials...</Text>
-        </View>
-      );
-    }
-    
-    if (error) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.errorText}>Error: {error}</Text>
-          <Button 
-            mode="contained"
-            onPress={loadData}
-            style={styles.retryButton}
-          >
-            Retry
-          </Button>
-        </View>
-      );
-    }
-    
-    if (getFilteredTutorials().length === 0) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No tutorials found</Text>
-          {(filter.category || filter.difficulty || searchQuery) && (
-            <>
-              <Text style={styles.emptySubtext}>
-                Try adjusting your filters
-              </Text>
-              <Button
-                mode="contained"
-                onPress={handleClearFilters}
-                style={styles.clearButton}
-              >
-                Clear Filters
-              </Button>
-            </>
-          )}
-        </View>
-      );
-    }
-    
-    return null;
-  };
-
-  // Render tutorial item
-  const renderTutorialItem = ({ item }) => (
-    <TutorialCard
-      id={item.id}
-      title={item.title}
-      category={item.category}
-      description={item.description}
-      thumbnailUrl={item.thumbnailUrl}
-      author={item.author}
-      duration={item.duration}
-      difficulty={item.difficulty}
-      progress={calculateProgress(item.id)}
-      onPress={() => handleTutorialPress(item.id)}
-    />
-  );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.searchContainer}>
-        <Searchbar
-          placeholder="Search tutorials..."
-          onChangeText={handleSearch}
-          value={searchQuery}
-          style={styles.searchbar}
-          iconColor={theme.colors.primary}
-        />
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Workout Tutorials</Text>
+        <TouchableOpacity>
+          <Ionicons name="options-outline" size={24} color="#111827" />
+        </TouchableOpacity>
       </View>
-      
-      <View style={styles.filtersContainer}>
-        {renderCategoryFilters()}
-        {renderDifficultyFilters()}
-        
-        {(filter.category || filter.difficulty || searchQuery) && (
-          <TouchableOpacity onPress={handleClearFilters}>
-            <Text style={styles.clearFiltersText}>Clear All Filters</Text>
+
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search tutorials or instructors"
+          placeholderTextColor="#9CA3AF"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery !== '' && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Ionicons name="close-circle" size={20} color="#9CA3AF" />
           </TouchableOpacity>
         )}
       </View>
-      
+
+      <View style={styles.categoriesContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {categories.map(category => (
+            <TouchableOpacity
+              key={category.id}
+              style={[
+                styles.categoryButton,
+                selectedCategory === category.id && styles.selectedCategoryButton
+              ]}
+              onPress={() => setSelectedCategory(category.id)}
+            >
+              <Text
+                style={[
+                  styles.categoryText,
+                  selectedCategory === category.id && styles.selectedCategoryText
+                ]}
+              >
+                {category.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       <FlatList
-        data={getFilteredTutorials()}
-        keyExtractor={(item) => item.id}
-        renderItem={renderTutorialItem}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={renderEmptyState}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={loadData} />
-        }
+        data={filteredTutorials}
+        keyExtractor={item => item.id.toString()}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.tutorialList}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={styles.tutorialCard}
+            onPress={() => handleTutorialPress(item.id)}
+          >
+            <View style={styles.thumbnailContainer}>
+              <Image
+                source={{ uri: item.thumbnail }}
+                style={styles.thumbnail}
+              />
+              <View style={styles.playButton}>
+                <Ionicons name="play" size={20} color="white" />
+              </View>
+              <View style={styles.durationContainer}>
+                <Text style={styles.durationText}>{item.duration}</Text>
+              </View>
+            </View>
+            <View style={styles.tutorialInfo}>
+              <Text style={styles.tutorialTitle}>{item.title}</Text>
+              <Text style={styles.instructorName}>by {item.instructor}</Text>
+              <View style={styles.tutorialMeta}>
+                <View style={styles.levelContainer}>
+                  <Text style={styles.levelText}>{item.level}</Text>
+                </View>
+                {item.progress > 0 && (
+                  <View style={styles.progressContainer}>
+                    {renderProgressBar(item.progress)}
+                    <Text style={styles.progressText}>
+                      {item.progress === 1 ? 'Completed' : `${Math.round(item.progress * 100)}%`}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#f7f7f7',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#111827',
   },
   searchContainer: {
-    padding: spacing.m,
-    backgroundColor: theme.colors.primary,
-  },
-  searchbar: {
-    elevation: 0,
-    backgroundColor: 'white',
-  },
-  filtersContainer: {
-    padding: spacing.m,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
-  },
-  filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.s,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    margin: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  filterLabel: {
-    width: 80,
-    fontSize: 14,
-    color: theme.colors.placeholder,
+  searchIcon: {
+    marginRight: 8,
   },
-  chipContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  searchInput: {
     flex: 1,
+    fontSize: 16,
+    color: '#111827',
   },
-  filterChip: {
-    marginRight: spacing.s,
-    marginBottom: spacing.xs,
+  categoriesContainer: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
   },
-  selectedChip: {
-    backgroundColor: theme.colors.primary,
+  categoryButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'white',
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  selectedChipText: {
+  selectedCategoryButton: {
+    backgroundColor: '#4C1D95',
+    borderColor: '#4C1D95',
+  },
+  categoryText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  selectedCategoryText: {
     color: 'white',
-  },
-  clearFiltersText: {
-    color: theme.colors.primary,
-    textAlign: 'right',
-    marginTop: spacing.s,
     fontWeight: '500',
   },
-  listContent: {
-    padding: spacing.m,
-    paddingBottom: spacing.xl,
+  tutorialList: {
+    padding: 16,
+    paddingTop: 8,
   },
-  emptyContainer: {
-    alignItems: 'center',
+  tutorialCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  thumbnailContainer: {
+    position: 'relative',
+    height: 180,
+  },
+  thumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  playButton: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -20 }, { translateY: -20 }],
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
-    padding: spacing.xl,
-    marginTop: spacing.xl,
+    alignItems: 'center',
   },
-  emptyText: {
+  durationContainer: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  durationText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  tutorialInfo: {
+    padding: 16,
+  },
+  tutorialTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginVertical: spacing.s,
+    color: '#111827',
+    marginBottom: 4,
   },
-  emptySubtext: {
-    textAlign: 'center',
-    color: theme.colors.placeholder,
-    marginBottom: spacing.m,
+  instructorName: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 8,
   },
-  errorText: {
-    color: theme.colors.error,
-    textAlign: 'center',
-    marginBottom: spacing.m,
+  tutorialMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  retryButton: {
-    marginTop: spacing.m,
+  levelContainer: {
+    backgroundColor: '#EDE9FE',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
   },
-  clearButton: {
-    marginTop: spacing.m,
+  levelText: {
+    fontSize: 12,
+    color: '#4C1D95',
+    fontWeight: '500',
+  },
+  progressContainer: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  progressBarContainer: {
+    height: 4,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#4C1D95',
+  },
+  progressText: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'right',
   },
 });
 

@@ -1,325 +1,324 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
-import { Text, Searchbar, Chip, ActivityIndicator, Button } from 'react-native-paper';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+  SafeAreaView,
+  FlatList
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useSelector } from 'react-redux';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 
-import { db } from '../../services/firebase';
-import { RootState } from '../../redux/store';
-import SessionCard from '../../components/sessions/SessionCard';
-import { theme, spacing } from '../../theme';
-
-// Session type definition
-interface Session {
-  id: string;
-  title: string;
-  activityType: string;
-  startTime: Date;
-  endTime: Date;
-  instructorName: string;
-  instructorPhotoURL?: string;
-  capacity: number;
-  enrolledCount: number;
-  creditCost: number;
-  location?: string;
-  status: string;
-}
-
-const SessionsScreen: React.FC = () => {
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [filteredSessions, setFilteredSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedActivityType, setSelectedActivityType] = useState<string | null>(null);
-  const [activityTypes, setActivityTypes] = useState<string[]>([]);
-  
+const SessionsScreen = () => {
   const navigation = useNavigation();
-  const { user } = useSelector((state: RootState) => state.auth);
+  const [selectedDay, setSelectedDay] = useState(3); // Index of the selected day (Wednesday)
+  const [selectedFilter, setSelectedFilter] = useState('all');
 
-  // Fetch sessions from Firestore
-  const fetchSessions = async () => {
-    if (!user) return;
-    
-    try {
-      setLoading(true);
-      
-      // Get current date at midnight to filter for future sessions
-      const now = new Date();
-      
-      // Set up the query for sessions
-      const sessionsRef = collection(db, 'sessions');
-      const sessionsQuery = query(
-        sessionsRef,
-        where('status', '==', 'scheduled'),
-        where('startTime', '>=', now),
-        orderBy('startTime', 'asc')
-      );
-      
-      const snapshot = await getDocs(sessionsQuery);
-      
-      const sessionsData: Session[] = [];
-      const activityTypesSet = new Set<string>();
-      
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        
-        // Add to set of activity types
-        if (data.activityType) {
-          activityTypesSet.add(data.activityType);
-        }
-        
-        sessionsData.push({
-          id: doc.id,
-          title: data.title || data.activityName || 'Unnamed Session',
-          activityType: data.activityType || 'Other',
-          startTime: data.startTime.toDate(),
-          endTime: data.endTime.toDate(),
-          instructorName: data.instructorName || 'Unknown Instructor',
-          instructorPhotoURL: data.instructorPhotoURL,
-          capacity: data.capacity || 10,
-          enrolledCount: data.enrolledCount || 0,
-          creditCost: data.creditValue || 1,
-          location: data.location,
-          status: data.status,
-        });
-      });
-      
-      setSessions(sessionsData);
-      setFilteredSessions(sessionsData);
-      setActivityTypes(Array.from(activityTypesSet));
-    } catch (error) {
-      console.error('Error fetching sessions:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  // Mock data for the week days
+  const weekDays = [
+    { id: 0, day: 'lu', date: 7, isHighlighted: true },
+    { id: 1, day: 'ma', date: 8 },
+    { id: 2, day: 'mi', date: 9 },
+    { id: 3, day: 'ju', date: 10 },
+    { id: 4, day: 'vi', date: 11 },
+    { id: 5, day: 'sá', date: 12 },
+    { id: 6, day: 'do', date: 13 },
+  ];
 
-  // Initial fetch
-  useEffect(() => {
-    fetchSessions();
-  }, [user]);
+  // Mock session data
+  const sessions = [
+    {
+      id: 1,
+      title: 'Entreno personal',
+      time: '15:00',
+      duration: '60 min',
+      participants: '1/2 participantes',
+      image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2070'
+    },
+    {
+      id: 2,
+      title: 'SALA FITNESS',
+      time: '15:00',
+      duration: '60 min',
+      participants: '0/40 participantes',
+      image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2070'
+    },
+    {
+      id: 3,
+      title: 'Entreno personal',
+      time: '16:00',
+      duration: '60 min',
+      participants: '0/1 participantes',
+      image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2070'
+    },
+    {
+      id: 4,
+      title: 'SALA FITNESS',
+      time: '16:00',
+      duration: '60 min',
+      participants: '1/40 participantes',
+      image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2070'
+    },
+    {
+      id: 5,
+      title: 'SALA FITNESS',
+      time: '17:00',
+      duration: '60 min',
+      participants: '2/40 participantes',
+      image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2070'
+    },
+  ];
 
-  // Filter sessions when search query or activity type changes
-  useEffect(() => {
-    filterSessions();
-  }, [searchQuery, selectedActivityType, sessions]);
-
-  // Filter sessions based on search query and activity type
-  const filterSessions = () => {
-    let filtered = [...sessions];
-    
-    // Filter by search query
-    if (searchQuery.trim() !== '') {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(session => 
-        session.title.toLowerCase().includes(query) ||
-        session.instructorName.toLowerCase().includes(query) ||
-        session.activityType.toLowerCase().includes(query)
-      );
-    }
-    
-    // Filter by activity type
-    if (selectedActivityType) {
-      filtered = filtered.filter(session => 
-        session.activityType === selectedActivityType
-      );
-    }
-    
-    setFilteredSessions(filtered);
-  };
-
-  // Refresh sessions
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchSessions();
-  };
-
-  // Navigate to session details
-  const handleSessionPress = (sessionId: string) => {
-    navigation.navigate('SessionDetail', { sessionId });
-  };
-
-  // Toggle activity type filter
-  const toggleActivityType = (type: string) => {
-    if (selectedActivityType === type) {
-      setSelectedActivityType(null);
-    } else {
-      setSelectedActivityType(type);
-    }
-  };
-
-  // Render activity type filters
-  const renderActivityTypeFilters = () => {
-    return (
-      <View style={styles.filtersContainer}>
-        <Text style={styles.filtersLabel}>Filter by:</Text>
-        <FlatList
-          data={activityTypes}
-          keyExtractor={(item) => item}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <Chip
-              style={[
-                styles.activityChip,
-                selectedActivityType === item && styles.selectedChip,
-              ]}
-              textStyle={[
-                styles.activityChipText,
-                selectedActivityType === item && styles.selectedChipText,
-              ]}
-              onPress={() => toggleActivityType(item)}
-              mode={selectedActivityType === item ? 'flat' : 'outlined'}
-              selected={selectedActivityType === item}
-            >
-              {item}
-            </Chip>
-          )}
-        />
-      </View>
-    );
-  };
-
-  // Render empty state
-  const renderEmptyState = () => {
-    if (loading) {
-      return (
-        <View style={styles.emptyContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={styles.emptyText}>Loading sessions...</Text>
-        </View>
-      );
-    }
-    
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>No sessions found</Text>
-        <Text style={styles.emptySubtext}>
-          {searchQuery || selectedActivityType
-            ? 'Try adjusting your filters'
-            : 'Check back later for new sessions'}
-        </Text>
-        {(searchQuery || selectedActivityType) && (
-          <Button
-            mode="contained"
-            onPress={() => {
-              setSearchQuery('');
-              setSelectedActivityType(null);
-            }}
-            style={styles.clearButton}
-          >
-            Clear Filters
-          </Button>
-        )}
-      </View>
-    );
+  const handleSessionPress = (sessionId: any) => {
+    // Navigate to session detail screen
+    navigation.navigate('SessionDetail' as never, { sessionId } as never);
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.searchContainer}>
-        <Searchbar
-          placeholder="Search sessions..."
-          onChangeText={setSearchQuery}
-          value={searchQuery}
-          style={styles.searchbar}
-          iconColor={theme.colors.primary}
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="black" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Horario clientes</Text>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity style={styles.headerButton} onPress={() => {}}>
+            <Ionicons name="create-outline" size={24} color="#D4C400" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerButton} onPress={() => {}}>
+            <Ionicons name="calendar-outline" size={24} color="black" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Calendar Days */}
+      <View style={styles.calendarContainer}>
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={weekDays}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => (
+            <TouchableOpacity 
+              style={[
+                styles.dayItem, 
+                selectedDay === item.id && styles.selectedDayItem,
+                item.isHighlighted && styles.highlightedDayItem
+              ]}
+              onPress={() => setSelectedDay(item.id)}
+            >
+              <Text style={[
+                styles.dayText, 
+                selectedDay === item.id && styles.selectedDayText,
+                item.isHighlighted && !selectedDay === item.id && styles.highlightedDayText
+              ]}>
+                {item.day}
+              </Text>
+              <Text style={[
+                styles.dateText, 
+                selectedDay === item.id && styles.selectedDateText,
+                item.isHighlighted && !selectedDay === item.id && styles.highlightedDateText
+              ]}>
+                {item.date}
+              </Text>
+            </TouchableOpacity>
+          )}
         />
       </View>
-      
-      {renderActivityTypeFilters()}
-      
-      <FlatList
-        data={filteredSessions}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <SessionCard
-            id={item.id}
-            title={item.title}
-            activityType={item.activityType}
-            startTime={item.startTime}
-            endTime={item.endTime}
-            instructorName={item.instructorName}
-            instructorPhotoURL={item.instructorPhotoURL}
-            capacity={item.capacity}
-            enrolledCount={item.enrolledCount}
-            creditCost={item.creditCost}
-            location={item.location}
-            onPress={() => handleSessionPress(item.id)}
-          />
-        )}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={renderEmptyState}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      />
-    </View>
+
+      {/* Filters */}
+      <View style={styles.filterContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <TouchableOpacity 
+            style={[styles.filterButton, selectedFilter === 'schedules' && styles.selectedFilterButton]}
+            onPress={() => setSelectedFilter('schedules')}
+          >
+            <Text style={styles.filterText}>Horarios</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.filterButton, selectedFilter === 'all' && styles.selectedFilterButton]}
+            onPress={() => setSelectedFilter('all')}
+          >
+            <Text style={styles.filterText}>Todas las actividades</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.filterButton, selectedFilter === 'instructors' && styles.selectedFilterButton]}
+            onPress={() => setSelectedFilter('instructors')}
+          >
+            <Text style={styles.filterText}>Instructores</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+
+      {/* Today's Sessions */}
+      <View style={styles.todayContainer}>
+        <Text style={styles.todayTitle}>Hoy</Text>
+        
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {sessions.map(session => (
+            <TouchableOpacity 
+              key={session.id} 
+              style={styles.sessionCard}
+              onPress={() => handleSessionPress(session.id)}
+            >
+              <Image 
+                source={{ uri: session.image }} 
+                style={styles.sessionImage} 
+              />
+              <View style={styles.sessionContent}>
+                <Text style={styles.sessionTitle}>{session.title}</Text>
+                <View style={styles.sessionDetails}>
+                  <Text style={styles.sessionTime}>{session.time} • {session.duration}</Text>
+                  <Text style={styles.sessionParticipants}>{session.participants}</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#f7f7f7',
   },
-  searchContainer: {
-    padding: spacing.m,
-    backgroundColor: theme.colors.primary,
-  },
-  searchbar: {
-    elevation: 0,
-    backgroundColor: 'white',
-  },
-  filtersContainer: {
-    paddingHorizontal: spacing.m,
-    paddingVertical: spacing.s,
-    backgroundColor: 'white',
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: '#E5E7EB',
   },
-  filtersLabel: {
-    marginBottom: spacing.xs,
-    color: theme.colors.placeholder,
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#111827',
   },
-  activityChip: {
-    marginRight: spacing.s,
-    marginBottom: spacing.xs,
+  headerButtons: {
+    flexDirection: 'row',
   },
-  activityChipText: {
-    color: theme.colors.primary,
+  headerButton: {
+    marginLeft: 16,
   },
-  selectedChip: {
-    backgroundColor: theme.colors.primary,
+  calendarContainer: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
-  selectedChipText: {
-    color: 'white',
-  },
-  listContent: {
-    padding: spacing.m,
-    paddingBottom: spacing.xl,
-  },
-  emptyContainer: {
+  dayItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.xl,
-    marginTop: spacing.xl,
+    width: 50,
+    height: 70,
+    marginHorizontal: 8,
+    borderRadius: 30,
+    backgroundColor: 'transparent',
   },
-  emptyText: {
+  selectedDayItem: {
+    backgroundColor: '#333333',
+  },
+  highlightedDayItem: {
+    backgroundColor: '#D4C400',
+  },
+  dayText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  selectedDayText: {
+    color: 'white',
+  },
+  highlightedDayText: {
+    color: 'white',
+  },
+  dateText: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginVertical: spacing.s,
+    color: '#111827',
+    marginTop: 4,
   },
-  emptySubtext: {
-    textAlign: 'center',
-    color: theme.colors.placeholder,
-    marginBottom: spacing.m,
+  selectedDateText: {
+    color: 'white',
   },
-  clearButton: {
-    marginTop: spacing.m,
+  highlightedDateText: {
+    color: 'white',
+  },
+  filterContainer: {
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  filterButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    marginHorizontal: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: 'white',
+  },
+  selectedFilterButton: {
+    backgroundColor: '#f0f0f0',
+    borderColor: '#D1D5DB',
+  },
+  filterText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  todayContainer: {
+    flex: 1,
+    padding: 16,
+  },
+  todayTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 16,
+  },
+  sessionCard: {
+    flexDirection: 'row',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  sessionImage: {
+    width: 100,
+    height: 100,
+  },
+  sessionContent: {
+    flex: 1,
+    padding: 12,
+    justifyContent: 'center',
+  },
+  sessionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  sessionDetails: {
+    gap: 4,
+  },
+  sessionTime: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  sessionParticipants: {
+    fontSize: 14,
+    color: '#9CA3AF',
   },
 });
 
