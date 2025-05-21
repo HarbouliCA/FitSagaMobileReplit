@@ -73,9 +73,9 @@ const ProfileScreen = () => {
     }
   ];
   
-  const handleMenuItemPress = (screen) => {
+  const handleMenuItemPress = (screen: string) => {
     // Navigate to the selected screen
-    navigation.navigate(screen);
+    navigation.navigate(screen as never);
   };
   
   const toggleNotifications = () => {

@@ -113,14 +113,14 @@ const SessionsScreen = () => {
               <Text style={[
                 styles.dayText, 
                 selectedDay === item.id && styles.selectedDayText,
-                item.isHighlighted && !selectedDay === item.id && styles.highlightedDayText
+                item.isHighlighted && selectedDay !== item.id && styles.highlightedDayText
               ]}>
                 {item.day}
               </Text>
               <Text style={[
                 styles.dateText, 
                 selectedDay === item.id && styles.selectedDateText,
-                item.isHighlighted && !selectedDay === item.id && styles.highlightedDateText
+                item.isHighlighted && selectedDay !== item.id && styles.highlightedDateText
               ]}>
                 {item.date}
               </Text>
