@@ -22,6 +22,9 @@ class CreditProvider with ChangeNotifier {
   /// Flag to track if credit data has been loaded
   bool _isInitialized = false;
   
+  /// Flag indicating whether user has unlimited credits
+  bool _hasUnlimitedCredits = false;
+  
   /// Returns the user's current credit balance
   int get creditBalance => _creditBalance;
   
@@ -36,6 +39,15 @@ class CreditProvider with ChangeNotifier {
   
   /// Returns whether credit data has been loaded
   bool get isInitialized => _isInitialized;
+  
+  /// Returns whether the user has unlimited credits
+  bool get hasUnlimitedCredits => _hasUnlimitedCredits;
+  
+  /// Returns the total available credits
+  int get totalCredits => _creditBalance;
+  
+  /// Returns formatted credits for display
+  String get displayCredits => hasUnlimitedCredits ? "∞" : _creditBalance.toString();
   
   /// Loads a user's credit balance and history
   Future<void> loadUserCredits(String userId) async {
@@ -173,11 +185,23 @@ class CreditProvider with ChangeNotifier {
     }
   }
   
+  /// Refreshes credit data for a user
+  Future<void> refreshCredits(String userId) async {
+    await loadUserCredits(userId);
+  }
+  
+  /// Calculates remaining credits after a booking
+  int remainingAfterBooking(int requiredCredits) {
+    if (hasUnlimitedCredits) return _creditBalance;
+    return _creditBalance - requiredCredits;
+  }
+  
   /// Clears all credit data (used for sign out)
   void clear() {
     _creditBalance = 0;
     _creditHistory = [];
     _isInitialized = false;
+    _hasUnlimitedCredits = false;
     _clearError();
     notifyListeners();
   }

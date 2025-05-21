@@ -17,6 +17,9 @@ class SessionProvider with ChangeNotifier {
   /// List of sessions created by the current instructor (if applicable)
   List<SessionModel> _instructorSessions = [];
   
+  /// Currently selected session for viewing details
+  SessionModel? _selectedSession;
+  
   /// Loading state for session operations
   bool _isLoading = false;
   
@@ -43,6 +46,9 @@ class SessionProvider with ChangeNotifier {
   
   /// Returns whether sessions have been loaded
   bool get isInitialized => _isInitialized;
+  
+  /// Returns the currently selected session
+  SessionModel? get selectedSession => _selectedSession;
   
   /// Loads all relevant sessions based on the current user
   Future<void> loadSessions(UserModel currentUser) async {
@@ -336,8 +342,30 @@ class SessionProvider with ChangeNotifier {
     _sessions = [];
     _userSessions = [];
     _instructorSessions = [];
+    _selectedSession = null;
     _isInitialized = false;
     _clearError();
+    notifyListeners();
+  }
+  
+  /// Sets the currently selected session for viewing details
+  void setSelectedSession(SessionModel session) {
+    _selectedSession = session;
+    notifyListeners();
+  }
+  
+  /// Checks if a user has booked a specific session
+  bool hasUserBookedSession(String sessionId, String userId) {
+    final sessionIndex = _sessions.indexWhere((s) => s.id == sessionId);
+    if (sessionIndex != -1) {
+      return _sessions[sessionIndex].participantIds.contains(userId);
+    }
+    return false;
+  }
+  
+  /// Clears the currently selected session
+  void clearSelectedSession() {
+    _selectedSession = null;
     notifyListeners();
   }
 }

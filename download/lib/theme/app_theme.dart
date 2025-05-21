@@ -16,6 +16,7 @@ class AppTheme {
   static const Color textPrimaryColor = Color(0xFF212121);
   static const Color textSecondaryColor = Color(0xFF757575);
   static const Color textLightColor = Color(0xFF9E9E9E);
+  static const Color textColor = Color(0xFF212121);
   
   // Background Colors
   static const Color backgroundColor = Color(0xFFF5F5F5);
@@ -34,6 +35,10 @@ class AppTheme {
   static const Color errorLightColor = Color(0xFFFFEBEE);
   static const Color infoLightColor = Color(0xFFE3F2FD);
   
+  // Credit-related colors
+  static const Color creditFilledColor = Color(0xFF4CAF50);
+  static const Color creditEmptyColor = Color(0xFFE0E0E0);
+  
   // Font Sizes
   static const double fontSizeXSmall = 10.0;
   static const double fontSizeSmall = 12.0;
@@ -43,6 +48,7 @@ class AppTheme {
   static const double fontSizeXLarge = 20.0;
   static const double fontSizeTitle = 24.0;
   static const double fontSizeHeader = 30.0;
+  static const double fontSizeHeading = 26.0;
   
   // Paddings
   static const double paddingXSmall = 4.0;
@@ -59,6 +65,7 @@ class AppTheme {
   static const double spacingMedium = 16.0;
   static const double spacingLarge = 24.0;
   static const double spacingXLarge = 32.0;
+  static const double spacingExtraLarge = 40.0;
   
   // Border Radius
   static const double borderRadiusSmall = 4.0;

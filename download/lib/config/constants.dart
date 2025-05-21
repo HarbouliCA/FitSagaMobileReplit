@@ -39,4 +39,11 @@ class AppConstants {
   static const int shortAnimationDuration = 200; // milliseconds
   static const int mediumAnimationDuration = 350; // milliseconds
   static const int longAnimationDuration = 500; // milliseconds
+  
+  /// Error messages
+  static const String errorInsufficientCredits = 'You don\'t have enough credits to book this session.';
+  static const String errorSessionFull = 'This session is already full.';
+  static const String errorAlreadyBooked = 'You have already booked this session.';
+  static const String errorSessionPast = 'This session has already ended.';
+  static const String errorGeneralBooking = 'Unable to book session. Please try again later.';
 }

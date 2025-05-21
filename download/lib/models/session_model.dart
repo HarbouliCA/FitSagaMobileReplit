@@ -152,6 +152,26 @@ class SessionModel {
   /// Calculates the duration of the session in minutes
   int get durationInMinutes => endTime.difference(startTime).inMinutes;
   
+  /// The activity/exercise type for this session
+  String get activityType => type == SessionType.personal ? 'Personal Training' : 
+                             type == SessionType.group ? 'Group Class' : 
+                             type == SessionType.workshop ? 'Workshop' : 'Event';
+                             
+  /// The activity name (alias for title to maintain API compatibility)
+  String get activityName => title;
+  
+  /// Number of credits required to book this session
+  int get requiredCredits => type == SessionType.personal ? 5 : 
+                             type == SessionType.workshop ? 3 : 2;
+                             
+  /// The current status of the session (upcoming, in progress, completed)
+  String get status {
+    final now = DateTime.now();
+    if (now.isBefore(startTime)) return 'Upcoming';
+    if (now.isBefore(endTime)) return 'In Progress';
+    return 'Completed';
+  }
+  
   /// Checks if a specific user is registered for this session
   bool isUserRegistered(String userId) => participantIds.contains(userId);
   

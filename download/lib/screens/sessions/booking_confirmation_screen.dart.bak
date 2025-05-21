@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fitsaga/providers/session_provider.dart';
 import 'package:fitsaga/providers/credit_provider.dart';
-import 'package:fitsaga/providers/auth_provider.dart';
 import 'package:fitsaga/models/session_model.dart';
 import 'package:fitsaga/theme/app_theme.dart';
 import 'package:fitsaga/widgets/common/custom_app_bar.dart';
 import 'package:fitsaga/widgets/common/loading_indicator.dart';
 import 'package:fitsaga/utils/date_formatter.dart';
-import 'package:fitsaga/config/constants.dart';
 
 class BookingConfirmationScreen extends StatefulWidget {
   const BookingConfirmationScreen({Key? key}) : super(key: key);
@@ -79,7 +77,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
             // Confirmation title
             Text(
               'Confirm Your Booking',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: AppTheme.fontSizeHeading,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.primaryColor,
@@ -91,7 +89,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
             
             // Session details
             Text(
-              session.activityName,
+              session.title ?? session.activityName,
               style: const TextStyle(
                 fontSize: AppTheme.fontSizeLarge,
                 fontWeight: FontWeight.bold,
@@ -225,12 +223,12 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
               Container(
                 padding: const EdgeInsets.all(AppTheme.paddingRegular),
                 decoration: BoxDecoration(
-                  color: AppTheme.errorColor.withValues(color: AppTheme.errorColor, opacity: 0.1),
+                  color: AppTheme.errorColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(AppTheme.borderRadiusRegular),
                 ),
                 child: Text(
                   _error!,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppTheme.errorColor,
                     fontWeight: FontWeight.bold,
                   ),
@@ -239,7 +237,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
               ),
             ],
             
-            SizedBox(height: AppTheme.spacingExtraLarge),
+            const SizedBox(height: AppTheme.spacingExtraLarge),
             
             // Action buttons
             Row(
@@ -295,9 +293,9 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
             const SizedBox(height: AppTheme.spacingLarge),
             
             // Success message
-            Text(
+            const Text(
               'Booking Successful!',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: AppTheme.fontSizeHeading,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.successColor,
@@ -327,7 +325,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
                 child: Column(
                   children: [
                     Text(
-                      session.activityName,
+                      session.title ?? session.activityName,
                       style: const TextStyle(
                         fontSize: AppTheme.fontSizeLarge,
                         fontWeight: FontWeight.bold,
@@ -408,7 +406,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
               ),
             ),
             
-            SizedBox(height: AppTheme.spacingExtraLarge),
+            const SizedBox(height: AppTheme.spacingExtraLarge),
             
             // Action buttons
             Column(
@@ -453,66 +451,83 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: AppTheme.fontSizeRegular,
+          style: TextStyle(
+            fontSize: isHighlighted 
+                ? AppTheme.fontSizeMedium 
+                : AppTheme.fontSizeRegular,
+            fontWeight: isHighlighted 
+                ? FontWeight.bold 
+                : FontWeight.normal,
           ),
         ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: AppTheme.fontSizeRegular,
-            fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
-            color: isHighlighted ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
-          ),
+        Row(
+          children: [
+            const Icon(
+              Icons.stars,
+              color: AppTheme.primaryColor,
+              size: 16,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: isHighlighted 
+                    ? AppTheme.fontSizeMedium 
+                    : AppTheme.fontSizeRegular,
+                fontWeight: isHighlighted 
+                    ? FontWeight.bold 
+                    : FontWeight.normal,
+                color: isHighlighted 
+                    ? AppTheme.primaryColor 
+                    : AppTheme.textColor,
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  void _confirmBooking() async {
-    if (_isLoading) return;
-    
+  Future<void> _confirmBooking() async {
     final sessionProvider = Provider.of<SessionProvider>(context, listen: false);
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final creditProvider = Provider.of<CreditProvider>(context, listen: false);
     final session = sessionProvider.selectedSession;
     
-    if (session != null && authProvider.currentUser != null) {
-      setState(() {
-        _isLoading = true;
-        _error = null;
-      });
+    if (session == null) {
+      return;
+    }
+    
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    
+    try {
+      final bookingId = await sessionProvider.bookSession(session);
       
-      // Check if user has sufficient credits
-      if (!creditProvider.hasUnlimitedCredits && 
-          !creditProvider.hasSufficientCredits(session.requiredCredits)) {
-        setState(() {
-          _isLoading = false;
-          _error = AppConstants.errorInsufficientCredits;
-        });
-        return;
-      }
-      
-      // Process the booking
-      final success = await sessionProvider.bookSession(
-        session.id,
-        authProvider.currentUser!.id,
-      );
-      
-      if (success) {
+      if (bookingId != null) {
         // Refresh credit data
-        if (authProvider.currentUser != null) {
-          await creditProvider.refreshCredits(authProvider.currentUser!.id);
-        }
+        await creditProvider.refreshCredits();
         
-        setState(() {
-          _isLoading = false;
-          _bookingSuccess = true;
-        });
+        if (mounted) {
+          setState(() {
+            _bookingSuccess = true;
+            _isLoading = false;
+          });
+        }
       } else {
+        if (mounted) {
+          setState(() {
+            _error = sessionProvider.error ?? 'Failed to book session. Please try again.';
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
+          _error = e.toString();
           _isLoading = false;
-          _error = sessionProvider.error ?? AppConstants.errorGeneralBooking;
         });
       }
     }
