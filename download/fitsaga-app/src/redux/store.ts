@@ -1,9 +1,11 @@
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from './features/authSlice';
+import creditsReducer from './features/creditsSlice';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
+    credits: creditsReducer,
     // We'll add more reducers as we implement features
   },
   middleware: (getDefaultMiddleware) =>
