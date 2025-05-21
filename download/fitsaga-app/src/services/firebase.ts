@@ -4,14 +4,15 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAnalytics } from 'firebase/analytics';
 
-// Firebase configuration
+// Firebase configuration using environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyCvfH-loyKanakWeQhHCIBfeAIVF-aFW5o", // Android API key
-  authDomain: "saga-fitness.firebaseapp.com",
-  projectId: "saga-fitness",
-  storageBucket: "saga-fitness.firebasestorage.app", // Updated storage bucket
+  apiKey: process.env.VITE_FIREBASE_API_KEY,
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+  authDomain: `${process.env.VITE_FIREBASE_PROJECT_ID}.firebaseapp.com`,
+  storageBucket: `${process.env.VITE_FIREBASE_PROJECT_ID}.firebasestorage.app`,
+  appId: process.env.VITE_FIREBASE_APP_ID,
+  // Optional fields
   messagingSenderId: "360667066098",
-  appId: "1:360667066098:web:93bef4a0c957968c67aa6b",
   measurementId: "G-GCZRZ22EYL"
 };
 

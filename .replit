@@ -16,6 +16,10 @@ author = "agent"
 task = "workflow.run"
 args = "SimpleWebServer"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "FitSAGAApp"
+
 [[workflows.workflow]]
 name = "SimpleWebServer"
 author = "agent"
@@ -23,6 +27,15 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd download && python3 -m http.server 5000"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "FitSAGAApp"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd download/fitsaga-app && npm run web -- --port 5000"
 waitForPort = 5000
 
 [deployment]
