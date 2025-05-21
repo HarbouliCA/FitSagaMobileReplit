@@ -9,75 +9,38 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#4A58C0"
+      "backgroundColor": "#ffffff"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.fitsaga.fitsagaApp",
-      "buildNumber": "1.0.0",
-      "infoPlist": {
-        "NSCameraUsageDescription": "This app uses the camera to let you upload profile pictures and tutorial content.",
-        "NSPhotoLibraryUsageDescription": "This app uses your photo library to let you upload profile pictures and tutorial content.",
-        "NSPhotoLibraryAddUsageDescription": "This app saves photos to your library when you download tutorial content.",
-        "NSMicrophoneUsageDescription": "This app uses your microphone for video recording in tutorials.",
-        "UIBackgroundModes": [
-          "audio"
-        ]
-      },
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#4A58C0"
-      },
-      "package": "com.fitsaga.fitsagaApp",
-      "versionCode": 1,
-      "googleServicesFile": "./google-services.json",
-      "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "RECORD_AUDIO",
-        "VIBRATE"
-      ]
+        "backgroundColor": "#ffffff"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-av",
-      "expo-screen-orientation",
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow FitSAGA to access your camera to upload profile photos and record tutorial videos."
-        }
-      ],
       [
         "expo-media-library",
         {
-          "photosPermission": "Allow FitSAGA to access your photos to upload profile pictures and tutorial content.",
-          "savePhotosPermission": "Allow FitSAGA to save photos to your camera roll when you download tutorial content.",
+          "photosPermission": "Allow FitSAGA to access your photos.",
+          "savePhotosPermission": "Allow FitSAGA to save photos.",
           "isAccessMediaLocationEnabled": true
         }
       ],
-      "expo-secure-store"
-    ],
-    "updates": {
-      "fallbackToCacheTimeout": 0,
-      "url": "https://u.expo.dev/your-project-id"
-    },
-    "runtimeVersion": {
-      "policy": "sdkVersion"
-    },
-    "extra": {
-      "eas": {
-        "projectId": "your-project-id"
-      }
-    }
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow FitSAGA to access your camera."
+        }
+      ]
+    ]
   }
 }

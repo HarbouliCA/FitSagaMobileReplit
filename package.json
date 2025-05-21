@@ -25,6 +25,7 @@
     "expo-av": "^15.1.4",
     "expo-camera": "^16.1.6",
     "expo-device": "^7.1.4",
+    "expo-media-library": "^17.1.6",
     "expo-screen-orientation": "^8.1.6",
     "expo-secure-store": "^14.2.3",
     "expo-status-bar": "^2.2.3",
@@ -40,6 +41,7 @@
     "react-native-screens": "^4.10.0",
     "react-redux": "^9.2.0",
     "react-test-renderer": "^19.1.0",
+    "typescript": "^5.8.3",
     "yup": "^1.6.1"
   }
 }

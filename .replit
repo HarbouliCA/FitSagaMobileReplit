@@ -2,7 +2,7 @@ modules = ["flutter", "flutter/3.19.3", "python-3.11", "nodejs-20"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["flutter"]
+packages = ["flutter", "librsvg"]
 
 [workflows]
 runButton = "Project"
@@ -19,6 +19,10 @@ args = "SimpleWebServer"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "FitSAGAApp"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "FitSAGAMobile"
 
 [[workflows.workflow]]
 name = "SimpleWebServer"
@@ -38,9 +42,26 @@ task = "shell.exec"
 args = "cd download/fitsaga-app && npm run web -- --port 5000"
 waitForPort = 5000
 
+[[workflows.workflow]]
+name = "FitSAGAMobile"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd download/fitsaga-app && npm start"
+waitForPort = 19000
+
 [deployment]
 run = ["sh", "-c", "flutter pub get && flutter run -d web-server --web-port 5000 --web-hostname 0.0.0.0"]
 
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 5001
+externalPort = 3000
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
