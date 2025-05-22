@@ -1,0 +1,191 @@
+npx expo start       
+Starting project at D:\My Startup Projects\replitgithubapp\fitsaga-app
+Starting Metro Bundler
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+█ ▄▄▄▄▄ █▄▀▀▄▄▄▀█▄█ ▄▄▄▄▄ █
+█ █   █ ███▄█  ▀▀▀█ █   █ █
+█ █▄▄▄█ ██▄▀▄▀▀██▀█ █▄▄▄█ █
+█▄▄▄▄▄▄▄█ █ ▀▄▀ █▄█▄▄▄▄▄▄▄█
+█▄ █  █▄▀▀ ▄▄▀██▀▀█▄█▀█▀▀▄█
+█▀▄█▀▀ ▄▀█▀  ▀█▄▄ ▀███▄▀▀ █
+█▀▀██ ▀▄▀▀▄█▄▄█▄ █ ▄▀▀█▀ ██
+█ ▄▀█ ▀▄  █  ▄█▀ ▄▀ ██▄▀  █
+█▄████▄▄▄▀▀▀▀   █ ▄▄▄  ▄▀▄█
+█ ▄▄▄▄▄ ██ █▄▀  █ █▄█ ██▀ █
+█ █   █ █  █▀▀██▄ ▄  ▄ █▀▀█
+█ █▄▄▄█ █▀█▄  █▄ ▄█▀▀▄█   █
+█▄▄▄▄▄▄▄█▄▄████▄▄▄▄█▄▄███▄█
+
+› Metro waiting on exp://192.168.18.220:8081
+› Scan the QR code above with Expo Go (Android) or the Camera app (iOS)     
+
+› Using Expo Go
+› Press s │ switch to development build
+
+› Press a │ open Android
+› Press w │ open web
+
+› Press j │ open debugger
+› Press r │ reload app
+› Press m │ toggle menu
+› shift+m │ more tools
+› Press o │ open project code in your editor
+
+› Press ? │ show all commands
+
+Logs for your project will appear below. Press Ctrl+C to exit.
+Android Bundled 20597ms node_modules\expo\AppEntry.js (1118 modules)        
+ ERROR  The action 'NAVIGATE' with payload {"name":"SessionDetail","params":{"sessionId":1}} was not handled by any navigator.
+
+Do you have a screen named 'SessionDetail'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"SessionDetail","params":{"sessionId":4}} was not handled by any navigator.
+
+Do you have a screen named 'SessionDetail'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"SessionDetail","params":{"sessionId":2}} was not handled by any navigator.
+
+Do you have a screen named 'SessionDetail'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"SessionDetail","params":{"sessionId":2}} was not handled by any navigator.
+
+Do you have a screen named 'SessionDetail'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"SessionDetail","params":{"sessionId":4}} was not handled by any navigator.
+
+Do you have a screen named 'SessionDetail'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"TutorialDetail","params":{"tutorialId":1}} was not handled by any navigator.
+
+Do you have a screen named 'TutorialDetail'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"TutorialDetail","params":{"tutorialId":1}} was not handled by any navigator.
+
+Do you have a screen named 'TutorialDetail'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"TutorialDetail","params":{"tutorialId":1}} was not handled by any navigator.
+
+Do you have a screen named 'TutorialDetail'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"PersonalInfo"} was not handled by any navigator.
+
+Do you have a screen named 'PersonalInfo'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"Credits"} was not handled by any navigator.
+
+Do you have a screen named 'Credits'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"BookedSessions"} was not handled by any navigator.
+
+Do you have a screen named 'BookedSessions'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"Progress"} was not handled by any navigator.
+
+Do you have a screen named 'Progress'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"SavedTutorials"} was not handled by any navigator.
+
+Do you have a screen named 'SavedTutorials'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"Help"} was not handled by any navigator.
+
+Do you have a screen named 'Help'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"Help"} was not handled by any navigator.
+
+Do you have a screen named 'Help'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"PersonalInfo"} was not handled by any navigator.
+
+Do you have a screen named 'PersonalInfo'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"Credits"} was not handled by any navigator.
+
+Do you have a screen named 'Credits'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"BookedSessions"} was not handled by any navigator.
+
+Do you have a screen named 'BookedSessions'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"Progress"} was not handled by any navigator.
+
+Do you have a screen named 'Progress'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"SavedTutorials"} was not handled by any navigator.
+
+Do you have a screen named 'SavedTutorials'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"Help"} was not handled by any navigator.
+
+Do you have a screen named 'Help'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
+ ERROR  The action 'NAVIGATE' with payload {"name":"SessionDetail","params":{"sessionId":1}} was not handled by any navigator.
+
+Do you have a screen named 'SessionDetail'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+This is a development-only warning and won't be shown in production.        
