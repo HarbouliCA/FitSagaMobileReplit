@@ -9,11 +9,12 @@ import {
 
 // Your Firebase configuration
 const firebaseConfig = {
-  apiKey: process.env.VITE_FIREBASE_API_KEY,
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-  appId: process.env.VITE_FIREBASE_APP_ID,
-  authDomain: `${process.env.VITE_FIREBASE_PROJECT_ID}.firebaseapp.com`,
-  storageBucket: `${process.env.VITE_FIREBASE_PROJECT_ID}.appspot.com`,
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCmV8UVzA5WxiQdN8bFcTvxsxwvP96Yb4s',
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || 'fitsaga-app',
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || '1:529183307736:web:9e1b099f29d6d5f08c79a8',
+  authDomain: 'fitsaga-app.firebaseapp.com',
+  storageBucket: 'fitsaga-app.appspot.com',
+  messagingSenderId: '529183307736',
 };
 
 // Initialize Firebase

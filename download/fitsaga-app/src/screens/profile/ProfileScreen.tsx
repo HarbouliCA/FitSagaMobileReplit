@@ -1,209 +1,201 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
+import React from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  ScrollView, 
   Image,
-  SafeAreaView,
-  Switch
+  Alert
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../context/AuthContext';
+import { UserRole } from '../../services/auth';
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [darkModeEnabled, setDarkModeEnabled] = useState(false);
-  
-  // Mock user data
-  const userData = {
-    name: 'Alex Johnson',
-    email: 'alex.johnson@example.com',
-    role: 'client',
-    credits: {
-      total: 24,
-      interval: 8
-    },
-    memberSince: 'May 2024',
-    completedWorkouts: 12,
-    nextSession: {
-      title: 'HIIT Training',
-      time: 'Today, 5:00 PM'
+  const { user, logout, isAdmin, isInstructor } = useAuth();
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      const result = await logout();
+      
+      if (!result.success) {
+        Alert.alert('Logout Error', result.error || 'Something went wrong during logout');
+        return;
+      }
+      
+    } catch (error: any) {
+      Alert.alert('Logout Error', error.message || 'An error occurred during logout');
     }
   };
 
+  // Profile menu items
   const menuItems = [
     {
-      id: 'personal',
+      id: 'personal_info',
       title: 'Personal Information',
       icon: 'person-outline',
-      screen: 'PersonalInfo'
+      onPress: () => navigation.navigate('PersonalInfo' as never),
     },
     {
       id: 'credits',
       title: 'Credits & Transactions',
-      icon: 'wallet-outline',
-      screen: 'Credits'
+      icon: 'card-outline',
+      onPress: () => navigation.navigate('Credits' as never),
     },
     {
-      id: 'sessions',
+      id: 'booked_sessions',
       title: 'Booked Sessions',
       icon: 'calendar-outline',
-      screen: 'BookedSessions'
+      onPress: () => navigation.navigate('BookedSessions' as never),
     },
     {
       id: 'progress',
-      title: 'Fitness Progress',
+      title: 'Progress',
       icon: 'trending-up-outline',
-      screen: 'Progress'
+      onPress: () => navigation.navigate('Progress' as never),
     },
     {
-      id: 'tutorials',
+      id: 'saved_tutorials',
       title: 'Saved Tutorials',
       icon: 'bookmark-outline',
-      screen: 'SavedTutorials'
+      onPress: () => navigation.navigate('SavedTutorials' as never),
     },
     {
       id: 'help',
       title: 'Help & Support',
       icon: 'help-circle-outline',
-      screen: 'Help'
-    }
+      onPress: () => navigation.navigate('Help' as never),
+    },
   ];
-  
-  const handleMenuItemPress = (screen: string) => {
-    // Navigate to the selected screen
-    navigation.navigate(screen as never);
-  };
-  
-  const toggleNotifications = () => {
-    setNotificationsEnabled(!notificationsEnabled);
-  };
-  
-  const toggleDarkMode = () => {
-    setDarkModeEnabled(!darkModeEnabled);
-  };
-  
-  const handleLogout = () => {
-    // Handle logout logic
-    // navigation.reset to Auth stack
-  };
+
+  // Admin menu items
+  const adminMenuItems = [
+    {
+      id: 'manage_users',
+      title: 'Manage Users',
+      icon: 'people-outline',
+      onPress: () => Alert.alert('Coming Soon', 'This feature will be available in the next update!'),
+    },
+    {
+      id: 'manage_sessions',
+      title: 'Manage Sessions',
+      icon: 'calendar-outline',
+      onPress: () => Alert.alert('Coming Soon', 'This feature will be available in the next update!'),
+    },
+    {
+      id: 'manage_tutorials',
+      title: 'Manage Tutorials',
+      icon: 'videocam-outline',
+      onPress: () => Alert.alert('Coming Soon', 'This feature will be available in the next update!'),
+    },
+  ];
+
+  // Instructor menu items
+  const instructorMenuItems = [
+    {
+      id: 'my_sessions',
+      title: 'My Sessions',
+      icon: 'calendar-outline',
+      onPress: () => Alert.alert('Coming Soon', 'This feature will be available in the next update!'),
+    },
+    {
+      id: 'create_session',
+      title: 'Create New Session',
+      icon: 'add-circle-outline',
+      onPress: () => Alert.alert('Coming Soon', 'This feature will be available in the next update!'),
+    },
+  ];
+
+  // Render a menu item
+  const renderMenuItem = (item: any) => (
+    <TouchableOpacity 
+      key={item.id} 
+      style={styles.menuItem} 
+      onPress={item.onPress}
+    >
+      <View style={styles.menuItemContent}>
+        <Ionicons name={item.icon} size={24} color="#4C1D95" />
+        <Text style={styles.menuItemText}>{item.title}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+    </TouchableOpacity>
+  );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
-        <TouchableOpacity>
-          <Ionicons name="settings-outline" size={24} color="#111827" />
-        </TouchableOpacity>
-      </View>
-      
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.profileSection}>
-          <View style={styles.profileHeader}>
-            <View style={styles.avatarContainer}>
-              <Image 
-                source={{ uri: 'https://randomuser.me/api/portraits/men/32.jpg' }} 
-                style={styles.avatar} 
-              />
-              <TouchableOpacity style={styles.editAvatarButton}>
-                <Ionicons name="camera" size={18} color="white" />
-              </TouchableOpacity>
+    <ScrollView style={styles.container}>
+      {/* Profile Header */}
+      <View style={styles.profileHeader}>
+        <View style={styles.profileImageContainer}>
+          <Image 
+            source={{ uri: 'https://randomuser.me/api/portraits/men/32.jpg' }} 
+            style={styles.profileImage} 
+          />
+          {isAdmin && (
+            <View style={styles.roleIndicator}>
+              <Text style={styles.roleText}>Admin</Text>
             </View>
-            <View style={styles.profileInfo}>
-              <Text style={styles.userName}>{userData.name}</Text>
-              <Text style={styles.userRole}>{userData.role.charAt(0).toUpperCase() + userData.role.slice(1)}</Text>
-              <Text style={styles.memberSince}>Member since {userData.memberSince}</Text>
-            </View>
-          </View>
+          )}
           
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{userData.credits.total}</Text>
-              <Text style={styles.statLabel}>Total Credits</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{userData.credits.interval}</Text>
-              <Text style={styles.statLabel}>Interval Credits</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{userData.completedWorkouts}</Text>
-              <Text style={styles.statLabel}>Workouts</Text>
-            </View>
-          </View>
-          
-          {userData.nextSession && (
-            <View style={styles.nextSessionContainer}>
-              <View style={styles.nextSessionHeader}>
-                <Ionicons name="calendar" size={20} color="#4C1D95" />
-                <Text style={styles.nextSessionTitle}>Next Session</Text>
-              </View>
-              <View style={styles.nextSessionContent}>
-                <Text style={styles.nextSessionName}>{userData.nextSession.title}</Text>
-                <Text style={styles.nextSessionTime}>{userData.nextSession.time}</Text>
-              </View>
+          {!isAdmin && isInstructor && (
+            <View style={styles.roleIndicator}>
+              <Text style={styles.roleText}>Instructor</Text>
             </View>
           )}
         </View>
         
+        <Text style={styles.profileName}>{user?.displayName || 'FitSAGA User'}</Text>
+        <Text style={styles.profileEmail}>{user?.email || 'user@example.com'}</Text>
+        
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{user?.credits || 0}</Text>
+            <Text style={styles.statLabel}>Credits</Text>
+          </View>
+          
+          <View style={styles.statDivider} />
+          
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{user?.intervalCredits || 0}</Text>
+            <Text style={styles.statLabel}>Interval Credits</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Main Menu */}
+      <View style={styles.menuSection}>
+        <Text style={styles.menuTitle}>Account</Text>
+        {menuItems.map(renderMenuItem)}
+      </View>
+      
+      {/* Admin Menu (if user is admin) */}
+      {isAdmin && (
         <View style={styles.menuSection}>
-          {menuItems.map(item => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.menuItem}
-              onPress={() => handleMenuItemPress(item.screen)}
-            >
-              <View style={styles.menuItemContent}>
-                <Ionicons name={item.icon} size={22} color="#4C1D95" />
-                <Text style={styles.menuItemTitle}>{item.title}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-            </TouchableOpacity>
-          ))}
+          <Text style={styles.menuTitle}>Admin Panel</Text>
+          {adminMenuItems.map(renderMenuItem)}
         </View>
-        
-        <View style={styles.settingsSection}>
-          <Text style={styles.sectionTitle}>Settings</Text>
-          <View style={styles.settingItem}>
-            <View style={styles.settingContent}>
-              <Ionicons name="notifications-outline" size={22} color="#4C1D95" />
-              <Text style={styles.settingTitle}>Notifications</Text>
-            </View>
-            <Switch
-              value={notificationsEnabled}
-              onValueChange={toggleNotifications}
-              trackColor={{ false: '#D1D5DB', true: '#8B5CF6' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-          <View style={styles.settingItem}>
-            <View style={styles.settingContent}>
-              <Ionicons name="moon-outline" size={22} color="#4C1D95" />
-              <Text style={styles.settingTitle}>Dark Mode</Text>
-            </View>
-            <Switch
-              value={darkModeEnabled}
-              onValueChange={toggleDarkMode}
-              trackColor={{ false: '#D1D5DB', true: '#8B5CF6' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
+      )}
+      
+      {/* Instructor Menu (if user is instructor) */}
+      {isInstructor && !isAdmin && (
+        <View style={styles.menuSection}>
+          <Text style={styles.menuTitle}>Instructor Panel</Text>
+          {instructorMenuItems.map(renderMenuItem)}
         </View>
-        
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={22} color="#EF4444" />
-          <Text style={styles.logoutText}>Log Out</Text>
-        </TouchableOpacity>
-        
-        <View style={styles.versionInfo}>
-          <Text style={styles.versionText}>FitSAGA v1.0.0</Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+      )}
+      
+      {/* Logout Button */}
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Ionicons name="log-out-outline" size={24} color="white" style={styles.logoutIcon} />
+        <Text style={styles.logoutText}>Logout</Text>
+      </TouchableOpacity>
+      
+      {/* App Version */}
+      <Text style={styles.versionText}>FitSAGA v1.0.0</Text>
+    </ScrollView>
   );
 };
 
@@ -212,94 +204,67 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f7f7f7',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  profileSection: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    margin: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
   profileHeader: {
-    flexDirection: 'row',
+    padding: 24,
+    backgroundColor: 'white',
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  profileImageContainer: {
+    position: 'relative',
     marginBottom: 16,
   },
-  avatarContainer: {
-    position: 'relative',
-    marginRight: 16,
+  profileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
   },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-  },
-  editAvatarButton: {
+  roleIndicator: {
     position: 'absolute',
     bottom: 0,
     right: 0,
     backgroundColor: '#4C1D95',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'white',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
   },
-  profileInfo: {
-    flex: 1,
+  roleText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
-  userName: {
-    fontSize: 20,
+  profileName: {
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#111827',
-    marginBottom: 2,
+    marginBottom: 4,
   },
-  userRole: {
-    fontSize: 14,
-    color: '#4C1D95',
-    marginBottom: 2,
-  },
-  memberSince: {
-    fontSize: 14,
+  profileEmail: {
+    fontSize: 16,
     color: '#6B7280',
+    marginBottom: 16,
   },
   statsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    width: '80%',
+    paddingVertical: 16,
     backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 12,
   },
   statItem: {
-    flex: 1,
     alignItems: 'center',
+    flex: 1,
   },
   statValue: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#4C1D95',
     marginBottom: 4,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#6B7280',
   },
   statDivider: {
@@ -307,52 +272,30 @@ const styles = StyleSheet.create({
     height: '80%',
     backgroundColor: '#E5E7EB',
   },
-  nextSessionContainer: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    padding: 12,
-  },
-  nextSessionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  nextSessionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4C1D95',
-    marginLeft: 6,
-  },
-  nextSessionContent: {
-    marginLeft: 26,
-  },
-  nextSessionName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  nextSessionTime: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
   menuSection: {
+    marginTop: 24,
     backgroundColor: 'white',
     borderRadius: 12,
     marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 8,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
+    marginBottom: 16,
+  },
+  menuTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 16,
   },
   menuItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    justifyContent: 'space-between',
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
@@ -360,75 +303,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  menuItemTitle: {
+  menuItemText: {
     fontSize: 16,
-    color: '#111827',
-    marginLeft: 12,
-  },
-  settingsSection: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    margin: 16,
-    padding: 16,
-    marginTop: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 12,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  settingContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  settingTitle: {
-    fontSize: 16,
-    color: '#111827',
+    color: '#4B5563',
     marginLeft: 12,
   },
   logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'white',
-    margin: 16,
-    marginTop: 0,
+    backgroundColor: '#EF4444',
+    marginHorizontal: 16,
     padding: 16,
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  logoutIcon: {
+    marginRight: 8,
   },
   logoutText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#EF4444',
-    marginLeft: 8,
-  },
-  versionInfo: {
-    alignItems: 'center',
-    padding: 16,
+    fontWeight: 'bold',
+    color: 'white',
   },
   versionText: {
+    textAlign: 'center',
     fontSize: 14,
     color: '#9CA3AF',
-  }
+    marginBottom: 32,
+  },
 });
 
 export default ProfileScreen;
