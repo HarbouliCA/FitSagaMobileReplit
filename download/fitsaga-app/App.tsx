@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -7,8 +7,10 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import { Text, View, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-// Import navigators
+// Import screens and navigators
 import TabNavigator from './src/navigation/TabNavigator';
+import LoginScreen from './src/screens/auth/LoginScreen';
+import RegisterScreen from './src/screens/auth/RegisterScreen';
 
 // Create stack navigator
 const Stack = createNativeStackNavigator();
@@ -253,14 +255,10 @@ const PlaceholderScreen = ({ route }: { route: any }) => {
   );
 };
 
-// Import authentication screens
-import LoginScreen from './src/screens/auth/LoginScreen';
-import RegisterScreen from './src/screens/auth/RegisterScreen';
-
 // Main App component
 export default function App() {
   // In a real app, we would check if the user is authenticated here
-  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   return (
     <SafeAreaProvider>
