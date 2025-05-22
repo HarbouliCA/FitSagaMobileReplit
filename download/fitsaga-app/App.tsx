@@ -253,8 +253,15 @@ const PlaceholderScreen = ({ route }: { route: any }) => {
   );
 };
 
+// Import authentication screens
+import LoginScreen from './src/screens/auth/LoginScreen';
+import RegisterScreen from './src/screens/auth/RegisterScreen';
+
 // Main App component
 export default function App() {
+  // In a real app, we would check if the user is authenticated here
+  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+
   return (
     <SafeAreaProvider>
       <PaperProvider>
@@ -268,12 +275,28 @@ export default function App() {
               headerShadowVisible: false,
               headerStyle: { backgroundColor: '#F7F7F7' },
             }}
+            initialRouteName="Login"
           >
+            {/* Authentication Screens */}
+            <Stack.Screen 
+              name="Login" 
+              component={LoginScreen} 
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="Register" 
+              component={RegisterScreen}
+              options={{ headerShown: false }}
+            />
+            
+            {/* Main App Screens */}
             <Stack.Screen 
               name="Main" 
               component={TabNavigator} 
               options={{ headerShown: false }}
             />
+            
+            {/* Detail and Profile Screens */}
             <Stack.Screen name="SessionDetail" component={SessionDetailScreen} options={{ title: 'Session Details' }} />
             <Stack.Screen name="TutorialDetail" component={TutorialDetailScreen} options={{ title: 'Tutorial Details' }} />
             <Stack.Screen name="PersonalInfo" component={PlaceholderScreen} />

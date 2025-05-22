@@ -28,17 +28,15 @@
     },
     "plugins": [
       [
-        "expo-media-library",
-        {
-          "photosPermission": "Allow FitSAGA to access your photos.",
-          "savePhotosPermission": "Allow FitSAGA to save photos.",
-          "isAccessMediaLocationEnabled": true
-        }
-      ],
-      [
         "expo-camera",
         {
           "cameraPermission": "Allow FitSAGA to access your camera."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow FitSAGA to access your photos."
         }
       ]
     ]
