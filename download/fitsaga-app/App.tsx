@@ -4,13 +4,16 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { Provider as PaperProvider } from 'react-native-paper';
-import { Text, View, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
+import { Text, View, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 // Import screens and navigators
 import TabNavigator from './src/navigation/TabNavigator';
 import LoginScreen from './src/screens/auth/LoginScreen';
 import RegisterScreen from './src/screens/auth/RegisterScreen';
+
+// Import auth provider
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 
 // Create stack navigator
 const Stack = createNativeStackNavigator();
@@ -255,56 +258,80 @@ const PlaceholderScreen = ({ route }: { route: any }) => {
   );
 };
 
+// Navigation component with auth state
+const AppNavigator = () => {
+  const { isLoggedIn, isLoading } = useAuth();
+
+  // Show loading spinner while auth state is being determined
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4C1D95" />
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: true,
+        headerTitleStyle: { color: '#4C1D95' },
+        headerTintColor: '#4C1D95',
+        headerShadowVisible: false,
+        headerStyle: { backgroundColor: '#F7F7F7' },
+      }}
+      initialRouteName={isLoggedIn ? "Main" : "Login"}
+    >
+      {!isLoggedIn ? (
+        // Authentication Screens (only shown when not logged in)
+        <>
+          <Stack.Screen 
+            name="Login" 
+            component={LoginScreen} 
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen 
+            name="Register" 
+            component={RegisterScreen}
+            options={{ headerShown: false }}
+          />
+        </>
+      ) : (
+        // Main App Screens (only shown when logged in)
+        <>
+          <Stack.Screen 
+            name="Main" 
+            component={TabNavigator} 
+            options={{ headerShown: false }}
+          />
+          
+          {/* Detail and Profile Screens */}
+          <Stack.Screen name="SessionDetail" component={SessionDetailScreen} options={{ title: 'Session Details' }} />
+          <Stack.Screen name="TutorialDetail" component={TutorialDetailScreen} options={{ title: 'Tutorial Details' }} />
+          <Stack.Screen name="PersonalInfo" component={PlaceholderScreen} />
+          <Stack.Screen name="Credits" component={CreditsScreen} />
+          <Stack.Screen name="BookedSessions" component={PlaceholderScreen} />
+          <Stack.Screen name="Progress" component={PlaceholderScreen} />
+          <Stack.Screen name="SavedTutorials" component={PlaceholderScreen} />
+          <Stack.Screen name="Help" component={PlaceholderScreen} />
+        </>
+      )}
+    </Stack.Navigator>
+  );
+};
+
 // Main App component
 export default function App() {
-  // In a real app, we would check if the user is authenticated here
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
   return (
     <SafeAreaProvider>
       <PaperProvider>
-        <NavigationContainer>
-          <StatusBar style="auto" />
-          <Stack.Navigator
-            screenOptions={{
-              headerShown: true,
-              headerTitleStyle: { color: '#4C1D95' },
-              headerTintColor: '#4C1D95',
-              headerShadowVisible: false,
-              headerStyle: { backgroundColor: '#F7F7F7' },
-            }}
-            initialRouteName="Login"
-          >
-            {/* Authentication Screens */}
-            <Stack.Screen 
-              name="Login" 
-              component={LoginScreen} 
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen 
-              name="Register" 
-              component={RegisterScreen}
-              options={{ headerShown: false }}
-            />
-            
-            {/* Main App Screens */}
-            <Stack.Screen 
-              name="Main" 
-              component={TabNavigator} 
-              options={{ headerShown: false }}
-            />
-            
-            {/* Detail and Profile Screens */}
-            <Stack.Screen name="SessionDetail" component={SessionDetailScreen} options={{ title: 'Session Details' }} />
-            <Stack.Screen name="TutorialDetail" component={TutorialDetailScreen} options={{ title: 'Tutorial Details' }} />
-            <Stack.Screen name="PersonalInfo" component={PlaceholderScreen} />
-            <Stack.Screen name="Credits" component={CreditsScreen} />
-            <Stack.Screen name="BookedSessions" component={PlaceholderScreen} />
-            <Stack.Screen name="Progress" component={PlaceholderScreen} />
-            <Stack.Screen name="SavedTutorials" component={PlaceholderScreen} />
-            <Stack.Screen name="Help" component={PlaceholderScreen} />
-          </Stack.Navigator>
-        </NavigationContainer>
+        <AuthProvider>
+          <NavigationContainer>
+            <StatusBar style="auto" />
+            <AppNavigator />
+          </NavigationContainer>
+        </AuthProvider>
       </PaperProvider>
     </SafeAreaProvider>
   );
@@ -318,6 +345,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     backgroundColor: '#f7f7f7',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f7f7f7',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#4C1D95',
   },
   title: {
     fontSize: 24,

@@ -13,15 +13,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../context/AuthContext';
 
 const RegisterScreen = ({ navigation }: { navigation: any }) => {
+  const { register, isLoading } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async () => {
     // Input validation
@@ -35,17 +36,16 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
       return;
     }
 
-    setIsLoading(true);
-
     try {
-      // Here we would normally connect to Firebase Authentication
-      // For now, we'll simulate a successful registration
+      // Attempt registration using our auth service
+      const result = await register(email, password, name);
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!result.success) {
+        Alert.alert('Registration Failed', result.error || 'Could not create account');
+        return;
+      }
       
       // Successful registration
-      console.log('Registration successful');
       Alert.alert(
         'Registration Successful', 
         'Your account has been created successfully!',
@@ -56,11 +56,9 @@ const RegisterScreen = ({ navigation }: { navigation: any }) => {
           }
         ]
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Registration error:', error);
-      Alert.alert('Registration Error', 'An error occurred while registering. Please try again.');
-    } finally {
-      setIsLoading(false);
+      Alert.alert('Registration Error', error.message || 'An error occurred while registering. Please try again.');
     }
   };
 

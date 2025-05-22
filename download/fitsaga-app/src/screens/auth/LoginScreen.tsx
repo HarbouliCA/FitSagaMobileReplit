@@ -13,12 +13,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../context/AuthContext';
 
 const LoginScreen = ({ navigation }: { navigation: any }) => {
+  const { login, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
     // Input validation
@@ -27,34 +28,32 @@ const LoginScreen = ({ navigation }: { navigation: any }) => {
       return;
     }
 
-    setIsLoading(true);
+    // For demo purposes - let's also allow a test login
+    if (email === 'user@example.com' && password === 'password') {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
+      });
+      return;
+    }
 
     try {
-      // Here we would normally connect to Firebase Authentication
-      // For now, we'll simulate a successful login
+      // Attempt login using our auth service
+      const result = await login(email, password);
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // For demo purposes, let's use a simple check
-      if (email === 'user@example.com' && password === 'password') {
-        // Successful login
-        console.log('Login successful');
-        
-        // Navigate to main app
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Main' }],
-        });
-      } else {
-        // Failed login
-        Alert.alert('Login Failed', 'Invalid email or password');
+      if (!result.success) {
+        Alert.alert('Login Failed', result.error || 'Invalid email or password');
+        return;
       }
-    } catch (error) {
+      
+      // Navigate to main app on successful login
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
+      });
+    } catch (error: any) {
       console.error('Login error:', error);
-      Alert.alert('Login Error', 'An error occurred while logging in. Please try again.');
-    } finally {
-      setIsLoading(false);
+      Alert.alert('Login Error', error.message || 'An error occurred while logging in. Please try again.');
     }
   };
 
