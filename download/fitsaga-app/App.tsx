@@ -4,13 +4,14 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { Provider as PaperProvider } from 'react-native-paper';
-import { Text, View, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Text, View, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 // Import screens and navigators
 import TabNavigator from './src/navigation/TabNavigator';
 import LoginScreen from './src/screens/auth/LoginScreen';
 import RegisterScreen from './src/screens/auth/RegisterScreen';
+import SessionDetailScreen from './src/screens/sessions/SessionDetailScreen';
 
 // Import auth provider
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -23,32 +24,6 @@ type RouteParams = {
   SessionDetail: { sessionId: number };
   TutorialDetail: { tutorialId: number };
 };
-
-// Session Detail Screen
-const SessionDetailScreen = ({ route, navigation }: { route: any, navigation: any }) => {
-  const { sessionId } = route.params;
-  
-  // Mock session data based on session ID
-  const session = {
-    id: sessionId,
-    title: sessionId % 2 === 0 ? 'HIIT Training' : 'Personal Training',
-    time: '15:00',
-    date: 'May 25, 2025',
-    duration: '60 min',
-    instructor: 'Sarah Miller',
-    description: 'This high-intensity session is designed to improve cardiovascular fitness and burn calories. Suitable for all fitness levels with modifications available.',
-    capacity: '12 participants',
-    currentBookings: 5,
-    creditCost: 3,
-    location: 'Main Studio',
-    category: 'Fitness',
-    image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2070'
-  };
-
-  const handleBooking = () => {
-    alert('Booking confirmed! 3 credits have been deducted from your account.');
-    navigation.goBack();
-  };
 
   return (
     <ScrollView style={styles.detailScrollView}>
