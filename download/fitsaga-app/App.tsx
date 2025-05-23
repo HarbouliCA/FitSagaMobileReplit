@@ -4,7 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { Provider as PaperProvider } from 'react-native-paper';
-import { Text, View, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { Text, View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 // Import screens and navigators
@@ -12,6 +12,7 @@ import TabNavigator from './src/navigation/TabNavigator';
 import LoginScreen from './src/screens/auth/LoginScreen';
 import RegisterScreen from './src/screens/auth/RegisterScreen';
 import SessionDetailScreen from './src/screens/sessions/SessionDetailScreen';
+import TutorialDetailScreen from './src/screens/tutorials/TutorialDetailScreen';
 
 // Import auth provider
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -23,142 +24,6 @@ const Stack = createNativeStackNavigator();
 type RouteParams = {
   SessionDetail: { sessionId: number };
   TutorialDetail: { tutorialId: number };
-};
-
-  return (
-    <ScrollView style={styles.detailScrollView}>
-      <Image 
-        source={{ uri: session.image }} 
-        style={styles.detailImage} 
-      />
-      
-      <View style={styles.detailContent}>
-        <Text style={styles.detailTitle}>{session.title}</Text>
-        
-        <View style={styles.detailRow}>
-          <Ionicons name="calendar-outline" size={20} color="#4C1D95" />
-          <Text style={styles.detailText}>{session.date}</Text>
-        </View>
-        
-        <View style={styles.detailRow}>
-          <Ionicons name="time-outline" size={20} color="#4C1D95" />
-          <Text style={styles.detailText}>{session.time} • {session.duration}</Text>
-        </View>
-        
-        <View style={styles.detailRow}>
-          <Ionicons name="person-outline" size={20} color="#4C1D95" />
-          <Text style={styles.detailText}>Instructor: {session.instructor}</Text>
-        </View>
-        
-        <View style={styles.detailRow}>
-          <Ionicons name="location-outline" size={20} color="#4C1D95" />
-          <Text style={styles.detailText}>{session.location}</Text>
-        </View>
-        
-        <View style={styles.detailSeparator} />
-        
-        <Text style={styles.detailSectionTitle}>About this Session</Text>
-        <Text style={styles.detailDescription}>{session.description}</Text>
-        
-        <View style={styles.detailSeparator} />
-        
-        <View style={styles.bookingInfo}>
-          <View>
-            <Text style={styles.detailSectionTitle}>Booking Status</Text>
-            <Text style={styles.bookingStatusText}>
-              {session.currentBookings}/{session.capacity.split(' ')[0]} participants
-            </Text>
-          </View>
-          
-          <View>
-            <Text style={styles.detailSectionTitle}>Credit Cost</Text>
-            <Text style={styles.creditCostText}>{session.creditCost} credits</Text>
-          </View>
-        </View>
-        
-        <TouchableOpacity 
-          style={styles.bookButton}
-          onPress={handleBooking}
-        >
-          <Text style={styles.bookButtonText}>Book Session</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
-  );
-};
-
-// Tutorial Detail Screen with video player
-const TutorialDetailScreen = ({ route }: { route: any }) => {
-  const { tutorialId } = route.params;
-  
-  // Mock tutorial data based on tutorial ID
-  const tutorial = {
-    id: tutorialId,
-    title: tutorialId % 2 === 0 ? 'Full Body Workout' : 'HIIT Cardio Training',
-    instructor: 'Alex Johnson',
-    duration: '25 min',
-    level: tutorialId % 3 === 0 ? 'Advanced' : 'Intermediate',
-    description: 'This comprehensive workout targets all major muscle groups. Follow along for a complete routine that will help improve strength and endurance.',
-    category: tutorialId % 2 === 0 ? 'Strength' : 'Cardio',
-    videoUrl: 'https://example.com/video.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1599058917765-a780eda07a3e?q=80&w=2069',
-    equipment: ['Dumbbells', 'Exercise mat', 'Resistance bands']
-  };
-
-  return (
-    <ScrollView style={styles.detailScrollView}>
-      <View style={styles.videoContainer}>
-        <Image 
-          source={{ uri: tutorial.thumbnail }} 
-          style={styles.videoPlaceholder} 
-        />
-        <View style={styles.playButtonLarge}>
-          <Ionicons name="play" size={40} color="white" />
-        </View>
-      </View>
-      
-      <View style={styles.detailContent}>
-        <Text style={styles.detailTitle}>{tutorial.title}</Text>
-        
-        <View style={styles.tutorialInfo}>
-          <View style={styles.tutorialInfoItem}>
-            <Ionicons name="person" size={16} color="#6B7280" />
-            <Text style={styles.tutorialInfoText}>{tutorial.instructor}</Text>
-          </View>
-          
-          <View style={styles.tutorialInfoItem}>
-            <Ionicons name="time" size={16} color="#6B7280" />
-            <Text style={styles.tutorialInfoText}>{tutorial.duration}</Text>
-          </View>
-          
-          <View style={styles.tutorialInfoItem}>
-            <Ionicons name="fitness" size={16} color="#6B7280" />
-            <Text style={styles.tutorialInfoText}>{tutorial.level}</Text>
-          </View>
-        </View>
-        
-        <View style={styles.detailSeparator} />
-        
-        <Text style={styles.detailSectionTitle}>Description</Text>
-        <Text style={styles.detailDescription}>{tutorial.description}</Text>
-        
-        <View style={styles.detailSeparator} />
-        
-        <Text style={styles.detailSectionTitle}>Equipment Needed</Text>
-        {tutorial.equipment.map((item, index) => (
-          <View key={index} style={styles.equipmentItem}>
-            <Ionicons name="checkmark-circle" size={18} color="#4C1D95" />
-            <Text style={styles.equipmentText}>{item}</Text>
-          </View>
-        ))}
-        
-        <TouchableOpacity style={styles.saveButton}>
-          <Ionicons name="bookmark-outline" size={20} color="white" />
-          <Text style={styles.saveButtonText}>Save Tutorial</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
-  );
 };
 
 // Credits Screen
@@ -342,139 +207,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6B7280',
     textAlign: 'center',
-  },
-  // Session Detail Screen Styles
-  detailScrollView: {
-    flex: 1,
-    backgroundColor: '#f7f7f7',
-  },
-  detailImage: {
-    width: '100%',
-    height: 220,
-    resizeMode: 'cover',
-  },
-  detailContent: {
-    padding: 20,
-  },
-  detailTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 16,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  detailText: {
-    fontSize: 16,
-    color: '#4B5563',
-    marginLeft: 10,
-  },
-  detailSeparator: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 20,
-  },
-  detailSectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 8,
-  },
-  detailDescription: {
-    fontSize: 16,
-    color: '#4B5563',
-    lineHeight: 24,
-  },
-  bookingInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  bookingStatusText: {
-    fontSize: 16,
-    color: '#4B5563',
-  },
-  creditCostText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#4C1D95',
-  },
-  bookButton: {
-    backgroundColor: '#4C1D95',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  bookButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  // Tutorial Detail Screen Styles
-  videoContainer: {
-    position: 'relative',
-    width: '100%',
-    height: 220,
-  },
-  videoPlaceholder: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  playButtonLarge: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -35 }, { translateY: -35 }],
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tutorialInfo: {
-    flexDirection: 'row',
-    marginBottom: 20,
-  },
-  tutorialInfoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  tutorialInfoText: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginLeft: 4,
-  },
-  equipmentItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  equipmentText: {
-    fontSize: 16,
-    color: '#4B5563',
-    marginLeft: 8,
-  },
-  saveButton: {
-    backgroundColor: '#4C1D95',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 20,
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  saveButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
   },
   // Credits Screen Styles
   screenContainer: {
