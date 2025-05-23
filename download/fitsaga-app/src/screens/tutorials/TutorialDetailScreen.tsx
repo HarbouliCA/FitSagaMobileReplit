@@ -12,39 +12,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import { useAuth } from '../../context/AuthContext';
-import { getTutorialById, saveTutorial, unsaveTutorial, Tutorial as TutorialType } from '../../services/tutorialService';
-
-// Define tutorial interface
-interface Tutorial {
-  id: number;
-  title: string;
-  instructor: string;
-  duration: string;
-  level: string;
-  description: string;
-  category: string;
-  videoUrl: string;
-  thumbnail: string;
-  equipment: string[];
-}
-
-// For now, we'll use static data
-// Later this will be fetched from Firebase
-const getTutorialById = (tutorialId: number): Tutorial => {
-  // Mock tutorial data based on tutorial ID
-  return {
-    id: tutorialId,
-    title: tutorialId % 2 === 0 ? 'Full Body Workout' : 'HIIT Cardio Training',
-    instructor: 'Alex Johnson',
-    duration: '25 min',
-    level: tutorialId % 3 === 0 ? 'Advanced' : 'Intermediate',
-    description: 'This comprehensive workout targets all major muscle groups. Follow along for a complete routine that will help improve strength and endurance.',
-    category: tutorialId % 2 === 0 ? 'Strength' : 'Cardio',
-    videoUrl: 'http://d23dyxeqlo5psv.cloudfront.net/big_buck_bunny.mp4', // Demo video from Expo
-    thumbnail: 'https://images.unsplash.com/photo-1599058917765-a780eda07a3e?q=80&w=2069',
-    equipment: ['Dumbbells', 'Exercise mat', 'Resistance bands']
-  };
-};
+import { 
+  getTutorialById as fetchTutorialById, 
+  saveTutorial, 
+  unsaveTutorial, 
+  Tutorial
+} from '../../services/tutorialService';
 
 const TutorialDetailScreen = ({ route, navigation }: { route: any, navigation: any }) => {
   const { tutorialId } = route.params;
@@ -53,26 +26,63 @@ const TutorialDetailScreen = ({ route, navigation }: { route: any, navigation: a
   const [loading, setLoading] = useState(true);
   const [videoStatus, setVideoStatus] = useState({ isPlaying: false });
   const [videoLoading, setVideoLoading] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [savingTutorial, setSavingTutorial] = useState(false);
   
-  // Load tutorial data
+  // Load tutorial data from service
   useEffect(() => {
-    // Simulate API call
-    setLoading(true);
-    try {
-      const tutorialData = getTutorialById(tutorialId);
-      setTutorial(tutorialData);
-    } catch (error) {
-      console.error('Error loading tutorial:', error);
-      Alert.alert('Error', 'Failed to load tutorial details');
-    } finally {
-      setLoading(false);
-    }
+    const loadTutorial = async () => {
+      setLoading(true);
+      try {
+        const tutorialData = await fetchTutorialById(tutorialId);
+        if (tutorialData) {
+          setTutorial(tutorialData);
+          setIsSaved(tutorialData.isSaved || false);
+        }
+      } catch (error) {
+        console.error('Error loading tutorial:', error);
+        Alert.alert('Error', 'Failed to load tutorial details');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadTutorial();
   }, [tutorialId]);
 
   // Handle video playback
   const handlePlayVideo = () => {
     setVideoLoading(true);
     setVideoStatus({ isPlaying: true });
+  };
+
+  // Handle save/unsave tutorial
+  const handleSaveTutorial = async () => {
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in to save tutorials');
+      return;
+    }
+    
+    if (!tutorial) return;
+    
+    setSavingTutorial(true);
+    
+    try {
+      if (isSaved) {
+        await unsaveTutorial(user.uid, tutorial.id);
+        setIsSaved(false);
+        Alert.alert('Success', 'Tutorial removed from saved list');
+      } else {
+        await saveTutorial(user.uid, tutorial.id);
+        setIsSaved(true);
+        Alert.alert('Success', 'Tutorial saved to your list');
+      }
+    } catch (error) {
+      console.error('Error saving tutorial:', error);
+      Alert.alert('Error', 'Failed to save tutorial');
+    } finally {
+      setSavingTutorial(false);
+    }
   };
 
   // Show loading indicator
@@ -111,7 +121,7 @@ const TutorialDetailScreen = ({ route, navigation }: { route: any, navigation: a
               rate={1.0}
               volume={1.0}
               isMuted={false}
-              resizeMode="contain"
+              resizeMode={ResizeMode.CONTAIN}
               shouldPlay={true}
               isLooping={false}
               style={styles.video}
@@ -185,9 +195,28 @@ const TutorialDetailScreen = ({ route, navigation }: { route: any, navigation: a
           </View>
         ))}
         
-        <TouchableOpacity style={styles.saveButton}>
-          <Ionicons name="bookmark-outline" size={20} color="white" />
-          <Text style={styles.saveButtonText}>Save Tutorial</Text>
+        <TouchableOpacity 
+          style={styles.saveButton}
+          onPress={handleSaveTutorial}
+          disabled={savingTutorial}
+        >
+          {savingTutorial ? (
+            <>
+              <ActivityIndicator size="small" color="white" />
+              <Text style={styles.saveButtonText}> Processing...</Text>
+            </>
+          ) : (
+            <>
+              <Ionicons 
+                name={isSaved ? "bookmark" : "bookmark-outline"} 
+                size={20} 
+                color="white" 
+              />
+              <Text style={styles.saveButtonText}>
+                {isSaved ? "Saved" : "Save Tutorial"}
+              </Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </ScrollView>
